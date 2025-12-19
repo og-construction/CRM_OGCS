@@ -1,21 +1,12 @@
 // src/utils/generateToken.js
-const jwt = require("jsonwebtoken");
-const config = require("../config/env");
+import jwt from "jsonwebtoken";
 
 const generateToken = (user) => {
-  if (!config.jwtSecret) {
-    throw new Error("JWT secret is not configured");
-  }
-
-  // user can be full user object or just an id
-  const payload =
-    typeof user === "object" && user?._id
-      ? { id: user._id, role: user.role, email: user.email }
-      : { id: user };
-
-  return jwt.sign(payload, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn,
-  });
+  return jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 };
 
-module.exports = generateToken;
+export default generateToken;

@@ -1,12 +1,17 @@
-const mongoose = require("mongoose");
-const config = require("./env");
+// src/config/db.js
+import mongoose from "mongoose";
 
 const connectDB = async () => {
   try {
-    if (!config.mongoUri) {
-      throw new Error("Mongo URI is not defined. Check .env");
+    const mongoUri =
+      process.env.MONGO_URI_DEV || process.env.MONGO_URI_PROD;
+
+    if (!mongoUri) {
+      throw new Error("Mongo URI is not defined in .env");
     }
-    const conn = await mongoose.connect(config.mongoUri);
+
+    const conn = await mongoose.connect(mongoUri);
+
     console.log(`✅ MongoDB connected: ${conn.connection.host}`);
   } catch (err) {
     console.error(`❌ MongoDB connection error: ${err.message}`);
@@ -14,4 +19,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = connectDB;
+export default connectDB;

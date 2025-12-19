@@ -15,7 +15,7 @@ const User = require("./models/User");
   const admin = await User.create({
     name: "OGCS Admin",
     email: "admin@ogcs.co.in",
-    password: "Admin@123", // will be hashed
+    password: "Admin@123",  
     role: "admin",
   });
 
