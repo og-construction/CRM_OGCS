@@ -36,14 +36,42 @@ export const updateQuoteStatus = createAsyncThunk(
   }
 );
 
+// ✅ Admin: fetch single quote by id (for detail modal)
+export const fetchQuoteById = createAsyncThunk(
+  "quotes/fetchQuoteById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await axiosClient.get(`/quotes/${id}`);
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to load quote details"
+      );
+    }
+  }
+);
+
 const quoteSlice = createSlice({
   name: "quotes",
   initialState: {
     pendingList: [],
+    myQuotes: [],
     loading: false,
     error: null,
+
+    // ✅ For quote details modal
+    selectedQuote: null,
+    detailsLoading: false,
+    detailsError: null,
   },
-  reducers: {},
+  reducers: {
+    // optional helper if you want to clear modal data when closing
+    clearSelectedQuote(state) {
+      state.selectedQuote = null;
+      state.detailsLoading = false;
+      state.detailsError = null;
+    },
+  },
   extraReducers: (builder) => {
     // fetchPendingQuotes
     builder
@@ -66,16 +94,36 @@ const quoteSlice = createSlice({
         state.error = null;
       })
       .addCase(updateQuoteStatus.fulfilled, (state, action) => {
-        // remove from pending list if approved/rejected
         const updated = action.payload;
-        state.pendingList = state.pendingList.filter(
-          (q) => q._id !== updated._id
-        );
+        // remove from pending list if approved/rejected
+        state.pendingList = state.pendingList.filter((q) => q._id !== updated._id);
+
+        // ✅ if modal is open for same quote, update it too
+        if (state.selectedQuote?._id === updated._id) {
+          state.selectedQuote = updated;
+        }
       })
       .addCase(updateQuoteStatus.rejected, (state, action) => {
         state.error = action.payload;
       });
+
+    // fetchQuoteById (DETAILS)
+    builder
+      .addCase(fetchQuoteById.pending, (state) => {
+        state.detailsLoading = true;
+        state.detailsError = null;
+        state.selectedQuote = null;
+      })
+      .addCase(fetchQuoteById.fulfilled, (state, action) => {
+        state.detailsLoading = false;
+        state.selectedQuote = action.payload;
+      })
+      .addCase(fetchQuoteById.rejected, (state, action) => {
+        state.detailsLoading = false;
+        state.detailsError = action.payload || "Failed to load quote details";
+      });
   },
 });
 
+export const { clearSelectedQuote } = quoteSlice.actions;
 export default quoteSlice.reducer;

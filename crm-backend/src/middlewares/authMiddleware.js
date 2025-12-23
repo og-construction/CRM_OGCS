@@ -4,7 +4,10 @@ import User from "../models/User.js";
 export const protect = async (req, res, next) => {
   let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith("Bearer ")
+  ) {
     token = req.headers.authorization.split(" ")[1];
   }
 
@@ -19,6 +22,13 @@ export const protect = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ message: "User not found" });
+    }
+
+    // BLOCK inactive users (sales executive)
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: "Your account is deactivated. Please contact admin.",
+      });
     }
 
     req.user = user;

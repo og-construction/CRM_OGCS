@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md border-r border-slate-100 hidden md:flex flex-col">
+      <aside className="w-64 bg-white shadow-md border-r border-slate-100 hidden md:flex flex-col h-auto lg:h-screen">
         <div className="px-4 py-4 border-b border-slate-100">
           <h1 className="text-lg font-bold text-slate-800">OGCS CRM</h1>
           <p className="text-xs text-slate-500">Admin Dashboard</p>
@@ -89,7 +89,7 @@ const AdminDashboard = () => {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col h-auto lg:h-screen overflow-auto ">
         {/* Top bar for mobile + title */}
         <header className="w-full bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between md:hidden">
           <div>

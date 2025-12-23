@@ -1,33 +1,66 @@
 // src/routes/quoteRoutes.js
-const express = require("express");
+import express from "express";
+import {
+  createQuote,
+  getMyQuotes,
+  getAllQuotes,
+  updateQuoteStatus,
+  getQuoteById,
+} from "../controllers/quoteController.js";
+
+import { protect, adminOnly } from "../middlewares/authMiddleware.js";
+
 const router = express.Router();
 
-const quoteController = require("../controllers/quoteController");
-const { protect, adminOnly } = require("../middlewares/authMiddleware");
+/* ----------------------------
+   Sales Executive Routes
+---------------------------- */
+router.post("/", protect, createQuote);
+router.get("/my", protect, getMyQuotes); // ✅ MUST come before "/:id"
 
-// --------------------------------------------------
-// Sales Executive Routes
-// --------------------------------------------------
+/* ----------------------------
+   Admin Routes
+---------------------------- */
+router.get("/", protect, adminOnly, getAllQuotes); // supports ?status=pending
+router.patch("/:id/status", protect, adminOnly, updateQuoteStatus);
+router.get("/:id", protect, adminOnly, getQuoteById); // ✅ keep only once
 
-// Create quotation / invoice
-router.post("/", protect, quoteController.createQuote);
+export default router;
 
-// Get own quotations / invoices
-router.get("/my", protect, quoteController.getMyQuotes);
 
-// --------------------------------------------------
-// Admin Routes
-// --------------------------------------------------
 
-// Get all quotations for approval
-router.get("/", protect, adminOnly, quoteController.getAllQuotes);
 
-// Approve / Reject
-router.patch(
-  "/:id/status",
-  protect,
-  adminOnly,
-  quoteController.updateQuoteStatus
-);
 
-module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
+// // src/routes/quoteRoutes.js
+// import express from "express";
+// import {
+//   createQuote,
+//   getMyQuotes,
+//   getAllQuotes,
+//   updateQuoteStatus,
+// } from "../controllers/quoteController.js";
+// import { protect, adminOnly } from "../middlewares/authMiddleware.js";
+
+// const router = express.Router();
+
+// // Sales Executive
+// router.post("/", protect, createQuote);
+// router.get("/my", protect, getMyQuotes);
+
+// // Admin
+// router.get("/", protect, adminOnly, getAllQuotes);
+// router.patch("/:id/status", protect, adminOnly, updateQuoteStatus);
+
+// export default router;

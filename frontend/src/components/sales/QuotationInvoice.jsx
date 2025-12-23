@@ -12,14 +12,33 @@ const emptyItem = { description: "", quantity: 1, unitPrice: 0 };
 const money = (n) => {
   const v = Number(n || 0);
   try {
-    return v.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    return v.toLocaleString("en-IN", {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2,
+    });
   } catch {
     return v.toFixed(2);
   }
 };
 
 const safe = (v) => String(v ?? "").trim();
-const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+// ✅ ONLY for TEXT fields (description / notes / customer fields)
+const pdfWrap = (value, chunk = 14) => {
+  const s = String(value ?? "").trim();
+  const normalized = s.replace(/\s+/g, " ");
+  return normalized
+    .split(" ")
+    .map((word) => {
+      if (word.length <= chunk) return word;
+      return word.match(new RegExp(`.{1,${chunk}}`, "g")).join("\u200B");
+    })
+    .join(" ");
+};
+
+// ✅ IMPORTANT: DO NOT use ₹ in jsPDF default fonts
+const currency = (n) => `INR ${money(n)}`;
+
 
 const QuotationInvoice = () => {
   const [type, setType] = useState("quotation");
@@ -41,6 +60,10 @@ const QuotationInvoice = () => {
   const [loadingList, setLoadingList] = useState(false);
 
   const [previewDoc, setPreviewDoc] = useState(null);
+
+  // ✅ PDF VIEW STATES
+  const [pdfViewOpen, setPdfViewOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
 
   /* 👉 Calculate totals */
   const subtotal = useMemo(
@@ -64,9 +87,7 @@ const QuotationInvoice = () => {
   const fetchMyDocs = async () => {
     try {
       setLoadingList(true);
-      const res = await axiosClient.get("/quotes/my", {
-        params: { type },
-      });
+      const res = await axiosClient.get("/quotes/my", { params: { type } });
       setMyDocs(res.data.data || []);
     } catch (err) {
       console.error(err);
@@ -80,6 +101,14 @@ const QuotationInvoice = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
 
+  // ✅ cleanup blob url on unmount
+  useEffect(() => {
+    return () => {
+      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleCustomerChange = (e) => {
     setCustomer((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -90,13 +119,9 @@ const QuotationInvoice = () => {
     );
   };
 
-  const addItem = () => {
-    setItems((prev) => [...prev, { ...emptyItem }]);
-  };
-
-  const removeItem = (index) => {
+  const addItem = () => setItems((prev) => [...prev, { ...emptyItem }]);
+  const removeItem = (index) =>
     setItems((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -108,22 +133,33 @@ const QuotationInvoice = () => {
       return;
     }
 
+    const hasValidItem = items.some(
+      (it) => safe(it.description) && Number(it.quantity) > 0
+    );
+    if (!hasValidItem) {
+      setError("Please add at least one valid item (description + qty).");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
       const payload = {
         type,
         ...customer,
-        items: items.map((it) => ({
-          description: it.description,
-          quantity: Number(it.quantity) || 0,
-          unitPrice: Number(it.unitPrice) || 0,
-        })),
-        taxPercent: Number(taxPercent) || 0,
-        notes,
+        items: items
+          .filter((it) => safe(it.description))
+          .map((it) => ({
+            description: safe(it.description),
+            quantity: Math.max(1, Number(it.quantity) || 1),
+            unitPrice: Math.max(0, Number(it.unitPrice) || 0),
+          })),
+        taxPercent: Math.max(0, Number(taxPercent) || 0),
+        notes: safe(notes),
       };
 
       const res = await axiosClient.post("/quotes", payload);
+
       setMessage(
         `${type === "quotation" ? "Quotation" : "Invoice"} created successfully (status: ${
           res.data.data.status
@@ -141,7 +177,6 @@ const QuotationInvoice = () => {
       setItems([{ ...emptyItem }]);
       setNotes("");
 
-      // refresh list
       fetchMyDocs();
     } catch (err) {
       const msg =
@@ -153,191 +188,277 @@ const QuotationInvoice = () => {
     }
   };
 
-  const handlePreview = (doc) => setPreviewDoc(doc);
+  const statusPill = (st) => {
+    if (st === "approved") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (st === "rejected") return "bg-red-50 text-red-700 border-red-200";
+    return "bg-amber-50 text-amber-700 border-amber-200";
+  };
 
   /* =========================
-     ✅ PDF Download (no cut)
+     ✅ PDF BUILDER (NO OVERFLOW)
   ========================= */
-  const downloadPDF = (doc) => {
-    if (!doc) return;
+ const buildPdf = (doc) => {
+  const isQ = doc?.type === "quotation";
+  const title = isQ ? "QUOTATION" : "INVOICE";
 
-    const isQ = doc.type === "quotation";
-    const title = isQ ? "QUOTATION" : "INVOICE";
+  const pdf = new jsPDF({ unit: "pt", format: "a4" });
+  pdf.setLineHeightFactor(1.2);
 
-    const pdf = new jsPDF({ unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 40;
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const margin = 40;
 
-    const nowDate = doc.createdAt ? new Date(doc.createdAt) : new Date();
+  const nowDate = doc?.createdAt ? new Date(doc.createdAt) : new Date();
+  const status = safe(doc?.status);
 
-    // Header
+  const header = () => {
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(16);
-    pdf.text(title, margin, 48);
+    pdf.setFontSize(14);
+    pdf.text(title, margin, 42);
 
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(`Date: ${nowDate.toLocaleDateString("en-IN")}`, pageW - margin, 48, {
+    pdf.setFontSize(9);
+    pdf.text(`Date: ${nowDate.toLocaleDateString("en-IN")}`, pageW - margin, 40, {
       align: "right",
     });
 
-    pdf.setFontSize(10);
-    const status = safe(doc.status);
     if (status) {
-      pdf.text(`Status: ${status}`, pageW - margin, 64, { align: "right" });
+      pdf.text(`Status: ${status}`, pageW - margin, 54, { align: "right" });
     }
 
-    // Customer block (wrap to avoid cut)
-    const leftX = margin;
-    const rightX = pageW - margin;
-    let y = 80;
+    pdf.setDrawColor(226);
+    pdf.setLineWidth(1);
+    pdf.line(margin, 64, pageW - margin, 64);
+  };
 
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text("Customer Details", leftX, y);
-    y += 12;
-
+  const footer = () => {
+    const totalPages = pdf.internal.getNumberOfPages();
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
+    pdf.setFontSize(9);
+    pdf.setTextColor(120);
+    pdf.text(`Page ${totalPages}`, pageW - margin, pageH - 18, { align: "right" });
+    pdf.setTextColor(0);
+  };
 
-    const lines = [
-      `Name: ${safe(doc.customerName) || "-"}`,
-      `Company: ${safe(doc.companyName) || "-"}`,
-      `Email: ${safe(doc.customerEmail) || "-"}`,
-      `Phone: ${safe(doc.customerPhone) || "-"}`,
-      `Project: ${safe(doc.projectName) || "-"}`,
+  header();
+
+  // 1) Customer details table
+  const customerRows = [
+    ["Customer Name", pdfWrap(safe(doc?.customerName) || "-", 22)],
+    ["Company", pdfWrap(safe(doc?.companyName) || "-", 22)],
+    ["Email", pdfWrap(safe(doc?.customerEmail) || "-", 22)],
+    ["Phone", pdfWrap(safe(doc?.customerPhone) || "-", 22)],
+    ["Project", pdfWrap(safe(doc?.projectName) || "-", 22)],
+  ];
+
+  autoTable(pdf, {
+    startY: 78,
+    theme: "grid",
+    margin: { left: margin, right: margin, top: 78, bottom: 60 },
+    tableWidth: pageW - margin * 2,
+    body: customerRows,
+    styles: {
+      font: "helvetica",
+      fontSize: 10,
+      cellPadding: 6,
+      overflow: "linebreak",
+      valign: "top",
+      cellWidth: "wrap",
+    },
+    columnStyles: {
+      0: { cellWidth: 120, fontStyle: "bold" },
+      1: { cellWidth: pageW - margin * 2 - 120 },
+    },
+    didDrawPage: () => {
+      header();
+      footer();
+    },
+  });
+
+  // 2) Compute totals
+  const computedSubtotal = (doc?.items || []).reduce((sum, it) => {
+    const q = Math.max(0, Number(it.quantity || 0));
+    const r = Math.max(0, Number(it.unitPrice || 0));
+    return sum + q * r;
+  }, 0);
+
+  const _subtotal = Number(doc?.subtotal ?? computedSubtotal) || 0;
+  const _taxPercent = Number(doc?.taxPercent ?? 0) || 0;
+  const _taxAmount = Number(doc?.taxAmount ?? (_subtotal * _taxPercent) / 100) || 0;
+  const _total = Number(doc?.totalAmount ?? (_subtotal + _taxAmount)) || 0;
+
+  // 3) Item rows (wrap ONLY description)
+  const itemRows = (doc?.items || []).map((it, idx) => {
+    const qty = Math.max(0, Number(it.quantity || 0));
+    const rate = Math.max(0, Number(it.unitPrice || 0));
+    const amt = qty * rate;
+
+    return [
+      String(idx + 1),
+      pdfWrap(safe(it.description) || "-", 14),
+      String(qty),
+      currency(rate), // ✅ INR instead of ₹
+      currency(amt),  // ✅ INR instead of ₹
     ];
+  });
 
-    const maxTextW = pageW - margin * 2;
-    lines.forEach((ln) => {
-      const wrapped = pdf.splitTextToSize(ln, maxTextW);
-      pdf.text(wrapped, leftX, y);
-      y += wrapped.length * 12;
-    });
+  // 4) Items table (no overflow)
+  const snW = 28;
+  const qtyW = 48;
+  const unitW = 110; // little wider for "INR "
+  const amtW = 110;  // little wider for "INR "
+  const descW = pageW - margin * 2 - (snW + qtyW + unitW + amtW);
 
-    y += 10;
+  autoTable(pdf, {
+    startY: (pdf.lastAutoTable?.finalY || 100) + 14,
+    theme: "grid",
+    margin: { left: margin, right: margin, top: 78, bottom: 60 },
+    tableWidth: pageW - margin * 2,
+    head: [["#", "Description", "Qty", "Unit Price", "Amount"]],
+    body: itemRows.length ? itemRows : [["-", "No items", "-", "-", "-"]],
+    styles: {
+      font: "helvetica",
+      fontSize: 9,
+      cellPadding: 6,
+      overflow: "linebreak",
+      valign: "top",
+      cellWidth: "wrap",
+    },
+    headStyles: {
+      fontStyle: "bold",
+      fillColor: [245, 246, 250],
+      textColor: 20,
+    },
+    rowPageBreak: "auto",
+    columnStyles: {
+      0: { cellWidth: snW, halign: "center" },
+      1: { cellWidth: descW, halign: "left" },
+      2: { cellWidth: qtyW, halign: "right" },
+      3: { cellWidth: unitW, halign: "right" },
+      4: { cellWidth: amtW, halign: "right" },
+    },
+    didDrawPage: () => {
+      header();
+      footer();
+    },
+  });
 
-    // Table rows
-    const rows = (doc.items || []).map((it, idx) => {
-      const qty = Number(it.quantity || 0);
-      const rate = Number(it.unitPrice || 0);
-      const amt = qty * rate;
-      return [
-        String(idx + 1),
-        safe(it.description) || "-",
-        String(qty),
-        `₹ ${money(rate)}`,
-        `₹ ${money(amt)}`,
-      ];
-    });
+  // 5) Totals table (stays inside page)
+  autoTable(pdf, {
+    startY: (pdf.lastAutoTable?.finalY || 120) + 12,
+    theme: "grid",
+    margin: { left: margin, right: margin, bottom: 60 },
+    tableWidth: pageW - margin * 2,
+    body: [
+      ["Subtotal", currency(_subtotal)],
+      [`Tax (${_taxPercent}%)`, currency(_taxAmount)],
+      ["Total", currency(_total)],
+    ],
+    styles: {
+      font: "helvetica",
+      fontSize: 11,
+      cellPadding: 6,
+      overflow: "linebreak",
+      cellWidth: "wrap",
+      valign: "middle",
+    },
+    columnStyles: {
+      0: { cellWidth: pageW - margin * 2 - 220, halign: "right", textColor: 60 },
+      1: { cellWidth: 220, halign: "right", fontStyle: "bold", textColor: 10 },
+    },
+    didParseCell: (data) => {
+      if (data.row.index === 2) {
+        data.cell.styles.fontSize = 14;
+        data.cell.styles.fontStyle = "bold";
+      }
+    },
+    didDrawPage: () => {
+      header();
+      footer();
+    },
+  });
 
-    // Totals (fallbacks)
-    const _subtotal = Number(doc.subtotal ?? doc.totalBeforeTax ?? 0) || rows.reduce((s, r) => s + Number(String(r[4]).replace(/[^\d.]/g, "")) || 0, 0);
-    const _taxPercent = Number(doc.taxPercent ?? 0);
-    const _taxAmount = Number(doc.taxAmount ?? (_subtotal * _taxPercent) / 100);
-    const _total = Number(doc.totalAmount ?? (_subtotal + _taxAmount));
-
-    // autoTable (handles page breaks, wraps)
+  // 6) Notes
+  const noteText = safe(doc?.notes);
+  if (noteText) {
     autoTable(pdf, {
-      startY: y,
-      head: [["#", "Description", "Qty", "Unit Price", "Amount"]],
-      body: rows.length ? rows : [["-", "No items", "-", "-", "-"]],
+      startY: (pdf.lastAutoTable?.finalY || 140) + 10,
       theme: "grid",
+      margin: { left: margin, right: margin, bottom: 60 },
+      tableWidth: pageW - margin * 2,
+      head: [["Notes / Terms"]],
+      body: [[pdfWrap(noteText, 18)]],
       styles: {
         font: "helvetica",
-        fontSize: 9,
-        cellPadding: 6,
+        fontSize: 10,
+        cellPadding: 8,
         overflow: "linebreak",
         valign: "top",
+        cellWidth: "wrap",
       },
-      headStyles: { fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: pageW - margin * 2 - (28 + 44 + 90 + 90) }, // description auto
-        2: { cellWidth: 44, halign: "right" },
-        3: { cellWidth: 90, halign: "right" },
-        4: { cellWidth: 90, halign: "right" },
+      headStyles: {
+        fontStyle: "bold",
+        fillColor: [245, 246, 250],
+        textColor: 20,
       },
-      margin: { left: margin, right: margin },
+      didDrawPage: () => {
+        header();
+        footer();
+      },
     });
+  }
 
-    const afterTableY = pdf.lastAutoTable.finalY + 14;
+  footer();
+  return pdf;
+};
 
-    // Totals box (ensure not cut)
-    let ty = afterTableY;
-    const boxW = 220;
-    const boxX = rightX - boxW;
 
-    // if near bottom, push to next page
-    if (ty + 110 > pageH - margin) {
-      pdf.addPage();
-      ty = margin;
-    }
+  /* =========================
+     ✅ PDF Download
+  ========================= */
+  const downloadPDF = (doc) => {
+    if (!doc) return;
+    const title = doc.type === "quotation" ? "QUOTATION" : "INVOICE";
+    const pdf = buildPdf(doc);
 
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-
-    const linesTotals = [
-      ["Subtotal", `₹ ${money(_subtotal)}`],
-      [`Tax (${money(_taxPercent)}%)`, `₹ ${money(_taxAmount)}`],
-      ["Total", `₹ ${money(_total)}`],
-    ];
-
-    // Draw totals box
-    pdf.setDrawColor(220);
-    pdf.roundedRect(boxX, ty - 10, boxW, 78, 8, 8);
-
-    let ly = ty + 10;
-    linesTotals.forEach(([k, v], i) => {
-      if (i === 2) {
-        pdf.setFont("helvetica", "bold");
-      } else {
-        pdf.setFont("helvetica", "normal");
-      }
-      pdf.text(String(k), boxX + 12, ly);
-      pdf.text(String(v), boxX + boxW - 12, ly, { align: "right" });
-      ly += 22;
-    });
-
-    // Notes (wrap + page break)
-    const noteText = safe(doc.notes);
-    let ny = ly + 10;
-
-    if (noteText) {
-      if (ny + 60 > pageH - margin) {
-        pdf.addPage();
-        ny = margin;
-      }
-
-      pdf.setFont("helvetica", "bold");
-      pdf.text("Notes / Terms", margin, ny);
-      ny += 14;
-
-      pdf.setFont("helvetica", "normal");
-      const wrappedNotes = pdf.splitTextToSize(noteText, pageW - margin * 2);
-      pdf.text(wrappedNotes, margin, ny);
-    }
-
-    // Footer
+    const nowDate = doc.createdAt ? new Date(doc.createdAt) : new Date();
     const fileSafeName = (safe(doc.customerName) || "Customer")
       .replace(/[^\w\s-]/g, "")
       .trim()
       .slice(0, 30)
       .replace(/\s+/g, "_");
 
-    const fileName = `${title}_${fileSafeName}_${nowDate
-      .toISOString()
-      .slice(0, 10)}.pdf`;
-
-    pdf.save(fileName);
+    pdf.save(`${title}_${fileSafeName}_${nowDate.toISOString().slice(0, 10)}.pdf`);
   };
 
-  const statusPill = (st) => {
-    if (st === "approved") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (st === "rejected") return "bg-red-50 text-red-700 border-red-200";
-    return "bg-amber-50 text-amber-700 border-amber-200";
+  /* =========================
+     ✅ PDF VIEW (Blob URL)
+  ========================= */
+  const viewPDF = (doc) => {
+    if (!doc) return;
+
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl("");
+    }
+
+    const pdf = buildPdf(doc);
+    const blob = pdf.output("blob");
+    const url = URL.createObjectURL(blob);
+
+    setPdfUrl(url);
+    setPdfViewOpen(true);
   };
+
+  const closePdfView = () => {
+    setPdfViewOpen(false);
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl("");
+    }
+  };
+
+  const handlePreview = (doc) => setPreviewDoc(doc);
 
   return (
     <div className="space-y-4" style={{ background: "#EFF6FF", padding: 12, borderRadius: 16 }}>
@@ -349,11 +470,10 @@ const QuotationInvoice = () => {
               Quotation &amp; Invoice System
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-600 whitespace-normal break-words">
-              Create quotation/invoice, track approval, and download clean PDFs without cutting.
+              Create quotation/invoice, track approval, and view/download clean PDFs.
             </p>
           </div>
 
-          {/* Toggle (mobile scroll) */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             <button
               type="button"
@@ -477,21 +597,16 @@ const QuotationInvoice = () => {
               </button>
             </div>
 
-            {/* ✅ Mobile: card items (no cutting). Desktop: table */}
+            {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {items.map((item, index) => {
                 const lineTotal =
                   (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
 
                 return (
-                  <div
-                    key={index}
-                    className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-                  >
+                  <div key={index} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-900">
-                        Item {index + 1}
-                      </div>
+                      <div className="text-sm font-semibold text-slate-900">Item {index + 1}</div>
                       {items.length > 1 ? (
                         <button
                           type="button"
@@ -509,9 +624,7 @@ const QuotationInvoice = () => {
                       </label>
                       <input
                         value={item.description}
-                        onChange={(e) =>
-                          handleItemChange(index, "description", e.target.value)
-                        }
+                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
                         className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         placeholder="Product / service"
                       />
@@ -526,9 +639,7 @@ const QuotationInvoice = () => {
                           type="number"
                           min="1"
                           value={item.quantity}
-                          onChange={(e) =>
-                            handleItemChange(index, "quantity", e.target.value)
-                          }
+                          onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
                           className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 text-right"
                         />
                       </div>
@@ -541,9 +652,7 @@ const QuotationInvoice = () => {
                           type="number"
                           min="0"
                           value={item.unitPrice}
-                          onChange={(e) =>
-                            handleItemChange(index, "unitPrice", e.target.value)
-                          }
+                          onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
                           className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 text-right"
                         />
                       </div>
@@ -551,15 +660,14 @@ const QuotationInvoice = () => {
 
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
                       <div className="text-xs text-slate-600">Line Total</div>
-                      <div className="text-base font-bold text-slate-900">
-                        ₹{money(lineTotal)}
-                      </div>
+                      <div className="text-base font-bold text-slate-900">₹{money(lineTotal)}</div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
+            {/* Desktop table */}
             <div className="hidden lg:block border border-slate-200 rounded-3xl overflow-hidden bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -575,16 +683,13 @@ const QuotationInvoice = () => {
                   <tbody>
                     {items.map((item, index) => {
                       const lineTotal =
-                        (Number(item.quantity) || 0) *
-                        (Number(item.unitPrice) || 0);
+                        (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
                       return (
                         <tr key={index} className="border-t border-slate-100">
                           <td className="px-3 py-2.5">
                             <input
                               value={item.description}
-                              onChange={(e) =>
-                                handleItemChange(index, "description", e.target.value)
-                              }
+                              onChange={(e) => handleItemChange(index, "description", e.target.value)}
                               className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                               placeholder="Product / service"
                             />
@@ -594,9 +699,7 @@ const QuotationInvoice = () => {
                               type="number"
                               min="1"
                               value={item.quantity}
-                              onChange={(e) =>
-                                handleItemChange(index, "quantity", e.target.value)
-                              }
+                              onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
                               className="w-24 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 text-right"
                             />
                           </td>
@@ -605,9 +708,7 @@ const QuotationInvoice = () => {
                               type="number"
                               min="0"
                               value={item.unitPrice}
-                              onChange={(e) =>
-                                handleItemChange(index, "unitPrice", e.target.value)
-                              }
+                              onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
                               className="w-28 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 text-right"
                             />
                           </td>
@@ -641,9 +742,13 @@ const QuotationInvoice = () => {
                 Tax (%) – e.g. GST
               </label>
               <input
+                min={0}
                 type="number"
                 value={taxPercent}
-                onChange={(e) => setTaxPercent(e.target.value)}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setTaxPercent(value < 0 ? 0 : value);
+                }}
                 className="w-32 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
               />
               <p className="text-xs text-slate-600 mt-2 whitespace-normal break-words">
@@ -657,9 +762,7 @@ const QuotationInvoice = () => {
               <p className="text-2xl font-bold text-slate-900 mt-1">
                 ₹{money(totalAmount)}
               </p>
-              <p className="text-[11px] text-slate-500 mt-1">
-                (Auto calculated from items)
-              </p>
+              <p className="text-[11px] text-slate-500 mt-1">(Auto calculated from items)</p>
             </div>
           </div>
 
@@ -701,7 +804,7 @@ const QuotationInvoice = () => {
           </p>
         ) : (
           <>
-            {/* ✅ Mobile cards (no cutting) */}
+            {/* Mobile cards */}
             <div className="grid gap-3 lg:hidden">
               {myDocs.map((doc) => (
                 <div
@@ -749,10 +852,10 @@ const QuotationInvoice = () => {
                   <div className="mt-3 flex flex-col sm:flex-row gap-2">
                     <button
                       type="button"
-                      onClick={() => handlePreview(doc)}
+                      onClick={() => viewPDF(doc)}
                       className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
                     >
-                      View
+                      View PDF
                     </button>
                     <button
                       type="button"
@@ -762,11 +865,19 @@ const QuotationInvoice = () => {
                       Download PDF
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setPreviewDoc(doc)}
+                    className="mt-2 w-full rounded-2xl bg-sky-50 border border-sky-200 px-3 py-2 text-sm font-semibold text-sky-800 hover:bg-sky-100"
+                  >
+                    View Details (HTML)
+                  </button>
                 </div>
               ))}
             </div>
 
-            {/* ✅ Desktop table */}
+            {/* Desktop table */}
             <div className="hidden lg:block border border-slate-100 rounded-3xl overflow-hidden bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -805,20 +916,27 @@ const QuotationInvoice = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="inline-flex gap-2">
+                          <div className="inline-flex gap-3">
                             <button
                               type="button"
-                              onClick={() => handlePreview(doc)}
+                              onClick={() => viewPDF(doc)}
                               className="text-sm font-semibold text-sky-700 hover:underline"
                             >
-                              View
+                              View PDF
                             </button>
                             <button
                               type="button"
                               onClick={() => downloadPDF(doc)}
                               className="text-sm font-semibold text-slate-900 hover:underline"
                             >
-                              Download PDF
+                              Download
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc(doc)}
+                              className="text-sm font-semibold text-emerald-700 hover:underline"
+                            >
+                              Details
                             </button>
                           </div>
                         </td>
@@ -837,7 +955,7 @@ const QuotationInvoice = () => {
         </p>
       </Card>
 
-      {/* Preview */}
+      {/* HTML Preview */}
       {previewDoc && (
         <Card title={`Preview – ${previewDoc.type === "quotation" ? "Quotation" : "Invoice"}`}>
           <div className="space-y-3">
@@ -889,13 +1007,11 @@ const QuotationInvoice = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewDoc.items.map((it, idx) => (
+                    {previewDoc.items?.map((it, idx) => (
                       <tr key={idx} className="border-t border-slate-100">
                         <td className="px-3 py-2.5 break-words">{it.description}</td>
                         <td className="px-3 py-2.5 text-right">{it.quantity}</td>
-                        <td className="px-3 py-2.5 text-right">
-                          ₹{money(it.unitPrice || 0)}
-                        </td>
+                        <td className="px-3 py-2.5 text-right">₹{money(it.unitPrice || 0)}</td>
                         <td className="px-3 py-2.5 text-right font-semibold text-slate-900">
                           ₹{money((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0))}
                         </td>
@@ -938,26 +1054,73 @@ const QuotationInvoice = () => {
                   Close
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => downloadPDF(previewDoc)}
-                  className="w-full sm:w-auto rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black active:scale-[0.99]"
-                >
-                  Download PDF (No Cut)
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => viewPDF(previewDoc)}
+                    className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    View PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => downloadPDF(previewDoc)}
+                    className="w-full sm:w-auto rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-black active:scale-[0.99]"
+                  >
+                    Download PDF
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </Card>
+      )}
+
+      {/* ✅ PDF VIEW MODAL */}
+      {pdfViewOpen && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closePdfView} />
+          <div className="relative w-full max-w-5xl rounded-3xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-slate-900 truncate">PDF Preview</div>
+                <div className="text-xs text-slate-500 truncate">Generated with jsPDF + autoTable</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {pdfUrl ? (
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Open in new tab
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closePdfView}
+                  className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-black"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="h-[75vh] bg-slate-50">
+              {pdfUrl ? (
+                <iframe title="PDF Preview" src={pdfUrl} className="w-full h-full" />
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-slate-600">
+                  Preparing PDF...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
 export default QuotationInvoice;
-
- 
-
-
-
-

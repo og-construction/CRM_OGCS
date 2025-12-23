@@ -228,3 +228,52 @@ export const setMyFollowUp = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+
+
+
+// Admin: Get reports (filters optional)
+export const getAdminDailyReports = async (req, res) => {
+  try {
+    const { date, member } = req.query;
+
+    const filter = {};
+    if (date) filter.reportDate = date;
+    if (member) filter.memberName = new RegExp(member, "i");
+
+    const reports = await DailyReport.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const totalReports = reports.length;
+    const today = new Date().toISOString().slice(0, 10);
+
+    const todayReports = reports.filter(
+      (r) => r.reportDate === today
+    ).length;
+
+    const withAttachment = reports.filter(
+      (r) => r.attachment?.url
+    ).length;
+
+    const uniqueMembers = new Set(reports.map((r) => r.memberName)).size;
+
+    return res.json({
+      status: "success",
+      data: {
+        summary: {
+          totalReports,
+          todayReports,
+          withAttachment,
+          uniqueMembers,
+        },
+        reports,
+      },
+    });
+  } catch (err) {
+    console.error("getAdminDailyReports error:", err);
+    return res
+      .status(500)
+      .json({ message: "Failed to load daily reports" });
+  }
+};
