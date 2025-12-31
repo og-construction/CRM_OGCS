@@ -1,13 +1,12 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axiosInstance from "../../api/axiosInstance";
 
+/** GET /leads/my */
 export const fetchMyLeads = createAsyncThunk(
   "leads/fetchMyLeads",
   async ({ status = "All", search = "" } = {}, thunkAPI) => {
     try {
-      const res = await axiosInstance.get("/leads/my", {
-        params: { status, search },
-      });
+      const res = await axiosInstance.get("/leads/my", { params: { status, search } });
       return res.data.items;
     } catch (err) {
       return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to load leads");
@@ -15,6 +14,7 @@ export const fetchMyLeads = createAsyncThunk(
   }
 );
 
+/** POST /leads/my */
 export const createMyLead = createAsyncThunk(
   "leads/createMyLead",
   async (payload, thunkAPI) => {
@@ -27,6 +27,33 @@ export const createMyLead = createAsyncThunk(
   }
 );
 
+/** PUT /leads/my/:id */
+export const updateMyLead = createAsyncThunk(
+  "leads/updateMyLead",
+  async ({ id, payload }, thunkAPI) => {
+    try {
+      const res = await axiosInstance.put(`/leads/my/${id}`, payload);
+      return res.data.lead;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to update lead");
+    }
+  }
+);
+
+/** DELETE /leads/my/:id */
+export const deleteMyLead = createAsyncThunk(
+  "leads/deleteMyLead",
+  async (id, thunkAPI) => {
+    try {
+      await axiosInstance.delete(`/leads/my/${id}`);
+      return id;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to delete lead");
+    }
+  }
+);
+
+/** POST /leads/my/import */
 export const importMyLeads = createAsyncThunk(
   "leads/importMyLeads",
   async (items, thunkAPI) => {
@@ -49,46 +76,48 @@ const leadsSlice = createSlice({
     importResult: null,
   },
   reducers: {
-    clearLeadsError: (state) => {
-      state.error = null;
-    },
-    clearImportResult: (state) => {
-      state.importResult = null;
-    },
+    clearLeadsError: (state) => { state.error = null; },
+    clearImportResult: (state) => { state.importResult = null; },
   },
   extraReducers: (builder) => {
     builder
-      // fetch
       .addCase(fetchMyLeads.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.loading = true; state.error = null;
       })
       .addCase(fetchMyLeads.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload;
+        state.items = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchMyLeads.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        state.error = action.payload || "Failed to load leads";
       })
 
-      // create
-      .addCase(createMyLead.pending, (state) => {
-        state.error = null;
-      })
       .addCase(createMyLead.fulfilled, (state, action) => {
-        // add new lead on top
-        state.items = [action.payload, ...state.items];
+        if (action.payload?._id) state.items = [action.payload, ...state.items];
       })
       .addCase(createMyLead.rejected, (state, action) => {
-        state.error = action.payload;
+        state.error = action.payload || "Failed to create lead";
       })
 
-      // import
+      .addCase(updateMyLead.fulfilled, (state, action) => {
+        const updated = action.payload;
+        state.items = state.items.map((x) => (x._id === updated._id ? updated : x));
+      })
+      .addCase(updateMyLead.rejected, (state, action) => {
+        state.error = action.payload || "Failed to update lead";
+      })
+
+      .addCase(deleteMyLead.fulfilled, (state, action) => {
+        const id = action.payload;
+        state.items = state.items.filter((x) => x._id !== id);
+      })
+      .addCase(deleteMyLead.rejected, (state, action) => {
+        state.error = action.payload || "Failed to delete lead";
+      })
+
       .addCase(importMyLeads.pending, (state) => {
-        state.importing = true;
-        state.error = null;
-        state.importResult = null;
+        state.importing = true; state.error = null; state.importResult = null;
       })
       .addCase(importMyLeads.fulfilled, (state, action) => {
         state.importing = false;
@@ -96,7 +125,7 @@ const leadsSlice = createSlice({
       })
       .addCase(importMyLeads.rejected, (state, action) => {
         state.importing = false;
-        state.error = action.payload;
+        state.error = action.payload || "Import failed";
       });
   },
 });

@@ -7,9 +7,13 @@ import {
   FiSearch,
   FiCopy,
   FiRefreshCcw,
+  FiCheckCircle,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import Card from "./Card";
 import axiosClient from "../../api/axiosClient";
+
+/* ================= DATA ================= */
 
 const emptyEmail = {
   toEmail: "",
@@ -33,8 +37,10 @@ const templatesSeed = [
   },
 ];
 
+/* ================= COMPONENT ================= */
+
 export default function CommunicationSystem() {
-  const [tab, setTab] = useState("email"); // email | timeline | templates
+  const [tab, setTab] = useState("email");
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,11 +54,13 @@ export default function CommunicationSystem() {
     return saved ? JSON.parse(saved) : templatesSeed;
   });
 
+  /* ================= FILTER ================= */
+
   const filteredLogs = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return logs;
-    return logs.filter((l) => {
-      const hay = [
+    return logs.filter((l) =>
+      [
         l.type,
         l.toEmail,
         l.subject,
@@ -62,10 +70,12 @@ export default function CommunicationSystem() {
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
+        .toLowerCase()
+        .includes(q)
+    );
   }, [logs, search]);
+
+  /* ================= API ================= */
 
   const fetchLogs = async () => {
     try {
@@ -90,6 +100,8 @@ export default function CommunicationSystem() {
     localStorage.setItem("ogcs_comm_templates", JSON.stringify(templates));
   }, [templates]);
 
+  /* ================= HANDLERS ================= */
+
   const handleEmailChange = (e) => {
     setMsg({ type: "", text: "" });
     const { name, value } = e.target;
@@ -100,19 +112,18 @@ export default function CommunicationSystem() {
         ...p,
         relatedTo: { ...p.relatedTo, [key]: value },
       }));
-      return;
+    } else {
+      setEmailForm((p) => ({ ...p, [name]: value }));
     }
-
-    setEmailForm((p) => ({ ...p, [name]: value }));
   };
 
   const applyTemplate = (t) => {
     const name = emailForm.relatedTo.name || "Customer";
-    const filled = {
+    setEmailForm((p) => ({
+      ...p,
       subject: t.subject,
       message: t.message.replaceAll("{{name}}", name),
-    };
-    setEmailForm((p) => ({ ...p, ...filled }));
+    }));
     setTab("email");
     setMsg({ type: "success", text: `Template applied: ${t.title}` });
   };
@@ -121,10 +132,7 @@ export default function CommunicationSystem() {
     setMsg({ type: "", text: "" });
 
     if (!emailForm.toEmail || !emailForm.subject || !emailForm.message) {
-      setMsg({
-        type: "error",
-        text: "To Email, Subject and Message are required.",
-      });
+      setMsg({ type: "error", text: "All fields are required." });
       return;
     }
 
@@ -140,38 +148,39 @@ export default function CommunicationSystem() {
         type: "error",
         text: e.response?.data?.message || "Failed to send email",
       });
-      await fetchLogs(); // show failed log also
     } finally {
       setSending(false);
     }
   };
 
+  /* ================= UI ================= */
+
   return (
     <div
-      className="space-y-4"
+      className="space-y-4 animate-fadeIn"
       style={{ background: "#EFF6FF", padding: 16, borderRadius: 16 }}
     >
-      {/* Header */}
-      <div className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur p-4 sm:p-5 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900 leading-snug whitespace-normal break-words">
+      {/* ================= HEADER ================= */}
+      <div className="relative overflow-hidden rounded-3xl border bg-white shadow-sm">
+        <div className="h-1.5 bg-gradient-to-r from-red-700 via-yellow-400 to-blue-900 animate-pulse" />
+
+        <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900">
               Communication System
             </h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-600 whitespace-normal break-words">
-              Send emails, use follow-up templates, and track communication
-              timeline.
+            <p className="text-sm text-slate-600">
+              Email • Templates • Communication Timeline
             </p>
           </div>
 
-          {/* Tabs (mobile scroll) */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-2 overflow-x-auto">
             <TabButton
               active={tab === "email"}
               onClick={() => setTab("email")}
               icon={<FiMail />}
             >
-              Send Email
+              Email
             </TabButton>
             <TabButton
               active={tab === "timeline"}
@@ -191,38 +200,31 @@ export default function CommunicationSystem() {
         </div>
       </div>
 
-      {/* Alert */}
+      {/* ================= ALERT ================= */}
       {msg.text && (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm shadow-sm ${
+          className={`rounded-2xl border px-4 py-3 text-sm flex items-start gap-2 animate-slideDown ${
             msg.type === "error"
               ? "border-red-200 bg-red-50 text-red-700"
               : "border-emerald-200 bg-emerald-50 text-emerald-700"
           }`}
         >
+          {msg.type === "error" ? <FiAlertTriangle /> : <FiCheckCircle />}
           {msg.text}
         </div>
       )}
 
-      {/* Content */}
+      {/* ================= EMAIL ================= */}
       {tab === "email" && (
-        <div className="grid gap-4 lg:grid-cols-5">
+        <div className="grid lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3">
-            <Card
-              title="Compose Email"
-              right={
-                <span className="hidden sm:inline-flex text-xs px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                  Email
-                </span>
-              }
-            >
-              <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+            <Card title="Compose Email">
+              <div className="grid md:grid-cols-2 gap-4">
                 <Input
                   label="To Email"
                   name="toEmail"
                   value={emailForm.toEmail}
                   onChange={handleEmailChange}
-                  placeholder="client@company.com"
                   icon={<FiMail />}
                 />
                 <Input
@@ -230,59 +232,42 @@ export default function CommunicationSystem() {
                   name="subject"
                   value={emailForm.subject}
                   onChange={handleEmailChange}
-                  placeholder="Follow-up / Quotation / Meeting"
                 />
                 <Input
-                  label="Lead/Person Name"
+                  label="Contact Name"
                   name="relatedTo.name"
                   value={emailForm.relatedTo.name}
                   onChange={handleEmailChange}
-                  placeholder="Name"
                 />
                 <Input
                   label="Company"
                   name="relatedTo.company"
                   value={emailForm.relatedTo.company}
                   onChange={handleEmailChange}
-                  placeholder="Company Name"
                 />
               </div>
 
               <div className="mt-4">
-                <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+                <label className="text-sm font-semibold text-slate-700">
                   Message
                 </label>
                 <textarea
+                  rows={8}
                   name="message"
                   value={emailForm.message}
                   onChange={handleEmailChange}
-                  rows={8}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                  placeholder="Write your message..."
+                  className="mt-1 w-full rounded-2xl border px-3 py-3 text-sm focus:ring-4 focus:ring-slate-100"
                 />
               </div>
 
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs text-slate-500 whitespace-normal break-words">
-                  Email will be sent using your SMTP config from backend.
-                </div>
-
+              <div className="mt-4 flex justify-end">
                 <button
                   onClick={sendEmail}
                   disabled={sending}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95 active:scale-[0.99] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:scale-[1.02] transition"
                 >
-                  {sending ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <FiSend />
-                      Send Email
-                    </>
-                  )}
+                  {sending ? "Sending..." : <FiSend />}
+                  Send Email
                 </button>
               </div>
             </Card>
@@ -290,26 +275,15 @@ export default function CommunicationSystem() {
 
           <div className="lg:col-span-2">
             <Card title="Quick Templates">
-              <p className="text-sm text-slate-600 mb-3 whitespace-normal break-words">
-                Tap a template to auto-fill subject and message.
-              </p>
-
               <div className="space-y-2">
-                {templates.map((t, idx) => (
+                {templates.map((t, i) => (
                   <button
-                    key={idx}
+                    key={i}
                     onClick={() => applyTemplate(t)}
-                    className="w-full rounded-2xl border border-slate-200 bg-white p-3 text-left hover:bg-slate-50 active:scale-[0.99] transition"
+                    className="w-full text-left rounded-2xl border p-3 hover:bg-slate-50 transition hover:scale-[1.01]"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-semibold text-slate-900 whitespace-normal break-words">
-                        {t.title}
-                      </div>
-                      <span className="shrink-0 text-[11px] px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                        Use
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600 whitespace-normal break-words">
+                    <div className="font-semibold">{t.title}</div>
+                    <div className="text-xs text-slate-600 mt-1 line-clamp-2">
                       {t.message}
                     </div>
                   </button>
@@ -320,24 +294,22 @@ export default function CommunicationSystem() {
         </div>
       )}
 
+      {/* ================= TIMELINE ================= */}
       {tab === "timeline" && (
-        <Card title="Activity Timeline">
-          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <Card title="Communication Timeline">
+          <div className="flex flex-col md:flex-row gap-2 mb-3">
             <div className="relative w-full md:w-96">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <FiSearch />
-              </span>
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search logs..."
-                className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                className="w-full rounded-2xl border px-10 py-2.5 text-sm"
               />
             </div>
-
             <button
               onClick={fetchLogs}
-              className="inline-flex w-full md:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
+              className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm"
             >
               <FiRefreshCcw />
               Refresh
@@ -345,87 +317,38 @@ export default function CommunicationSystem() {
           </div>
 
           {loading ? (
-            <div className="space-y-2">
-              <TimelineSkeleton />
-              <TimelineSkeleton />
-              <TimelineSkeleton />
-            </div>
-          ) : filteredLogs.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-600 bg-white">
-              No logs found.
-            </div>
+            <TimelineSkeleton />
           ) : (
             <div className="space-y-3">
               {filteredLogs.map((l) => (
                 <div
                   key={l._id}
-                  className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                  className="rounded-3xl border bg-white p-4 shadow-sm animate-fadeIn"
                 >
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0 w-full">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge type={l.status}>{l.status}</Badge>
-                        <span className="text-sm font-semibold text-slate-900 whitespace-normal break-words">
-                          {String(l.type || "").toUpperCase()}
-                        </span>
-                        <span className="text-xs text-slate-500 whitespace-normal break-words">
-                          •{" "}
-                          {l.createdAt
-                            ? new Date(l.createdAt).toLocaleString()
-                            : "-"}
-                        </span>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Badge type={l.status}>{l.status}</Badge>
+                      <div className="text-sm font-semibold mt-1">
+                        {l.subject || "No Subject"}
                       </div>
-
-                      <div className="mt-2 grid gap-1 text-sm text-slate-700">
-                        <div className="flex items-start gap-2">
-                          <span className="mt-0.5 text-slate-400">
-                            <FiMail />
-                          </span>
-                          <span className="whitespace-normal break-all">
-                            <b>To:</b> {l.toEmail || l.toPhone || "-"}
-                          </span>
-                        </div>
-
-                        {l.subject && (
-                          <div className="whitespace-normal break-words">
-                            <b>Subject:</b> {l.subject}
-                          </div>
-                        )}
-
-                        {(l.relatedTo?.name || l.relatedTo?.company) && (
-                          <div className="text-xs text-slate-500 whitespace-normal break-words">
-                            Related: {l.relatedTo?.name || "-"} •{" "}
-                            {l.relatedTo?.company || "-"}
-                          </div>
-                        )}
+                      <div className="text-xs text-slate-500">
+                        {new Date(l.createdAt).toLocaleString()}
                       </div>
                     </div>
 
                     <button
-                      className="inline-flex w-full md:w-auto md:self-start items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(l.message || "");
-                          setMsg({ type: "success", text: "Message copied ✅" });
-                        } catch {
-                          setMsg({ type: "error", text: "Copy failed" });
-                        }
-                      }}
+                      onClick={() =>
+                        navigator.clipboard.writeText(l.message || "")
+                      }
+                      className="text-xs flex items-center gap-1 border px-2 py-1 rounded-full"
                     >
-                      <FiCopy />
-                      Copy Message
+                      <FiCopy /> Copy
                     </button>
                   </div>
 
                   {l.message && (
-                    <div className="mt-3 whitespace-pre-wrap break-words rounded-2xl bg-slate-50 p-3 text-sm text-slate-800 border border-slate-100">
+                    <div className="mt-3 bg-slate-50 rounded-2xl p-3 text-sm">
                       {l.message}
-                    </div>
-                  )}
-
-                  {l.error && (
-                    <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 whitespace-normal break-words">
-                      Error: {l.error}
                     </div>
                   )}
                 </div>
@@ -435,77 +358,61 @@ export default function CommunicationSystem() {
         </Card>
       )}
 
+      {/* ================= TEMPLATES ================= */}
       {tab === "templates" && (
-        <Card title="Templates & Scripts">
-          <p className="text-sm text-slate-600 mb-4 whitespace-normal break-words">
-            Manage follow-up templates. Stored locally for now (can connect to DB
-            later).
-          </p>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {templates.map((t, idx) => (
+        <Card title="Templates">
+          <div className="grid md:grid-cols-2 gap-4">
+            {templates.map((t, i) => (
               <div
-                key={idx}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
+                key={i}
+                className="rounded-3xl border p-4 bg-white shadow-sm hover:shadow-md transition"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 w-full">
-                    <div className="text-sm font-bold text-slate-900 whitespace-normal break-words">
-                      {t.title}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600 whitespace-normal break-words">
-                      <b>Subject:</b> {t.subject}
-                    </div>
-                  </div>
-                  <span className="shrink-0 text-[11px] px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                    Template
-                  </span>
+                <div className="font-bold">{t.title}</div>
+                <div className="text-xs text-slate-600 mt-1">
+                  {t.subject}
                 </div>
-
-                <div className="mt-3 whitespace-pre-wrap break-words rounded-2xl bg-slate-50 p-3 text-sm text-slate-800 border border-slate-100">
+                <div className="mt-2 text-sm bg-slate-50 rounded-2xl p-3">
                   {t.message}
-                </div>
-
-                <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => applyTemplate(t)}
-                    className="rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:opacity-95 active:scale-[0.99]"
-                  >
-                    Use
-                  </button>
-                  <button
-                    onClick={() => {
-                      setTemplates((prev) => prev.filter((_, i) => i !== idx));
-                      setMsg({ type: "success", text: "Template deleted ✅" });
-                    }}
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
-                  >
-                    Delete
-                  </button>
                 </div>
               </div>
             ))}
           </div>
         </Card>
       )}
+
+      {/* ================= ANIMATIONS ================= */}
+      <style>
+        {`
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .animate-fadeIn { animation: fadeIn .3s ease-out; }
+          .animate-slideDown { animation: slideDown .25s ease-out; }
+        `}
+      </style>
     </div>
   );
 }
 
-/* ================= UI Helpers ================= */
+/* ================= SMALL UI ================= */
 
 function TabButton({ active, onClick, icon, children }) {
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition ${
+      className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition ${
         active
-          ? "bg-slate-900 text-white shadow-sm"
-          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+          ? "bg-slate-900 text-white"
+          : "border bg-white hover:bg-slate-50"
       }`}
     >
-      <span className={`${active ? "text-white" : "text-slate-500"}`}>{icon}</span>
-      <span className="whitespace-nowrap">{children}</span>
+      {icon}
+      {children}
     </button>
   );
 }
@@ -513,20 +420,18 @@ function TabButton({ active, onClick, icon, children }) {
 function Input({ label, icon, ...props }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-        {label}
-      </label>
-      <div className="relative">
-        {icon ? (
+      <label className="text-sm font-semibold">{label}</label>
+      <div className="relative mt-1">
+        {icon && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
             {icon}
           </span>
-        ) : null}
+        )}
         <input
           {...props}
-          className={`w-full rounded-2xl border border-slate-200 bg-white ${
-            icon ? "pl-10" : "pl-3"
-          } pr-3 py-2.5 text-sm outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-100`}
+          className={`w-full rounded-2xl border px-3 py-2.5 text-sm ${
+            icon ? "pl-10" : ""
+          }`}
         />
       </div>
     </div>
@@ -536,12 +441,12 @@ function Input({ label, icon, ...props }) {
 function Badge({ type, children }) {
   const cls =
     type === "sent"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : type === "failed"
-      ? "border-red-200 bg-red-50 text-red-700"
-      : "border-slate-200 bg-slate-50 text-slate-700";
+      ? "bg-red-50 text-red-700 border-red-200"
+      : "bg-slate-50 text-slate-700 border-slate-200";
   return (
-    <span className={`rounded-full border px-2 py-0.5 text-xs font-bold ${cls}`}>
+    <span className={`inline-block border px-2 py-0.5 rounded-full text-xs ${cls}`}>
       {children}
     </span>
   );
@@ -549,15 +454,13 @@ function Badge({ type, children }) {
 
 function TimelineSkeleton() {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-4">
-      <div className="flex items-center gap-2">
-        <div className="h-5 w-16 bg-slate-100 rounded-full" />
-        <div className="h-4 w-24 bg-slate-100 rounded" />
-        <div className="h-3 w-28 bg-slate-100 rounded" />
-      </div>
-      <div className="mt-3 h-4 w-64 bg-slate-100 rounded" />
-      <div className="mt-2 h-3 w-52 bg-slate-100 rounded" />
-      <div className="mt-4 h-20 w-full bg-slate-100 rounded-2xl" />
+    <div className="space-y-2">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-24 rounded-3xl bg-slate-100 animate-pulse"
+        />
+      ))}
     </div>
   );
 }

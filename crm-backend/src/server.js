@@ -14,6 +14,8 @@ import communicationRoutes from "./routes/communicationRoutes.js";
 import dailyReportRoutes from "./routes/dailyReportRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import locationRoutes from "./routes/locationRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
   
 
@@ -44,6 +46,9 @@ app.use("/api/contact-discussions", contactDiscussionRoutes);
 app.use("/api/communications", communicationRoutes);
 app.use("/api/team-reports", dailyReportRoutes);
 app.use("/api/quotes", quoteRoutes);
+app.use("/api/locations", locationRoutes);
+app.use("/api/notifications", notificationRoutes);
+
 
 //Admin
 app.use("/api/admin", adminRoutes);

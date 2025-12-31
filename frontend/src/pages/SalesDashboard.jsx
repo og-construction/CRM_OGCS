@@ -1,7 +1,10 @@
 // src/pages/SalesDashboard.jsx
-import React, { useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../store/slices/authSlice";
+
+// ✅ Location tracker hook
+import useLocationTracker from "../hooks/useLocationTracker";
 
 // Sales Components
 import LeadManagement from "../components/sales/LeadManagement";
@@ -12,285 +15,612 @@ import TeamManagement from "../components/sales/TeamManagement";
 import CommunicationSystem from "../components/sales/CommunicationSystem";
 import SidebarButton from "../components/sales/SidebarButton";
 
+// ✅ FIXED PATHS
+import Notifications from "../components/sales/Notification.jsx";
+import Reports from "../components/sales/Reports.jsx";
+
+// ✅ Animations
+import { motion, AnimatePresence } from "framer-motion";
+
+// Icons
+import {
+  FiLogOut,
+  FiUser,
+  FiMail,
+  FiHome,
+  FiTrendingUp,
+  FiClock,
+  FiFileText,
+  FiUsers,
+  FiMessageCircle,
+  FiShield,
+  FiChevronRight,
+  FiMapPin,
+  FiRefreshCw,
+  FiBell,
+  FiBarChart2,
+  FiMenu,
+  FiX,
+  FiChevronDown,
+} from "react-icons/fi";
+
+const cn = (...a) => a.filter(Boolean).join(" ");
+
+/**
+ * ✅ KEY FIX:
+ * Keep all sections mounted, only hide/show.
+ * This prevents forms from unmounting/remounting (typing stops after 1 char).
+ */
+const SectionWrapper = ({ show, children }) => (
+  <div className={show ? "block" : "hidden"}>{children}</div>
+);
+
 const SalesDashboard = () => {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
+
   const [active, setActive] = useState("leads");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // UI only
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = () => {
-    dispatch(logout());
+  // ✅ Tracking enabled when user is logged in
+  const trackingEnabled = !!user;
+  const { status, lastPingAt, lastError, sendLocationOnce } = useLocationTracker({
+    enabled: trackingEnabled,
+  });
+
+  const handleLogout = () => dispatch(logout());
+
+  const tabs = useMemo(
+    () => [
+      {
+        id: "leads",
+        label: "Leads",
+        full: "Lead Management",
+        icon: <FiTrendingUp />,
+        tone: "emerald",
+      },
+      {
+        id: "followups",
+        label: "Follow-Ups",
+        full: "Follow-Up System",
+        icon: <FiClock />,
+        tone: "amber",
+      },
+      {
+        id: "quotes",
+        label: "Quotes",
+        full: "Quotation / Invoice",
+        icon: <FiFileText />,
+        tone: "indigo",
+      },
+      {
+        id: "contacts",
+        label: "Contacts",
+        full: "Contacts & Companies",
+        icon: <FiUsers />,
+        tone: "sky",
+      },
+      {
+        id: "team",
+        label: "Team",
+        full: "Upload Daily Report",
+        icon: <FiShield />,
+        tone: "slate",
+      },
+      {
+        id: "communication",
+        label: "Comm",
+        full: "Communication System",
+        icon: <FiMessageCircle />,
+        tone: "fuchsia",
+      },
+      {
+        id: "notifications",
+        label: "Notify",
+        full: "Notifications",
+        icon: <FiBell />,
+        tone: "rose",
+      },
+      {
+        id: "reports",
+        label: "Reports",
+        full: "Reports Dashboard",
+        icon: <FiBarChart2 />,
+        tone: "violet",
+      },
+    ],
+    []
+  );
+
+  const activeTab = tabs.find((t) => t.id === active) || tabs[0];
+  const activeTitle = activeTab?.full || "Lead Management";
+
+  const initials = useMemo(() => {
+    const n = String(user?.name || "Sales Executive").trim();
+    const parts = n.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] || "S";
+    const b = parts[1]?.[0] || "";
+    return (a + b).toUpperCase();
+  }, [user?.name]);
+
+  const trackingBadge = useMemo(() => {
+    if (!trackingEnabled)
+      return { text: "OFF", cls: "bg-slate-100 text-slate-700 border-slate-200" };
+    if (status === "running")
+      return { text: "ON", cls: "bg-emerald-50 text-emerald-800 border-emerald-200" };
+    if (status === "denied")
+      return { text: "DENIED", cls: "bg-amber-50 text-amber-800 border-amber-200" };
+    if (status === "error")
+      return { text: "ERROR", cls: "bg-red-50 text-red-800 border-red-200" };
+    if (status === "waiting")
+      return { text: "WAITING", cls: "bg-sky-50 text-sky-800 border-sky-200" };
+    return { text: "STARTING", cls: "bg-sky-50 text-sky-800 border-sky-200" };
+  }, [status, trackingEnabled]);
+
+  // close mobile drawer on tab change
+  useEffect(() => {
+    if (mobileOpen) setMobileOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // ----- animation variants -----
+  const fadeUp = {
+    hidden: { opacity: 0, y: 10 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
   };
 
-  const renderSection = () => {
-    switch (active) {
-      case "leads":
-        return <LeadManagement />;
-      case "followups":
-        return <FollowUpSystem />;
-      case "quotes":
-        return <QuotationInvoice />;
-      case "contacts":
-        return <ContactsCompanies />;
-      case "team":
-        return <TeamManagement />;
-      case "communication":
-        return <CommunicationSystem />;
-      default:
-        return <LeadManagement />;
-    }
+  const drawer = {
+    hidden: { x: "-100%" },
+    show: { x: 0, transition: { type: "spring", stiffness: 260, damping: 28 } },
+    exit: { x: "-100%", transition: { duration: 0.2 } },
   };
 
-  const tabs = [
-    { id: "leads", label: "Leads", full: "Lead Management" },
-    { id: "followups", label: "Follow-Ups", full: "Follow-Up System" },
-    { id: "quotes", label: "Quotes", full: "Quotation & Invoice" },
-    { id: "contacts", label: "Contacts", full: "Contacts & Companies" },
-    { id: "team", label: "Team", full: "Upload daily report" },
-    { id: "communication", label: "Comm", full: "Communication System" },
-  ];
-
-  const activeTitle =
-    tabs.find((t) => t.id === active)?.full || "Lead Management";
+  const tone = useMemo(() => {
+    const t = activeTab?.tone || "slate";
+    const map = {
+      emerald: {
+        chip: "bg-emerald-50 text-emerald-800 border-emerald-200",
+        ring: "focus:ring-emerald-200",
+      },
+      amber: {
+        chip: "bg-amber-50 text-amber-800 border-amber-200",
+        ring: "focus:ring-amber-200",
+      },
+      indigo: {
+        chip: "bg-indigo-50 text-indigo-800 border-indigo-200",
+        ring: "focus:ring-indigo-200",
+      },
+      sky: {
+        chip: "bg-sky-50 text-sky-800 border-sky-200",
+        ring: "focus:ring-sky-200",
+      },
+      slate: {
+        chip: "bg-slate-100 text-slate-700 border-slate-200",
+        ring: "focus:ring-slate-200",
+      },
+      fuchsia: {
+        chip: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200",
+        ring: "focus:ring-fuchsia-200",
+      },
+      rose: {
+        chip: "bg-rose-50 text-rose-800 border-rose-200",
+        ring: "focus:ring-rose-200",
+      },
+      violet: {
+        chip: "bg-violet-50 text-violet-800 border-violet-200",
+        ring: "focus:ring-violet-200",
+      },
+    };
+    return map[t] || map.slate;
+  }, [activeTab?.tone]);
 
   return (
     <div className="min-h-screen bg-[#EFF6FF]">
       <div className="flex min-h-screen">
-        {/* Sidebar (Desktop) */}
+        {/* ===================== Sidebar (Desktop) ===================== */}
         <aside className="hidden md:flex w-72 bg-white/90 backdrop-blur border-r border-slate-200 flex-col">
+          {/* Brand */}
           <div className="px-5 py-5 border-b border-slate-100">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h1 className="text-lg font-extrabold text-slate-900">
-                  OGCS CRM
-                </h1>
-                <p className="text-xs text-slate-500">
-                  Sales Executive Panel
-                </p>
+                <div className="flex items-center gap-2">
+                  <div className="h-9 w-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                    <FiHome />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-lg font-extrabold text-slate-900 leading-tight">
+                      OGCS CRM
+                    </h1>
+                    <p className="text-xs text-slate-500">Sales Executive Panel</p>
+                  </div>
+                </div>
               </div>
               <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">
                 Sales
               </span>
             </div>
+
+            {/* User Card */}
+            <div className="mt-4 rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-extrabold text-slate-900 truncate">
+                    {user?.name || "Sales Executive"}
+                  </div>
+                  <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                    <FiMail className="shrink-0" />
+                    <span className="truncate">{user?.email || "-"}</span>
+                  </div>
+
+                  {/* Tracking */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold",
+                        trackingBadge.cls
+                      )}
+                    >
+                      <FiMapPin />
+                      TRACK {trackingBadge.text}
+                    </span>
+                    <button
+                      onClick={sendLocationOnce}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition"
+                      title="Send location now"
+                      type="button"
+                    >
+                      <FiRefreshCw />
+                      Ping
+                    </button>
+                  </div>
+
+                  <div className="mt-1 text-[10px] text-slate-500 truncate">
+                    Last: {lastPingAt ? lastPingAt.toLocaleString() : "-"}
+                  </div>
+
+                  {lastError ? (
+                    <div className="mt-1 text-[10px] text-red-600">{lastError}</div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Nav */}
           <nav className="flex-1 px-3 py-4 space-y-1">
-            <SidebarButton
-              label="Lead Management"
-              active={active === "leads"}
-              onClick={() => setActive("leads")}
-            />
-            <SidebarButton
-              label="Follow-Up System"
-              active={active === "followups"}
-              onClick={() => setActive("followups")}
-            />
-            <SidebarButton
-              label="Quotation & Invoice"
-              active={active === "quotes"}
-              onClick={() => setActive("quotes")}
-            />
-            <SidebarButton
-              label="Contacts & Companies"
-              active={active === "contacts"}
-              onClick={() => setActive("contacts")}
-            />
-            <SidebarButton
-              label="Upload daily report"
-              active={active === "team"}
-              onClick={() => setActive("team")}
-            />
-            <SidebarButton
-              label="Communication System"
-              active={active === "communication"}
-              onClick={() => setActive("communication")}
-            />
+            {tabs.map((t) => (
+              <SidebarButton
+                key={t.id}
+                label={t.full}
+                active={active === t.id}
+                onClick={() => setActive(t.id)}
+              />
+            ))}
           </nav>
 
+          {/* Logout */}
           <div className="px-5 py-4 border-t border-slate-100">
-            <p className="text-xs text-slate-500 mb-1">Logged in as</p>
-            <p className="text-sm font-semibold text-slate-900 truncate">
-              {user?.name || "Sales Executive"}
-            </p>
-            <p className="text-[11px] text-slate-500 truncate">
-              {user?.email || ""}
-            </p>
-
             <button
               onClick={handleLogout}
-              className="mt-3 w-full text-xs font-semibold text-red-700 border border-red-200 rounded-2xl py-2 hover:bg-red-50 active:scale-[0.99] transition"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white py-2 text-xs font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99] transition"
+              type="button"
             >
+              <FiLogOut />
               Logout
             </button>
+            <div className="mt-3 text-[11px] text-slate-500">
+              <span className="font-semibold text-slate-700">Section:</span> {activeTitle}
+            </div>
           </div>
         </aside>
 
-        {/* Main area */}
+        {/* ===================== Mobile Drawer ===================== */}
+        <AnimatePresence>
+          {mobileOpen ? (
+            <>
+              <motion.div
+                className="fixed inset-0 z-40 bg-black/30 md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileOpen(false)}
+              />
+              <motion.aside
+                className="fixed z-50 left-0 top-0 bottom-0 w-[86%] max-w-[340px] md:hidden bg-white border-r border-slate-200 flex flex-col"
+                variants={drawer}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+              >
+                <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                      <FiHome />
+                    </div>
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-900">OGCS CRM</div>
+                      <div className="text-[11px] text-slate-500">Sales Panel</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMobileOpen(false)}
+                    className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center"
+                    aria-label="Close"
+                  >
+                    <FiX />
+                  </button>
+                </div>
+
+                <div className="px-4 py-4 border-b border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                      {initials}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-extrabold text-slate-900 truncate">
+                        {user?.name || "Sales Executive"}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                        <FiMail className="shrink-0" />
+                        <span className="truncate">{user?.email || "-"}</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold", trackingBadge.cls)}>
+                          <FiMapPin />
+                          {trackingBadge.text}
+                        </span>
+                        <button
+                          onClick={sendLocationOnce}
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                          type="button"
+                        >
+                          <FiRefreshCw />
+                          Ping
+                        </button>
+                      </div>
+                      {lastError ? <div className="mt-1 text-[10px] text-red-600">{lastError}</div> : null}
+                    </div>
+                  </div>
+                </div>
+
+                <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
+                  {tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActive(t.id)}
+                      className={cn(
+                        "w-full text-left px-4 py-3 rounded-2xl border transition flex items-center justify-between",
+                        active === t.id
+                          ? "bg-slate-900 text-white border-slate-900"
+                          : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                      )}
+                    >
+                      <span className="flex items-center gap-2 font-semibold">
+                        {t.icon} {t.full}
+                      </span>
+                      <FiChevronRight />
+                    </button>
+                  ))}
+                </nav>
+
+                <div className="px-4 py-4 border-t border-slate-100">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white py-2.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                    type="button"
+                  >
+                    <FiLogOut />
+                    Logout
+                  </button>
+                </div>
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>
+
+        {/* ===================== Main Area ===================== */}
         <main className="flex-1 flex flex-col min-w-0">
-          {/* Top header */}
+          {/* ===================== Top Header ===================== */}
           <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
+            {/* OGCS Brand Strip */}
+            <div className="h-1 w-full bg-gradient-to-r from-[#8B0000] via-[#F4D03F] to-[#00204E]" />
+
             <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h1 className="text-base md:text-lg font-extrabold text-slate-900 truncate">
-                  OGCS CRM – Sales Dashboard
-                </h1>
-                <p className="text-xs text-slate-500 truncate">
-                  <span className="font-semibold text-slate-700">
-                    {user?.name || "Sales Executive"}
-                  </span>{" "}
-                  {user?.email ? <>(• {user.email})</> : null}
-                </p>
+              {/* Left */}
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Mobile menu */}
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(true)}
+                  className="md:hidden h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
+                  aria-label="Open menu"
+                >
+                  <FiMenu />
+                </button>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200",
+                        "bg-gradient-to-br from-white to-slate-50 text-slate-900 shadow-sm"
+                      )}
+                      title={activeTitle}
+                    >
+                      {activeTab.icon}
+                    </span>
+
+                    <div className="min-w-0">
+                      <h1 className="text-base md:text-lg font-extrabold text-slate-900 truncate">
+                        OGCS CRM – Sales Dashboard
+                      </h1>
+
+                      <p className="text-xs text-slate-500 truncate flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                          <FiUser />
+                          {user?.name || "Sales Executive"}
+                        </span>
+                        {user?.email ? (
+                          <span className="inline-flex items-center gap-1">
+                            <FiChevronRight className="text-slate-400" />
+                            {user.email}
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Tracking row */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-extrabold", trackingBadge.cls)}>
+                      <FiMapPin />
+                      Tracking: {trackingBadge.text}
+                    </span>
+
+                    <span className="text-[11px] text-slate-500">
+                      Last: {lastPingAt ? lastPingAt.toLocaleString() : "-"}
+                    </span>
+
+                    <button
+                      onClick={sendLocationOnce}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition",
+                        tone.ring
+                      )}
+                      type="button"
+                    >
+                      <FiRefreshCw />
+                      Send Now
+                    </button>
+
+                    {lastError ? (
+                      <span className="text-[11px] text-red-600">{lastError}</span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
+              {/* Right actions */}
               <div className="flex items-center gap-2">
-                {/* Mobile menu button */}
+                {/* Quick Switch (mobile) */}
+                <div className="sm:hidden">
+                  <select
+                    value={active}
+                    onChange={(e) => setActive(e.target.value)}
+                    className={cn(
+                      "px-3 py-2 rounded-2xl border border-slate-200 bg-white text-xs font-bold",
+                      "outline-none focus:ring-2",
+                      tone.ring
+                    )}
+                  >
+                    {tabs.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.full}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quick Buttons */}
                 <button
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="md:hidden inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
+                  onClick={() => setActive("notifications")}
+                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50 px-3 py-2 text-xs font-extrabold text-rose-700 shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] transition"
+                  title="Open notifications"
+                  type="button"
                 >
-                  Menu
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-rose-200 text-rose-700 group-hover:rotate-6 transition">
+                    <FiBell />
+                  </span>
+                  Notifications
+                </button>
+
+                <button
+                  onClick={() => setActive("reports")}
+                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 px-3 py-2 text-xs font-extrabold text-violet-700 shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] transition"
+                  title="Open reports"
+                  type="button"
+                >
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-violet-200 text-violet-700 group-hover:-rotate-6 transition">
+                    <FiBarChart2 />
+                  </span>
+                  Reports
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center rounded-2xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99] transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99] transition"
+                  type="button"
                 >
+                  <FiLogOut />
                   Logout
                 </button>
               </div>
             </div>
 
-            {/* Mobile: scroll tabs (bigger touch targets, no cut) */}
-            <div className="md:hidden border-t border-slate-100 px-3 py-2">
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActive(tab.id)}
-                    className={`shrink-0 px-3 py-2 text-[12px] font-semibold rounded-2xl border whitespace-nowrap transition ${
-                      active === tab.id
-                        ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="text-[11px] text-slate-500 truncate">
-                  Section:
-                </div>
-                <div className="min-w-0 text-[11px] font-semibold text-slate-800 truncate">
+            {/* Animated section indicator */}
+            <div className="px-4 md:px-6 pb-3">
+              <motion.div
+                key={active}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22 }}
+                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold shadow-sm bg-white"
+              >
+                <span className={cn("rounded-full border px-2 py-1", tone.chip)}>
                   {activeTitle}
-                </div>
-              </div>
+                </span>
+                <span className="text-slate-500 hidden sm:inline-flex items-center gap-1">
+                  <FiChevronDown />
+                  Switch from sidebar
+                </span>
+              </motion.div>
             </div>
           </header>
 
-          {/* Mobile menu drawer (UI only) */}
-          {mobileMenuOpen && (
-            <div className="md:hidden fixed inset-0 z-50">
-              <div
-                className="absolute inset-0 bg-black/40"
-                onClick={() => setMobileMenuOpen(false)}
-              />
-              <div className="absolute right-0 top-0 h-full w-[86%] max-w-sm bg-white shadow-2xl border-l border-slate-200">
-                <div className="p-4 border-b border-slate-100">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-slate-900">
-                        OGCS CRM
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        Sales Executive Panel
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
-                    >
-                      Close
-                    </button>
-                  </div>
-
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="text-xs text-slate-500">Logged in as</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900 truncate">
-                      {user?.name || "Sales Executive"}
-                    </div>
-                    <div className="text-[11px] text-slate-500 truncate">
-                      {user?.email || ""}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 space-y-1">
-                  {tabs.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        setActive(t.id);
-                        setMobileMenuOpen(false);
-                      }}
-                      className={`w-full text-left rounded-2xl border px-3 py-3 text-sm font-semibold transition ${
-                        active === t.id
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {t.full}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="p-4 border-t border-slate-100">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99]"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Section content */}
+          {/* ===================== Section Content ===================== */}
           <section className="flex-1 p-4 md:p-6 min-w-0">
             <div className="mx-auto w-full max-w-[1200px]">
-              {renderSection()}
+              {/* Subtle animated container */}
+              <motion.div variants={fadeUp} initial="hidden" animate="show">
+                <SectionWrapper show={active === "leads"}>
+                  <LeadManagement />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "followups"}>
+                  <FollowUpSystem />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "quotes"}>
+                  <QuotationInvoice />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "contacts"}>
+                  <ContactsCompanies />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "team"}>
+                  <TeamManagement />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "communication"}>
+                  <CommunicationSystem />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "notifications"}>
+                  <Notifications />
+                </SectionWrapper>
+
+                <SectionWrapper show={active === "reports"}>
+                  <Reports />
+                </SectionWrapper>
+              </motion.div>
             </div>
           </section>
-
-          {/* Mobile bottom nav (optional UI upgrade, no logic change) */}
-          <div className="md:hidden sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="px-2 py-2">
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "leads", label: "Leads" },
-                  { id: "followups", label: "Follow-Ups" },
-                  { id: "quotes", label: "Quotes" },
-                  { id: "contacts", label: "Contacts" },
-                  { id: "team", label: "Team" },
-                  { id: "communication", label: "Comm" },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActive(tab.id)}
-                    className={`rounded-2xl border px-2 py-2 text-[11px] font-semibold transition ${
-                      active === tab.id
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
         </main>
       </div>
     </div>

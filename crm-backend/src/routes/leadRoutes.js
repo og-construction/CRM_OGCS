@@ -1,24 +1,20 @@
-// src/routes/leadRoutes.js
 import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
-
 import {
   getMyLeads,
-  createLead,
-  importLeads,
-  getMyFollowUps,
-  setMyFollowUp,
+  createMyLead,
+  updateMyLead,
+  deleteMyLead,
+  importMyLeads,
 } from "../controllers/leadController.js";
 
 const router = express.Router();
 
-// ✅ Leads (Sales executive: only his leads)
+// /api/leads/my
 router.get("/my", protect, getMyLeads);
-router.post("/my", protect, createLead);
-router.post("/my/import", protect, importLeads);
-
-// ✅ Follow-ups
-router.get("/my/followups", protect, getMyFollowUps);
-router.patch("/my/:id/followup", protect, setMyFollowUp);
+router.post("/my", protect, createMyLead);
+router.post("/my/import", protect, importMyLeads);
+router.put("/my/:id", protect, updateMyLead);
+router.delete("/my/:id", protect, deleteMyLead);
 
 export default router;
