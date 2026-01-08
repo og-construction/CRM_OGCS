@@ -29,9 +29,10 @@ export const createDailyReport = async (req, res) => {
         filename: req.file.filename,
         mimeType: req.file.mimetype,
         size: req.file.size,
-        url: `/${process.env.UPLOAD_DIR || "uploads"}/${req.file.filename}`,
+        url: `/uploads/${req.file.filename}`, // ✅ correct
       };
     }
+
 
     const doc = await DailyReport.create({
       reportDate,

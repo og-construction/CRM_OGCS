@@ -1,0 +1,4 @@
+git branch
+git remote -v
+git fetch origin
+ git merge origin
