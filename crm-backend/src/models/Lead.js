@@ -1,3 +1,5 @@
+// ✅ Updated Lead Model (backend): add leadType (Buyer / Contractor / Seller / Manufacturer)
+
 import mongoose from "mongoose";
 
 const LeadSchema = new mongoose.Schema(
@@ -9,10 +11,18 @@ const LeadSchema = new mongoose.Schema(
       index: true,
     },
 
+    // ✅ NEW
+    leadType: {
+      type: String,
+      enum: ["Buyer", "Contractor", "Seller", "Manufacturer"],
+      default: "Buyer",
+      index: true,
+    },
+
     name: { type: String, required: true, trim: true },
     company: { type: String, trim: true },
 
-    phone: { type: String, trim: true, index: true }, // store 10 digits
+    phone: { type: String, trim: true, index: true },
     email: { type: String, trim: true, lowercase: true, index: true },
 
     city: { type: String, trim: true },

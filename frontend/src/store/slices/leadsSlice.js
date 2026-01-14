@@ -4,12 +4,16 @@ import axiosInstance from "../../api/axiosInstance";
 /** GET /leads/my */
 export const fetchMyLeads = createAsyncThunk(
   "leads/fetchMyLeads",
-  async ({ status = "All", search = "" } = {}, thunkAPI) => {
+  async ({ status = "All", leadType = "All", search = "" } = {}, thunkAPI) => {
     try {
-      const res = await axiosInstance.get("/leads/my", { params: { status, search } });
+      const res = await axiosInstance.get("/leads/my", {
+        params: { status, leadType, search },
+      });
       return res.data.items;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to load leads");
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Failed to load leads"
+      );
     }
   }
 );
@@ -22,7 +26,9 @@ export const createMyLead = createAsyncThunk(
       const res = await axiosInstance.post("/leads/my", payload);
       return res.data.lead;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to create lead");
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Failed to create lead"
+      );
     }
   }
 );
@@ -35,7 +41,9 @@ export const updateMyLead = createAsyncThunk(
       const res = await axiosInstance.put(`/leads/my/${id}`, payload);
       return res.data.lead;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to update lead");
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Failed to update lead"
+      );
     }
   }
 );
@@ -48,7 +56,9 @@ export const deleteMyLead = createAsyncThunk(
       await axiosInstance.delete(`/leads/my/${id}`);
       return id;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.response?.data?.message || "Failed to delete lead");
+      return thunkAPI.rejectWithValue(
+        err.response?.data?.message || "Failed to delete lead"
+      );
     }
   }
 );
@@ -76,13 +86,25 @@ const leadsSlice = createSlice({
     importResult: null,
   },
   reducers: {
-    clearLeadsError: (state) => { state.error = null; },
-    clearImportResult: (state) => { state.importResult = null; },
+    clearLeadsError: (state) => {
+      state.error = null;
+    },
+    clearImportResult: (state) => {
+      state.importResult = null;
+    },
+
+    // ✅ NEW: instant patch (used by FollowUpSystem)
+    patchLeadInList: (state, action) => {
+      const updated = action.payload;
+      if (!updated?._id) return;
+      state.items = state.items.map((x) => (x._id === updated._id ? updated : x));
+    },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchMyLeads.pending, (state) => {
-        state.loading = true; state.error = null;
+        state.loading = true;
+        state.error = null;
       })
       .addCase(fetchMyLeads.fulfilled, (state, action) => {
         state.loading = false;
@@ -117,7 +139,9 @@ const leadsSlice = createSlice({
       })
 
       .addCase(importMyLeads.pending, (state) => {
-        state.importing = true; state.error = null; state.importResult = null;
+        state.importing = true;
+        state.error = null;
+        state.importResult = null;
       })
       .addCase(importMyLeads.fulfilled, (state, action) => {
         state.importing = false;
@@ -130,5 +154,5 @@ const leadsSlice = createSlice({
   },
 });
 
-export const { clearLeadsError, clearImportResult } = leadsSlice.actions;
+export const { clearLeadsError, clearImportResult, patchLeadInList } = leadsSlice.actions;
 export default leadsSlice.reducer;

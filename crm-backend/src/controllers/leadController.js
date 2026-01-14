@@ -1,26 +1,32 @@
 import Lead from "../models/Lead.js";
 
 const allowedStatuses = ["New", "Follow-Up", "Closed", "Converted"];
+const allowedLeadTypes = ["Buyer", "Contractor", "Seller", "Manufacturer"]; // ✅ NEW
 
 const trimStr = (v) => String(v ?? "").trim();
 const lowerStr = (v) => trimStr(v).toLowerCase();
 
 const cleanPhone10 = (v) => {
   const digits = String(v ?? "").replace(/\D/g, "");
-  // keep last 10 digits if user entered country code etc.
   if (digits.length > 10) return digits.slice(-10);
   return digits;
 };
 
 const isValidEmail = (email) => {
-  if (!email) return true; // optional field
+  if (!email) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
 
-const buildSearchQuery = (ownerId, search = "", status = "All") => {
+/**
+ * ✅ BUILD QUERY (status + leadType + search)
+ */
+const buildSearchQuery = (ownerId, search = "", status = "All", leadType = "All") => {
   const q = { owner: ownerId };
 
   if (status && status !== "All") q.status = status;
+
+  // ✅ NEW: leadType filter
+  if (leadType && leadType !== "All") q.leadType = leadType;
 
   const s = trimStr(search);
   if (s) {
@@ -37,12 +43,24 @@ const buildSearchQuery = (ownerId, search = "", status = "All") => {
   return q;
 };
 
-// GET /api/leads/my?status=All&search=
+/**
+ * =========================================================
+ * GET /api/leads/my?status=All&leadType=Buyer&search=
+ * =========================================================
+ */
 export const getMyLeads = async (req, res) => {
   try {
-    const { status = "All", search = "" } = req.query;
+    const {
+      status = "All",
+      leadType = "All", // ✅ NEW
+      search = "",
+    } = req.query;
 
-    const query = buildSearchQuery(req.user._id, search, status);
+    if (leadType !== "All" && !allowedLeadTypes.includes(leadType)) {
+      return res.status(400).json({ message: "Invalid lead type" });
+    }
+
+    const query = buildSearchQuery(req.user._id, search, status, leadType);
     const items = await Lead.find(query).sort({ createdAt: -1 });
 
     return res.json({ items });
@@ -52,7 +70,11 @@ export const getMyLeads = async (req, res) => {
   }
 };
 
-// POST /api/leads/my
+/**
+ * =========================================================
+ * POST /api/leads/my
+ * =========================================================
+ */
 export const createMyLead = async (req, res) => {
   try {
     const name = trimStr(req.body.name);
@@ -65,7 +87,14 @@ export const createMyLead = async (req, res) => {
     const source = trimStr(req.body.source) || "Manual";
     const status = trimStr(req.body.status) || "New";
 
+    // ✅ NEW
+    const leadType = trimStr(req.body.leadType) || "Buyer";
+
     if (!name) return res.status(400).json({ message: "Name is required" });
+
+    if (!allowedLeadTypes.includes(leadType)) {
+      return res.status(400).json({ message: "Invalid lead type" });
+    }
 
     if (phone && phone.length !== 10) {
       return res.status(400).json({ message: "Phone must be 10 digits" });
@@ -79,8 +108,6 @@ export const createMyLead = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    // Optional duplicate warning logic (NOT blocking)
-    // If you want to block duplicates, change logic to return 409.
     const dup = await Lead.findOne({
       owner: req.user._id,
       $or: [
@@ -91,6 +118,7 @@ export const createMyLead = async (req, res) => {
 
     const lead = await Lead.create({
       owner: req.user._id,
+      leadType, // ✅ NEW
       name,
       company,
       phone: phone || undefined,
@@ -112,7 +140,11 @@ export const createMyLead = async (req, res) => {
   }
 };
 
-// PUT /api/leads/my/:id
+/**
+ * =========================================================
+ * PUT /api/leads/my/:id
+ * =========================================================
+ */
 export const updateMyLead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -130,7 +162,14 @@ export const updateMyLead = async (req, res) => {
     const source = trimStr(req.body.source);
     const status = trimStr(req.body.status);
 
+    // ✅ NEW
+    const leadType = trimStr(req.body.leadType);
+
     if (name === "") return res.status(400).json({ message: "Name is required" });
+
+    if (leadType && !allowedLeadTypes.includes(leadType)) {
+      return res.status(400).json({ message: "Invalid lead type" });
+    }
 
     if (phone && phone.length !== 10) {
       return res.status(400).json({ message: "Phone must be 10 digits" });
@@ -152,7 +191,9 @@ export const updateMyLead = async (req, res) => {
     lead.address = address;
     lead.description = description;
     lead.source = source || lead.source;
+
     if (status) lead.status = status;
+    if (leadType) lead.leadType = leadType; // ✅ NEW
 
     await lead.save();
     return res.json({ lead });
@@ -162,7 +203,11 @@ export const updateMyLead = async (req, res) => {
   }
 };
 
-// DELETE /api/leads/my/:id
+/**
+ * =========================================================
+ * DELETE /api/leads/my/:id
+ * ========================================================= 
+ */
 export const deleteMyLead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -178,7 +223,11 @@ export const deleteMyLead = async (req, res) => {
   }
 };
 
-// POST /api/leads/my/import
+/**
+ * =========================================================
+ * POST /api/leads/my/import
+ * =========================================================
+ */
 export const importMyLeads = async (req, res) => {
   try {
     const items = Array.isArray(req.body.items) ? req.body.items : [];
@@ -198,7 +247,15 @@ export const importMyLeads = async (req, res) => {
       const source = trimStr(raw?.source) || "Import";
       const status = trimStr(raw?.status) || "New";
 
+      // ✅ NEW
+      const leadType = trimStr(raw?.leadType) || "Buyer";
+
       if (!name) {
+        skippedInvalid++;
+        continue;
+      }
+
+      if (!allowedLeadTypes.includes(leadType)) {
         skippedInvalid++;
         continue;
       }
@@ -218,7 +275,6 @@ export const importMyLeads = async (req, res) => {
         continue;
       }
 
-      // duplicate check (by owner + phone OR email)
       const dup = await Lead.findOne({
         owner: req.user._id,
         $or: [
@@ -234,6 +290,7 @@ export const importMyLeads = async (req, res) => {
 
       await Lead.create({
         owner: req.user._id,
+        leadType, // ✅ NEW
         name,
         company,
         phone: phone || undefined,

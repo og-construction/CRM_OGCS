@@ -14,13 +14,8 @@ import communicationRoutes from "./routes/communicationRoutes.js";
 import dailyReportRoutes from "./routes/dailyReportRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-// import locationRoutes from "./routes/locationRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
-
-//Admin
 import locationRoutes from "./routes/locationRoutes.js";
-import locationAdminRoutes from "./routes/locationAdminRoutes.js";
-
+import notificationRoutes from "./routes/notificationRoutes.js";
 
   
 
@@ -50,17 +45,13 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/contact-discussions", contactDiscussionRoutes);
 app.use("/api/communications", communicationRoutes);
 app.use("/api/team-reports", dailyReportRoutes);
-app.use("/api/daily-reports", dailyReportRoutes);
 app.use("/api/quotes", quoteRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/daily-reports", dailyReportRoutes);
 
 //Admin
 app.use("/api/admin", adminRoutes);
-app.use("/api/locations", locationRoutes);            // employee ping
-app.use("/api/admin/locations", locationAdminRoutes); // admin history + distance
-
  
 
  

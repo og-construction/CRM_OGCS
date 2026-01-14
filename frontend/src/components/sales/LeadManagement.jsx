@@ -1,3 +1,4 @@
+// ✅ Updated MyLeads.jsx (frontend): add Lead Type filter + field in Create/Edit form
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -10,18 +11,13 @@ import {
   clearImportResult,
 } from "../../store/slices/leadsSlice";
 
-/**
- * ✅ Professional UI:
- * - OGCS-style clean layout
- * - Red primary buttons
- * - Better table, badges, empty/loading states
- * - Better Create/Edit form (sections + required star)
- * - Description preview + "View" modal
- */
-
 const STATUSES = ["All", "New", "Follow-Up", "Closed", "Converted"];
 
+// ✅ NEW
+const LEAD_TYPES = ["All", "Buyer", "Contractor", "Seller", "Manufacturer"];
+
 const emptyForm = {
+  leadType: "Buyer", // ✅ NEW default
   name: "",
   company: "",
   phone: "",
@@ -45,6 +41,22 @@ const statusPill = (status) => {
       return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
     case "Converted":
       return "bg-green-50 text-green-700 ring-1 ring-green-200";
+    default:
+      return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
+  }
+};
+
+// ✅ NEW
+const typePill = (t) => {
+  switch (t) {
+    case "Buyer":
+      return "bg-sky-50 text-sky-800 ring-1 ring-sky-200";
+    case "Contractor":
+      return "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200";
+    case "Seller":
+      return "bg-rose-50 text-rose-800 ring-1 ring-rose-200";
+    case "Manufacturer":
+      return "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200";
     default:
       return "bg-gray-100 text-gray-700 ring-1 ring-gray-200";
   }
@@ -97,6 +109,7 @@ export default function MyLeads() {
   const { items, loading, error, importing, importResult } = useSelector((s) => s.leads);
 
   const [status, setStatus] = useState("All");
+  const [leadType, setLeadType] = useState("All"); // ✅ NEW
   const [search, setSearch] = useState("");
 
   const [openForm, setOpenForm] = useState(false);
@@ -110,13 +123,14 @@ export default function MyLeads() {
   const [openDesc, setOpenDesc] = useState(false);
   const [descText, setDescText] = useState("");
 
+  // ✅ IMPORTANT: include leadType in fetch
   useEffect(() => {
-    dispatch(fetchMyLeads({ status, search }));
-  }, [dispatch, status]);
+    dispatch(fetchMyLeads({ status, leadType, search }));
+  }, [dispatch, status, leadType]);
 
   const onSearch = (e) => {
     e.preventDefault();
-    dispatch(fetchMyLeads({ status, search }));
+    dispatch(fetchMyLeads({ status, leadType, search }));
   };
 
   const resetForm = () => {
@@ -132,6 +146,7 @@ export default function MyLeads() {
   const startEdit = (lead) => {
     setEditing(lead);
     setForm({
+      leadType: lead?.leadType || "Buyer", // ✅ NEW
       name: lead?.name || "",
       company: lead?.company || "",
       phone: lead?.phone || "",
@@ -147,8 +162,10 @@ export default function MyLeads() {
 
   const submitLead = async (e) => {
     e.preventDefault();
+
     const payload = {
       ...form,
+      leadType: String(form.leadType || "Buyer"), // ✅ NEW
       phone: cleanPhone(form.phone),
       email: String(form.email || "").trim().toLowerCase(),
       name: String(form.name || "").trim(),
@@ -172,7 +189,7 @@ export default function MyLeads() {
       setOpenForm(false);
       resetForm();
     } catch {
-      // error handled in slice
+      // handled in slice
     } finally {
       setSaving(false);
     }
@@ -187,12 +204,17 @@ export default function MyLeads() {
   const summary = useMemo(() => {
     const total = items.length;
     const by = (s) => items.filter((x) => x.status === s).length;
+    const byType = (t) => items.filter((x) => x.leadType === t).length;
     return {
       total,
       newCount: by("New"),
       fuCount: by("Follow-Up"),
       closedCount: by("Closed"),
       convertedCount: by("Converted"),
+      buyerCount: byType("Buyer"),
+      contractorCount: byType("Contractor"),
+      sellerCount: byType("Seller"),
+      manufacturerCount: byType("Manufacturer"),
     };
   }, [items]);
 
@@ -203,7 +225,7 @@ export default function MyLeads() {
       await dispatch(importMyLeads(parsed)).unwrap();
       setOpenImport(false);
       setImportJson("");
-      dispatch(fetchMyLeads({ status, search }));
+      dispatch(fetchMyLeads({ status, leadType, search }));
     } catch {
       alert("Invalid JSON / Import failed");
     }
@@ -232,6 +254,11 @@ export default function MyLeads() {
                       Total <b>{summary.total}</b> • New <b>{summary.newCount}</b> • Follow-Up{" "}
                       <b>{summary.fuCount}</b> • Closed <b>{summary.closedCount}</b> • Converted{" "}
                       <b>{summary.convertedCount}</b>
+                    </p>
+                    {/* ✅ NEW small type summary */}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Buyer <b>{summary.buyerCount}</b> • Contractor <b>{summary.contractorCount}</b> •
+                      Seller <b>{summary.sellerCount}</b> • Manufacturer <b>{summary.manufacturerCount}</b>
                     </p>
                   </div>
                 </div>
@@ -299,7 +326,23 @@ export default function MyLeads() {
                 </select>
               </div>
 
-              <div className="md:col-span-6">
+              {/* ✅ NEW Lead Type Filter */}
+              <div className="md:col-span-3">
+                <div className="text-xs font-semibold text-gray-700 mb-1">Lead Type</div>
+                <select
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-200"
+                  value={leadType}
+                  onChange={(e) => setLeadType(e.target.value)}
+                >
+                  {LEAD_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="md:col-span-4">
                 <div className="text-xs font-semibold text-gray-700 mb-1">Search</div>
                 <input
                   className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
@@ -309,7 +352,7 @@ export default function MyLeads() {
                 />
               </div>
 
-              <div className="md:col-span-3 flex items-end gap-2">
+              <div className="md:col-span-2 flex items-end gap-2">
                 <button
                   className="w-full px-4 py-2.5 rounded-xl bg-white border text-sm font-semibold hover:bg-gray-50"
                   type="submit"
@@ -319,7 +362,7 @@ export default function MyLeads() {
                 <button
                   type="button"
                   className="w-full px-4 py-2.5 rounded-xl bg-white border text-sm font-semibold hover:bg-gray-50"
-                  onClick={() => dispatch(fetchMyLeads({ status, search }))}
+                  onClick={() => dispatch(fetchMyLeads({ status, leadType, search }))}
                 >
                   Refresh
                 </button>
@@ -342,6 +385,7 @@ export default function MyLeads() {
               <thead className="bg-gray-50">
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
                   <th className="p-3">Name</th>
+                  <th className="p-3">Type</th> {/* ✅ NEW */}
                   <th className="p-3">Company</th>
                   <th className="p-3">Phone</th>
                   <th className="p-3">Email</th>
@@ -357,13 +401,13 @@ export default function MyLeads() {
               <tbody className="divide-y">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="p-6 text-gray-600">
+                    <td colSpan={11} className="p-6 text-gray-600">
                       Loading leads...
                     </td>
                   </tr>
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="p-10">
+                    <td colSpan={11} className="p-10">
                       <div className="text-center">
                         <div className="text-gray-900 font-semibold">No leads found</div>
                         <div className="text-gray-600 text-sm mt-1">
@@ -393,20 +437,26 @@ export default function MyLeads() {
                           </div>
                         </td>
 
+                        {/* ✅ NEW Type Pill */}
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(
+                              lead.leadType || "Buyer"
+                            )}`}
+                          >
+                            {lead.leadType || "Buyer"}
+                          </span>
+                        </td>
+
                         <td className="p-3">{lead.company || "-"}</td>
-
                         <td className="p-3">{lead.phone || "-"}</td>
-
                         <td className="p-3">
                           <div className="max-w-[220px] break-words">{lead.email || "-"}</div>
                         </td>
-
                         <td className="p-3">{lead.city || "-"}</td>
-
                         <td className="p-3 whitespace-normal break-words max-w-[260px]">
                           {lead.address || "-"}
                         </td>
-
                         <td className="p-3">
                           {desc ? (
                             <button
@@ -424,7 +474,11 @@ export default function MyLeads() {
                         <td className="p-3">{lead.source || "-"}</td>
 
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(lead.status)}`}>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(
+                              lead.status
+                            )}`}
+                          >
                             {lead.status}
                           </span>
                         </td>
@@ -496,6 +550,22 @@ export default function MyLeads() {
             <div className="rounded-2xl border p-4">
               <div className="text-sm font-semibold text-gray-900 mb-3">Basic Details</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* ✅ NEW Lead Type field */}
+                <Field label="Lead Type" required hint="Buyer / Contractor / Seller / Manufacturer">
+                  <select
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-red-200"
+                    value={form.leadType}
+                    onChange={(e) => setForm((p) => ({ ...p, leadType: e.target.value }))}
+                  >
+                    {LEAD_TYPES.filter((x) => x !== "All").map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
                 <Field label="Name" required>
                   <input
                     className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-200"
@@ -599,10 +669,7 @@ export default function MyLeads() {
               </div>
             </div>
 
-            {/* Hidden submit (for Enter key) */}
-            <button type="submit" className="hidden">
-              submit
-            </button>
+            <button type="submit" className="hidden">submit</button>
           </form>
         </Modal>
 
@@ -631,13 +698,11 @@ export default function MyLeads() {
           }
         >
           <div className="space-y-3">
-            <div className="text-sm text-gray-700">
-              Paste JSON array of leads. Example:
-            </div>
+            <div className="text-sm text-gray-700">Paste JSON array of leads. Example:</div>
             <pre className="text-xs bg-gray-50 border rounded-xl p-3 overflow-auto">
 {`[
-  { "name": "ABC", "phone": "9876543210", "city": "Mumbai", "status": "New" },
-  { "name": "XYZ", "email": "xyz@email.com", "status": "Follow-Up" }
+  { "leadType": "Buyer", "name": "ABC", "phone": "9876543210", "city": "Mumbai", "status": "New" },
+  { "leadType": "Manufacturer", "name": "XYZ", "email": "xyz@email.com", "status": "Follow-Up" }
 ]`}
             </pre>
 
@@ -652,11 +717,7 @@ export default function MyLeads() {
         </Modal>
 
         {/* Description Viewer */}
-        <Modal
-          open={openDesc}
-          title="Lead Description"
-          onClose={() => setOpenDesc(false)}
-        >
+        <Modal open={openDesc} title="Lead Description" onClose={() => setOpenDesc(false)}>
           <div className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed">
             {descText || "-"}
           </div>
