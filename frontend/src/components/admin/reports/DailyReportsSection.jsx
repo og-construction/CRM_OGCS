@@ -30,7 +30,9 @@ export default function DailyReportsSection() {
     );
   }
 
-  const today = fmtToday(); // ✅ fixed internally (no UI date picker)
+  // ✅ NEW: date filter (default today) + "All Dates"
+  const [date, setDate] = useState(fmtToday());
+  const [allDates, setAllDates] = useState(false);
 
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
@@ -48,7 +50,13 @@ export default function DailyReportsSection() {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
 
-  const params = useMemo(() => ({ page, limit, q, date: today }), [page, limit, q, today]);
+  // ✅ params: send date only when not "All Dates"
+  const params = useMemo(() => {
+    const p = { page, limit };
+    if (q?.trim()) p.q = q.trim();
+    if (!allDates) p.date = date; // <-- THIS is what lets 2025-12-17 show
+    return p;
+  }, [page, limit, q, date, allDates]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -67,15 +75,14 @@ export default function DailyReportsSection() {
     }
   };
 
+  // ✅ FIX: automatically refetch whenever params change (q/date/page/limit)
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line
-  }, [page, limit]);
+  }, [params]);
 
-  const applySearch = () => {
-    setPage(1);
-    fetchData();
-  };
+  // ✅ FIX: search should not call fetchData immediately (state updates first)
+  const applySearch = () => setPage(1);
 
   const exportExcel = () => {
     const rows = (reports || []).map((r, i) => ({
@@ -92,13 +99,16 @@ export default function DailyReportsSection() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "DailyReports");
     const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-    saveAs(new Blob([buf], { type: "application/octet-stream" }), `DailyReports_${today}.xlsx`);
+    saveAs(
+      new Blob([buf], { type: "application/octet-stream" }),
+      `DailyReports_${allDates ? "ALL" : date}.xlsx`
+    );
   };
 
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(12);
-    doc.text(`Daily Reports - ${today}`, 14, 12);
+    doc.text(`Daily Reports - ${allDates ? "ALL DATES" : date}`, 14, 12);
 
     autoTable(doc, {
       startY: 18,
@@ -114,7 +124,7 @@ export default function DailyReportsSection() {
       styles: { fontSize: 8 },
     });
 
-    doc.save(`DailyReports_${today}.pdf`);
+    doc.save(`DailyReports_${allDates ? "ALL" : date}.pdf`);
   };
 
   const totalPages = pagination?.totalPages || 1;
@@ -125,7 +135,9 @@ export default function DailyReportsSection() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-lg font-semibold text-slate-800">Daily Reports</div>
-          <div className="text-xs text-slate-500">Showing today: {today}</div>
+          <div className="text-xs text-slate-500">
+            {allDates ? "Showing: All Dates" : `Showing date: ${date}`}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -150,8 +162,9 @@ export default function DailyReportsSection() {
         </div>
       </div>
 
-      {/* Search + Rows */}
+      {/* Filters */}
       <div className="bg-white border rounded-2xl p-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        {/* Search */}
         <div>
           <label className="text-xs text-slate-500 flex items-center gap-2">
             <FiSearch /> Search
@@ -172,20 +185,50 @@ export default function DailyReportsSection() {
           </div>
         </div>
 
-        <div className="flex gap-2 items-center">
-          <div className="text-xs text-slate-500">Rows</div>
-          <select
-            value={limit}
+        {/* Date + All Dates */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="text-xs text-slate-500">Date</label>
+          <input
+            type="date"
+            value={date}
+            disabled={allDates}
             onChange={(e) => {
-              setLimit(parseInt(e.target.value, 10));
+              setDate(e.target.value);
               setPage(1);
             }}
-            className="text-sm border rounded-xl px-2 py-2"
-          >
-            {[10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
+            className="text-sm border rounded-xl px-2 py-2 disabled:opacity-50"
+          />
+
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={allDates}
+              onChange={(e) => {
+                setAllDates(e.target.checked);
+                setPage(1);
+              }}
+            />
+            All Dates
+          </label>
+
+          {/* Rows */}
+          <div className="flex gap-2 items-center">
+            <div className="text-xs text-slate-500">Rows</div>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(parseInt(e.target.value, 10));
+                setPage(1);
+              }}
+              className="text-sm border rounded-xl px-2 py-2"
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

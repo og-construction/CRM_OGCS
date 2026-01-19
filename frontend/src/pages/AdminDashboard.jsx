@@ -5,6 +5,7 @@ import { logout } from "../store/slices/authSlice";
 // Sections
 import OverviewSection from "../components/admin/OverviewSection";
 import LeadsSection from "../components/admin/LeadsSection";
+import AdminLeadsSection from "../components/admin/AdminLeadsSection";
 import UsersSection from "../components/admin/UsersSection";
 import SettingsSection from "../components/admin/SettingsSection";
 
@@ -52,7 +53,7 @@ export default function AdminDashboard() {
         icon: FiFileText,
         children: [
           { key: "latest", label: "Latest Locations", icon: FiMapPin },
-          { key: "routes", label: "Daily Routes (All)", icon: FiMapPin },
+          // { key: "routes", label: "Daily Routes (All)", icon: FiMapPin },
           { key: "daily", label: "Daily Reports", icon: FiCalendar },
           { key: "all", label: "All Reports", icon: FiLayers },
         ],
@@ -81,8 +82,10 @@ export default function AdminDashboard() {
     switch (activeTab) {
       case "overview":
         return <OverviewSection />;
+      // case "leads":
+      //   return <LeadsSection />;
       case "leads":
-        return <LeadsSection />;
+        return <AdminLeadsSection />;
       case "users":
         return <UsersSection />;
       case "settings":

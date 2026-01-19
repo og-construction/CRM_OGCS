@@ -1,10 +1,33 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import axiosClient from "../../../api/axiosClient";
 
-import { MapContainer, TileLayer, Marker, Circle, Polyline, Popup } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Circle,
+  Polyline,
+  Popup,
+  CircleMarker,
+  useMap,
+} from "react-leaflet";
 
-import { FiSearch, FiMapPin, FiExternalLink, FiX, FiCalendar } from "react-icons/fi";
+import { FiSearch, FiMapPin, FiExternalLink, FiX, FiCalendar, FiRefreshCw } from "react-icons/fi";
+
+// ✅ Leaflet marker icon fix
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 // ---- helpers ----
 const isAdminUser = (u) => {
@@ -27,9 +50,9 @@ const isoToYMD = (v) => {
 };
 
 const openStreetMapLink = (lat, lng) =>
-  `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(lng)}#map=17/${encodeURIComponent(
-    lat
-  )}/${encodeURIComponent(lng)}`;
+  `https://www.openstreetmap.org/?mlat=${encodeURIComponent(lat)}&mlon=${encodeURIComponent(
+    lng
+  )}#map=17/${encodeURIComponent(lat)}/${encodeURIComponent(lng)}`;
 
 const haversineMeters = (a, b) => {
   const toRad = (x) => (x * Math.PI) / 180;
@@ -51,6 +74,59 @@ const computeDistanceKm = (points) => {
   return Math.round((meters / 1000) * 100) / 100;
 };
 
+// ✅ Debounce
+const useDebouncedValue = (value, delay = 400) => {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+};
+
+// ✅ Extract employee safely (works with your backend "employee" projection)
+const getEmployeeInfo = (row) => {
+  const emp =
+    row?.employee ||
+    row?.user ||
+    row?.userId ||
+    row?.employeeId ||
+    row?.createdBy ||
+    null;
+
+  const name = emp?.name || emp?.fullName || row?.employeeName || row?.name || "—";
+  const email = emp?.email || row?.employeeEmail || row?.email || "";
+
+  return { name, email };
+};
+
+// ✅ Convert row to a real userId
+const getRowUserId = (row) => {
+  if (row?.userId?._id) return row.userId._id;
+  if (typeof row?.userId === "string") return row.userId;
+
+  if (row?.employeeId?._id) return row.employeeId._id;
+  if (typeof row?.employeeId === "string") return row.employeeId;
+
+  if (row?.employee?._id) return row.employee._id;
+  if (row?.user?._id) return row.user._id;
+
+  return null;
+};
+
+// ✅ Fit map to bounds of all points
+function FitBounds({ positions }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!positions || positions.length === 0) return;
+    const bounds = L.latLngBounds(positions);
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }, [map, positions]);
+
+  return null;
+}
+
 export default function LatestLocationsSection() {
   const user = useSelector((s) => s.auth.user);
 
@@ -65,6 +141,8 @@ export default function LatestLocationsSection() {
 
   // list state
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q, 400);
+
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -75,71 +153,142 @@ export default function LatestLocationsSection() {
   // modal state
   const [open, setOpen] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
+
   const [date, setDate] = useState("");
   const [points, setPoints] = useState([]);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [routeMsg, setRouteMsg] = useState("");
 
-  const params = useMemo(() => ({ page, limit, q }), [page, limit, q]);
+  // ✅ Important: this assumes VITE_API_BASE_URL ends with "/api"
+  // endpoints become: /api/admin/...
+  const endpoints = useMemo(
+    () => ({
+      latest: "/admin/locations/latest",
+      dayRoute: "/admin/locations/day-route",
+    }),
+    []
+  );
 
-  const fetchLatest = async () => {
+  const params = useMemo(() => {
+    const p = { page, limit };
+    if (debouncedQ?.trim()) p.q = debouncedQ.trim();
+    return p;
+  }, [page, limit, debouncedQ]);
+
+  // prevent race conditions
+  const latestReqId = useRef(0);
+
+  const fetchLatest = useCallback(async () => {
+    const reqId = ++latestReqId.current;
     setLoading(true);
+
     try {
-      const res = await axiosClient.get("/admin/locations/latest", { params });
+      const res = await axiosClient.get(endpoints.latest, { params });
+
+      if (reqId !== latestReqId.current) return;
+
       setItems(res.data?.data || []);
       setPagination(res.data?.pagination || { page, limit, total: 0, totalPages: 1 });
     } catch (e) {
+      if (reqId !== latestReqId.current) return;
       console.error("Latest locations fetch error:", e);
       setItems([]);
       setPagination({ page: 1, limit, total: 0, totalPages: 1 });
     } finally {
-      setLoading(false);
+      if (reqId === latestReqId.current) setLoading(false);
     }
-  };
+  }, [endpoints.latest, params, page, limit]);
 
   useEffect(() => {
     fetchLatest();
-    // eslint-disable-next-line
-  }, [page, limit]);
+  }, [fetchLatest]);
 
-  const searchNow = () => {
+  // reset to page 1 when searching
+  useEffect(() => {
     setPage(1);
-    fetchLatest();
-  };
+  }, [debouncedQ]);
 
-  const loadRoute = async (userId, d) => {
-    if (!userId || !d) return;
-    setRouteLoading(true);
-    setPoints([]);
-    try {
-      const res = await axiosClient.get("/admin/locations/day-route", {
-        params: { userId, date: d },
-      });
-      const list = res.data?.data || [];
-      setPoints(
-        list
-          .filter((p) => typeof p.lat === "number" && typeof p.lng === "number")
-          .map((p) => ({ ...p }))
-      );
-    } catch (e) {
-      console.error("Day route fetch error:", e);
+  const searchNow = () => setPage(1);
+
+  const loadRoute = useCallback(
+    async (userId, d) => {
+      if (!userId || !d) return;
+
+      setRouteLoading(true);
       setPoints([]);
-    } finally {
-      setRouteLoading(false);
-    }
+      setRouteMsg("");
+
+      try {
+        const res = await axiosClient.get(endpoints.dayRoute, {
+          params: { userId, date: d },
+        });
+
+        // ✅ backend fallback support (if you implemented usedDate)
+        const usedDate = res.data?.usedDate;
+        if (usedDate && usedDate !== d) setDate(usedDate);
+
+        const msg = res.data?.message || "";
+        if (msg) setRouteMsg(msg);
+
+        const list = res.data?.data || [];
+
+        // ✅ ensure lat/lng are numbers (prevents filtering out)
+        const cleaned = list
+          .map((p) => ({
+            ...p,
+            lat: typeof p.lat === "string" ? parseFloat(p.lat) : p.lat,
+            lng: typeof p.lng === "string" ? parseFloat(p.lng) : p.lng,
+            accuracy: typeof p.accuracy === "string" ? parseFloat(p.accuracy) : p.accuracy,
+          }))
+          .filter((p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng))
+          .sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime());
+
+        setPoints(cleaned);
+      } catch (e) {
+        console.error("Day route fetch error:", e);
+        setPoints([]);
+        setRouteMsg("Unable to load route. Please try again.");
+      } finally {
+        setRouteLoading(false);
+      }
+    },
+    [endpoints.dayRoute]
+  );
+
+  const openPreview = (row) => {
+    setActiveRow(row);
+
+    const d = isoToYMD(row?.capturedAt) || isoToYMD(new Date().toISOString());
+    setDate(d);
+    setPoints([]);
+    setRouteMsg("");
+    setOpen(true);
+
+    const userId = getRowUserId(row);
+    loadRoute(userId, d);
   };
 
-  const openPreview = async (row) => {
-    setActiveRow(row);
-    const d = isoToYMD(row?.capturedAt);
-    setDate(d);
-    setOpen(true);
-    await loadRoute(row?.userId, d);
+  const closeModal = () => {
+    setOpen(false);
+    setActiveRow(null);
+    setDate("");
+    setPoints([]);
+    setRouteLoading(false);
+    setRouteMsg("");
   };
 
   const distanceKm = useMemo(() => computeDistanceKm(points), [points]);
   const polyline = useMemo(() => points.map((p) => [p.lat, p.lng]), [points]);
 
   const totalPages = pagination?.totalPages || 1;
+
+  const mapCenter = useMemo(() => {
+    if (points?.length) return [points[0].lat, points[0].lng];
+    if (Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng)) return [activeRow.lat, activeRow.lng];
+    return [19.076, 72.8777];
+  }, [points, activeRow]);
+
+  const activeEmp = useMemo(() => getEmployeeInfo(activeRow), [activeRow]);
 
   return (
     <div className="space-y-4">
@@ -156,14 +305,24 @@ export default function LatestLocationsSection() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && searchNow()}
             placeholder="Search employee name/email..."
             className="text-sm border rounded-xl px-3 py-2 w-[280px]"
           />
           <button
             onClick={searchNow}
-            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700"
+            disabled={loading}
+            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
           >
             <FiSearch /> Search
+          </button>
+
+          <button
+            onClick={fetchLatest}
+            disabled={loading}
+            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-60"
+          >
+            <FiRefreshCw /> Refresh
           </button>
         </div>
       </div>
@@ -187,23 +346,26 @@ export default function LatestLocationsSection() {
                 </td>
               </tr>
             ) : items.length ? (
-              items.map((r) => (
-                <tr key={r._id} className="border-b last:border-b-0 hover:bg-slate-50/60">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-slate-800">{r.employee?.name || "—"}</div>
-                    <div className="text-xs text-slate-500">{r.employee?.email || ""}</div>
-                  </td>
-                  <td className="px-4 py-3">{isoToLocal(r.capturedAt)}</td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => openPreview(r)}
-                      className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border bg-white hover:bg-slate-50"
-                    >
-                      <FiMapPin /> Preview
-                    </button>
-                  </td>
-                </tr>
-              ))
+              items.map((r) => {
+                const emp = getEmployeeInfo(r);
+                return (
+                  <tr key={r._id} className="border-b last:border-b-0 hover:bg-slate-50/60">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-slate-800">{emp.name}</div>
+                      <div className="text-xs text-slate-500">{emp.email}</div>
+                    </td>
+                    <td className="px-4 py-3">{isoToLocal(r.capturedAt)}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => openPreview(r)}
+                        className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border bg-white hover:bg-slate-50"
+                      >
+                        <FiMapPin /> Preview
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td className="px-4 py-4 text-slate-500" colSpan={3}>
@@ -238,14 +400,14 @@ export default function LatestLocationsSection() {
           </select>
 
           <button
-            disabled={page <= 1}
+            disabled={page <= 1 || loading}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="text-xs px-3 py-2 rounded-xl border bg-white disabled:opacity-50"
           >
             Prev
           </button>
           <button
-            disabled={page >= totalPages}
+            disabled={page >= totalPages || loading}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             className="text-xs px-3 py-2 rounded-xl border bg-white disabled:opacity-50"
           >
@@ -254,23 +416,23 @@ export default function LatestLocationsSection() {
         </div>
       </div>
 
-      {/* Modal: whole day route */}
+      {/* Modal */}
       {open && activeRow ? (
         <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
 
           <div className="absolute left-1/2 top-1/2 w-[95%] max-w-5xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border overflow-hidden">
             <div className="px-4 py-3 border-b flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-slate-800">{activeRow.employee?.name}</div>
+                <div className="text-sm font-semibold text-slate-800">{activeEmp.name}</div>
                 <div className="text-xs text-slate-500">
-                  {activeRow.employee?.email} • Total Travel:{" "}
-                  <b>{routeLoading ? "..." : `${distanceKm} km`}</b>
+                  {activeEmp.email} • Total Travel: <b>{routeLoading ? "..." : `${distanceKm} km`}</b>
                 </div>
+                {routeMsg ? <div className="text-[11px] text-amber-600 mt-1">{routeMsg}</div> : null}
               </div>
 
               <button
-                onClick={() => setOpen(false)}
+                onClick={closeModal}
                 className="text-xs px-3 py-2 rounded-xl border hover:bg-slate-50 inline-flex items-center gap-2"
               >
                 <FiX /> Close
@@ -292,13 +454,14 @@ export default function LatestLocationsSection() {
                 </div>
 
                 <button
-                  onClick={() => loadRoute(activeRow.userId, date)}
-                  className="text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700"
+                  onClick={() => loadRoute(getRowUserId(activeRow), date)}
+                  disabled={!date || routeLoading}
+                  className="text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
                 >
                   Load Day Route
                 </button>
 
-                {typeof activeRow.lat === "number" && typeof activeRow.lng === "number" ? (
+                {Number.isFinite(activeRow.lat) && Number.isFinite(activeRow.lng) ? (
                   <a
                     href={openStreetMapLink(activeRow.lat, activeRow.lng)}
                     target="_blank"
@@ -314,36 +477,45 @@ export default function LatestLocationsSection() {
                 {routeLoading ? (
                   <div className="p-6 text-sm text-slate-500">Loading route...</div>
                 ) : points.length ? (
-                  <MapContainer
-                    center={[points[0].lat, points[0].lng]}
-                    zoom={14}
-                    style={{ height: 520, width: "100%" }}
-                  >
+                  <MapContainer center={mapCenter} zoom={14} style={{ height: 520, width: "100%" }}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
+                    {/* ✅ fit to all points */}
+                    <FitBounds positions={polyline} />
+
+                    {/* ✅ ALL points as pins */}
+                    {points.map((p, idx) => (
+                      <CircleMarker
+                        key={p._id || idx}
+                        center={[p.lat, p.lng]}
+                        radius={5}
+                      >
+                        <Popup>
+                          <div className="text-xs">
+                            <div><b>Point:</b> {idx + 1}</div>
+                            <div><b>Time:</b> {isoToLocal(p.capturedAt)}</div>
+                            {Number.isFinite(p.accuracy) ? <div><b>Accuracy:</b> {Math.round(p.accuracy)} m</div> : null}
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    ))}
+
                     {/* Start + End */}
-                    <Marker position={[points[0].lat, points[0].lng]}>
-                      <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
-                    </Marker>
-
-                    <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
-                      <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
-                    </Marker>
-
-                    {/* Accuracy circle (last point) */}
-                    {Number(points[points.length - 1]?.accuracy || 0) > 0 ? (
-                      <Circle
-                        center={[points[points.length - 1].lat, points[points.length - 1].lng]}
-                        radius={Number(points[points.length - 1].accuracy)}
-                        pathOptions={{ color: "#2563eb", fillColor: "#3b82f6", fillOpacity: 0.2 }}
-                      />
+                    {points.length > 0 ? (
+                      <>
+                        <Marker position={[points[0].lat, points[0].lng]}>
+                          <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
+                        </Marker>
+                        <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
+                          <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
+                        </Marker>
+                      </>
                     ) : null}
 
-                    {/* Route */}
-                    {polyline.length >= 2 ? (
-                      <Polyline positions={polyline} pathOptions={{ color: "red", weight: 4, opacity: 0.9 }} />
-                    ) : null}
+                    {/* Route line */}
+                    {polyline.length >= 2 ? <Polyline positions={polyline} /> : null}
                   </MapContainer>
+
                 ) : (
                   <div className="p-6 text-sm text-slate-500">No route points found for this day.</div>
                 )}

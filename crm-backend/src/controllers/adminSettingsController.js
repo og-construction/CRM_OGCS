@@ -1,45 +1,25 @@
-import SystemSettings from "../models/SystemSettings.js";
+import asyncHandler from "express-async-handler";
+import AdminSettings from "../models/AdminSettings.js";
 
-const getOrCreateDoc = async () => {
-  let doc = await SystemSettings.findOne();
-  if (!doc) doc = await SystemSettings.create({});
-  return doc;
-};
+// ✅ GET Admin Settings
+export const getAdminSettings = asyncHandler(async (req, res) => {
+  let settings = await AdminSettings.findOne();
 
-// ✅ GET /api/admin/settings
-export const getAdminSettings = async (req, res) => {
-  try {
-    const doc = await getOrCreateDoc();
-    return res.json({ status: "success", data: doc });
-  } catch (err) {
-    console.error("getAdminSettings error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error while loading settings" });
+  // if no settings in DB, create default
+  if (!settings) {
+    settings = await AdminSettings.create({});
   }
-};
 
-// ✅ PUT /api/admin/settings
-export const updateAdminSettings = async (req, res) => {
-  try {
-    const doc = await getOrCreateDoc();
+  return res.json(settings);
+});
 
-    // ✅ Remove immutable/readonly fields (most important)
-    const payload = { ...(req.body || {}) };
-    delete payload._id;
-    delete payload.__v;
-    delete payload.createdAt;
-    delete payload.updatedAt;
+// ✅ UPDATE Admin Settings
+export const updateAdminSettings = asyncHandler(async (req, res) => {
+  const settings = await AdminSettings.findOneAndUpdate(
+    {},
+    { $set: req.body },
+    { new: true, upsert: true }
+  );
 
-    // ✅ safest update: assign + save (avoids _id update issues completely)
-    Object.assign(doc, payload);
-    await doc.save();
-
-    return res.json({ status: "success", data: doc });
-  } catch (err) {
-    console.error("updateAdminSettings error:", err);
-    return res
-      .status(500)
-      .json({ message: "Server error while saving settings" });
-  }
-};
+  return res.json(settings);
+});
