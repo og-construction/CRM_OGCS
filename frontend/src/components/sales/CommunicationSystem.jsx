@@ -13,7 +13,14 @@ import {
 import Card from "./Card";
 import axiosClient from "../../api/axiosClient";
 
-/* ================= DATA ================= */
+/**
+ * ✅ PROFESSIONAL UI (Restricted palette only)
+ * Allowed colors only:
+ * bg-slate-50, bg-white, bg-slate-100
+ * text-slate-900, text-slate-600, text-slate-400
+ * border-slate-200
+ * blue-600, green-600, red-500, orange-500
+ */
 
 const emptyEmail = {
   toEmail: "",
@@ -37,10 +44,10 @@ const templatesSeed = [
   },
 ];
 
-/* ================= COMPONENT ================= */
+const cn = (...a) => a.filter(Boolean).join(" ");
 
 export default function CommunicationSystem() {
-  const [tab, setTab] = useState("email");
+  const [tab, setTab] = useState("email"); // email | timeline | templates
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +86,7 @@ export default function CommunicationSystem() {
 
   const fetchLogs = async () => {
     try {
+      setMsg({ type: "", text: "" });
       setLoading(true);
       const res = await axiosClient.get("/communications/logs?limit=60");
       setLogs(res.data?.data || []);
@@ -132,7 +140,7 @@ export default function CommunicationSystem() {
     setMsg({ type: "", text: "" });
 
     if (!emailForm.toEmail || !emailForm.subject || !emailForm.message) {
-      setMsg({ type: "error", text: "All fields are required." });
+      setMsg({ type: "error", text: "To Email, Subject and Message are required." });
       return;
     }
 
@@ -156,17 +164,15 @@ export default function CommunicationSystem() {
   /* ================= UI ================= */
 
   return (
-    <div
-      className="space-y-4 animate-fadeIn"
-      style={{ background: "#EFF6FF", padding: 16, borderRadius: 16 }}
-    >
+    <div className="space-y-4 bg-slate-50 p-4 rounded-2xl">
       {/* ================= HEADER ================= */}
-      <div className="relative overflow-hidden rounded-3xl border bg-white shadow-sm">
-        <div className="h-1.5 bg-gradient-to-r from-red-700 via-yellow-400 to-blue-900 animate-pulse" />
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        {/* Top accent bar (allowed colors) */}
+        <div className="h-1 bg-blue-600" />
 
         <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900">
+          <div className="min-w-0">
+            <h1 className="text-xl font-extrabold text-slate-900 truncate">
               Communication System
             </h1>
             <p className="text-sm text-slate-600">
@@ -201,24 +207,24 @@ export default function CommunicationSystem() {
       </div>
 
       {/* ================= ALERT ================= */}
-      {msg.text && (
+      {msg.text ? (
         <div
-          className={`rounded-2xl border px-4 py-3 text-sm flex items-start gap-2 animate-slideDown ${
-            msg.type === "error"
-              ? "border-red-200 bg-red-50 text-red-700"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700"
-          }`}
+          className={cn(
+            "rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm flex items-start gap-2"
+          )}
         >
-          {msg.type === "error" ? <FiAlertTriangle /> : <FiCheckCircle />}
-          {msg.text}
+          <span className={cn("mt-0.5 shrink-0", msg.type === "error" ? "text-red-500" : "text-green-600")}>
+            {msg.type === "error" ? <FiAlertTriangle /> : <FiCheckCircle />}
+          </span>
+          <div className="text-slate-900 break-words">{msg.text}</div>
         </div>
-      )}
+      ) : null}
 
       {/* ================= EMAIL ================= */}
-      {tab === "email" && (
+      {tab === "email" ? (
         <div className="grid lg:grid-cols-5 gap-4">
           <div className="lg:col-span-3">
-            <Card title="Compose Email">
+            <Card title="Compose Email" tone="blue">
               <div className="grid md:grid-cols-2 gap-4">
                 <Input
                   label="To Email"
@@ -226,45 +232,55 @@ export default function CommunicationSystem() {
                   value={emailForm.toEmail}
                   onChange={handleEmailChange}
                   icon={<FiMail />}
+                  placeholder="customer@email.com"
                 />
                 <Input
                   label="Subject"
                   name="subject"
                   value={emailForm.subject}
                   onChange={handleEmailChange}
+                  placeholder="Subject"
                 />
                 <Input
                   label="Contact Name"
                   name="relatedTo.name"
                   value={emailForm.relatedTo.name}
                   onChange={handleEmailChange}
+                  placeholder="Customer Name"
                 />
                 <Input
                   label="Company"
                   name="relatedTo.company"
                   value={emailForm.relatedTo.company}
                   onChange={handleEmailChange}
+                  placeholder="Company Name"
                 />
               </div>
 
               <div className="mt-4">
-                <label className="text-sm font-semibold text-slate-700">
-                  Message
-                </label>
+                <label className="text-sm font-semibold text-slate-900">Message</label>
                 <textarea
                   rows={8}
                   name="message"
                   value={emailForm.message}
                   onChange={handleEmailChange}
-                  className="mt-1 w-full rounded-2xl border px-3 py-3 text-sm focus:ring-4 focus:ring-slate-100"
+                  placeholder="Write email message..."
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
                 />
+                <div className="mt-2 text-xs text-slate-600">
+                  Tip: Use template for faster writing.
+                </div>
               </div>
 
               <div className="mt-4 flex justify-end">
                 <button
+                  type="button"
                   onClick={sendEmail}
                   disabled={sending}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:scale-[1.02] transition"
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold border border-slate-200",
+                    "bg-blue-600 text-white disabled:opacity-60"
+                  )}
                 >
                   {sending ? "Sending..." : <FiSend />}
                   Send Email
@@ -274,16 +290,21 @@ export default function CommunicationSystem() {
           </div>
 
           <div className="lg:col-span-2">
-            <Card title="Quick Templates">
+            <Card
+              title="Quick Templates"
+              subtitle="Click to apply"
+              tone="orange"
+            >
               <div className="space-y-2">
                 {templates.map((t, i) => (
                   <button
                     key={i}
+                    type="button"
                     onClick={() => applyTemplate(t)}
-                    className="w-full text-left rounded-2xl border p-3 hover:bg-slate-50 transition hover:scale-[1.01]"
+                    className="w-full text-left rounded-2xl border border-slate-200 bg-white p-3 hover:bg-slate-50 transition"
                   >
-                    <div className="font-semibold">{t.title}</div>
-                    <div className="text-xs text-slate-600 mt-1 line-clamp-2">
+                    <div className="text-sm font-semibold text-slate-900">{t.title}</div>
+                    <div className="text-xs text-slate-600 mt-1 line-clamp-2 whitespace-pre-wrap">
                       {t.message}
                     </div>
                   </button>
@@ -292,11 +313,11 @@ export default function CommunicationSystem() {
             </Card>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* ================= TIMELINE ================= */}
-      {tab === "timeline" && (
-        <Card title="Communication Timeline">
+      {tab === "timeline" ? (
+        <Card title="Communication Timeline" subtitle="Latest activity" tone="green">
           <div className="flex flex-col md:flex-row gap-2 mb-3">
             <div className="relative w-full md:w-96">
               <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -304,97 +325,100 @@ export default function CommunicationSystem() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search logs..."
-                className="w-full rounded-2xl border px-10 py-2.5 text-sm"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-2.5 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
               />
             </div>
+
             <button
+              type="button"
               onClick={fetchLogs}
-              className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
             >
-              <FiRefreshCcw />
+              <FiRefreshCcw className={loading ? "animate-spin" : ""} />
               Refresh
             </button>
           </div>
 
           {loading ? (
             <TimelineSkeleton />
+          ) : filteredLogs.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+              No logs found.
+            </div>
           ) : (
             <div className="space-y-3">
               {filteredLogs.map((l) => (
                 <div
                   key={l._id}
-                  className="rounded-3xl border bg-white p-4 shadow-sm animate-fadeIn"
+                  className="rounded-2xl border border-slate-200 bg-white p-4"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <Badge type={l.status}>{l.status}</Badge>
-                      <div className="text-sm font-semibold mt-1">
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                      <Badge type={l.status}>{l.status || "status"}</Badge>
+                      <div className="text-sm font-semibold text-slate-900 mt-1 truncate">
                         {l.subject || "No Subject"}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-600 mt-1">
                         {new Date(l.createdAt).toLocaleString()}
                       </div>
+                      {(l?.relatedTo?.name || l?.relatedTo?.company) ? (
+                        <div className="text-xs text-slate-400 mt-1 truncate">
+                          {l?.relatedTo?.name ? `Name: ${l.relatedTo.name}` : ""}
+                          {l?.relatedTo?.name && l?.relatedTo?.company ? " • " : ""}
+                          {l?.relatedTo?.company ? `Company: ${l.relatedTo.company}` : ""}
+                        </div>
+                      ) : null}
                     </div>
 
                     <button
-                      onClick={() =>
-                        navigator.clipboard.writeText(l.message || "")
-                      }
-                      className="text-xs flex items-center gap-1 border px-2 py-1 rounded-full"
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(l.message || "")}
+                      className="text-xs font-semibold flex items-center gap-1 border border-slate-200 bg-white px-2.5 py-1.5 rounded-2xl text-slate-900 hover:bg-slate-50"
+                      title="Copy message"
                     >
                       <FiCopy /> Copy
                     </button>
                   </div>
 
-                  {l.message && (
-                    <div className="mt-3 bg-slate-50 rounded-2xl p-3 text-sm">
+                  {l.message ? (
+                    <div className="mt-3 bg-slate-50 rounded-2xl p-3 text-sm text-slate-900 whitespace-pre-wrap">
                       {l.message}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>
           )}
         </Card>
-      )}
+      ) : null}
 
       {/* ================= TEMPLATES ================= */}
-      {tab === "templates" && (
-        <Card title="Templates">
+      {tab === "templates" ? (
+        <Card title="Templates" subtitle="Saved templates" tone="orange">
           <div className="grid md:grid-cols-2 gap-4">
             {templates.map((t, i) => (
-              <div
-                key={i}
-                className="rounded-3xl border p-4 bg-white shadow-sm hover:shadow-md transition"
-              >
-                <div className="font-bold">{t.title}</div>
-                <div className="text-xs text-slate-600 mt-1">
-                  {t.subject}
-                </div>
-                <div className="mt-2 text-sm bg-slate-50 rounded-2xl p-3">
+              <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="text-sm font-bold text-slate-900">{t.title}</div>
+                <div className="text-xs text-slate-600 mt-1">{t.subject}</div>
+                <div className="mt-2 text-sm bg-slate-50 rounded-2xl p-3 text-slate-900 whitespace-pre-wrap">
                   {t.message}
+                </div>
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => applyTemplate(t)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  >
+                    <FiSend />
+                    Use
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </Card>
-      )}
-
-      {/* ================= ANIMATIONS ================= */}
-      <style>
-        {`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-8px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-fadeIn { animation: fadeIn .3s ease-out; }
-          .animate-slideDown { animation: slideDown .25s ease-out; }
-        `}
-      </style>
+      ) : null}
     </div>
   );
 }
@@ -404,15 +428,15 @@ export default function CommunicationSystem() {
 function TabButton({ active, onClick, icon, children }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold transition ${
-        active
-          ? "bg-slate-900 text-white"
-          : "border bg-white hover:bg-slate-50"
-      }`}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-semibold border border-slate-200",
+        active ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
+      )}
     >
-      {icon}
-      {children}
+      <span className="text-slate-400">{icon}</span>
+      <span className={active ? "text-white" : "text-slate-900"}>{children}</span>
     </button>
   );
 }
@@ -420,33 +444,38 @@ function TabButton({ active, onClick, icon, children }) {
 function Input({ label, icon, ...props }) {
   return (
     <div>
-      <label className="text-sm font-semibold">{label}</label>
+      <label className="text-sm font-semibold text-slate-900">{label}</label>
       <div className="relative mt-1">
-        {icon && (
+        {icon ? (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
             {icon}
           </span>
-        )}
+        ) : null}
         <input
           {...props}
-          className={`w-full rounded-2xl border px-3 py-2.5 text-sm ${
+          className={cn(
+            "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none",
+            "focus:ring-4 focus:ring-slate-100",
             icon ? "pl-10" : ""
-          }`}
+          )}
         />
       </div>
+      <div className="mt-1 text-xs text-slate-400"> </div>
     </div>
   );
 }
 
 function Badge({ type, children }) {
+  // Use only allowed accent colors
   const cls =
     type === "sent"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      ? "border-slate-200 bg-slate-50 text-green-600"
       : type === "failed"
-      ? "bg-red-50 text-red-700 border-red-200"
-      : "bg-slate-50 text-slate-700 border-slate-200";
+      ? "border-slate-200 bg-slate-50 text-red-500"
+      : "border-slate-200 bg-slate-50 text-orange-500";
+
   return (
-    <span className={`inline-block border px-2 py-0.5 rounded-full text-xs ${cls}`}>
+    <span className={cn("inline-flex items-center border px-2.5 py-1 rounded-2xl text-xs font-semibold", cls)}>
       {children}
     </span>
   );
@@ -456,10 +485,7 @@ function TimelineSkeleton() {
   return (
     <div className="space-y-2">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-24 rounded-3xl bg-slate-100 animate-pulse"
-        />
+        <div key={i} className="h-24 rounded-2xl bg-slate-100 animate-pulse border border-slate-200" />
       ))}
     </div>
   );

@@ -12,6 +12,14 @@ import {
   FiX,
 } from "react-icons/fi";
 
+/**
+ * ✅ Restricted palette ONLY:
+ * bg-slate-50, bg-white, bg-slate-100
+ * text-slate-900, text-slate-600, text-slate-400
+ * border-slate-200
+ * blue-600, green-600, red-500, orange-500
+ */
+
 const empty = {
   title: "",
   description: "",
@@ -37,8 +45,10 @@ const cn = (...a) => a.filter(Boolean).join(" ");
 export default function Notification() {
   const [form, setForm] = useState(empty);
   const [items, setItems] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
   const [error, setError] = useState("");
   const [toast, setToast] = useState({ show: false, type: "info", msg: "" });
 
@@ -50,7 +60,10 @@ export default function Notification() {
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast({ show: false, type: "info", msg: "" }), 2200);
+    showToast._t = window.setTimeout(
+      () => setToast({ show: false, type: "info", msg: "" }),
+      2200
+    );
   };
 
   const loadNotifications = async () => {
@@ -78,6 +91,7 @@ export default function Notification() {
 
     if (!form.title.trim() || !form.description.trim() || !form.notifyDate) {
       setError("Please fill Title, Description and Date");
+      showToast("error", "Please fill all required fields");
       return;
     }
 
@@ -148,45 +162,43 @@ export default function Notification() {
   }, [items, tab, search]);
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
         {/* Top banner */}
-        <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-sm">
-          <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-blue-200/40 blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-indigo-200/40 blur-3xl" />
-
-          <div className="relative p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="h-1 bg-blue-600" />
+          <div className="p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="mt-0.5 w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center">
                 <FiBell className="text-xl" />
               </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-slate-900">Notifications</h2>
+              <div className="min-w-0">
+                <h2 className="text-xl md:text-2xl font-extrabold text-slate-900">
+                  Notifications
+                </h2>
                 <p className="text-sm text-slate-600 mt-1">
                   Create, manage and track updates for your CRM users.
                 </p>
 
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <StatPill label="Total" value={stats.total} />
+                  <StatPill label="Total" value={stats.total} accent="slate" />
                   <StatPill label="Unread" value={stats.unread} accent="blue" />
-                  <StatPill label="Read" value={stats.read} accent="slate" />
+                  <StatPill label="Read" value={stats.read} accent="green" />
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3">
-              <button
-                onClick={loadNotifications}
-                disabled={loading}
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 rounded-2xl border text-sm font-semibold",
-                  "border-slate-200 bg-white hover:bg-slate-50 shadow-sm disabled:opacity-60"
-                )}
-              >
-                <FiRefreshCw className={loading ? "animate-spin" : ""} />
-                {loading ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
+            <button
+              onClick={loadNotifications}
+              disabled={loading}
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2 rounded-2xl border border-slate-200",
+                "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              )}
+            >
+              <FiRefreshCw className={loading ? "animate-spin" : ""} />
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
           </div>
         </div>
 
@@ -194,10 +206,12 @@ export default function Notification() {
         <div className="grid lg:grid-cols-12 gap-5 mt-5">
           {/* Left: Form */}
           <div className="lg:col-span-5">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-200">
-                <h3 className="font-bold text-slate-900">Create Notification</h3>
-                <p className="text-sm text-slate-600 mt-1">Fill details and publish to your list.</p>
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 bg-white">
+                <h3 className="font-extrabold text-slate-900">Create Notification</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Fill details and publish to your list.
+                </p>
               </div>
 
               <form onSubmit={createNotification} className="p-5">
@@ -223,9 +237,9 @@ export default function Notification() {
                     </Field>
 
                     <Field label="Day">
-                      <div className="h-[42px] flex items-center justify-between px-4 rounded-2xl border border-slate-200 bg-slate-50 text-slate-800">
-                        <span className="text-sm font-semibold">{day || "—"}</span>
-                        <span className="text-xs text-slate-500">Auto</span>
+                      <div className="h-[42px] flex items-center justify-between px-4 rounded-2xl border border-slate-200 bg-slate-50">
+                        <span className="text-sm font-semibold text-slate-900">{day || "—"}</span>
+                        <span className="text-xs text-slate-400">Auto</span>
                       </div>
                     </Field>
                   </div>
@@ -239,15 +253,16 @@ export default function Notification() {
                       placeholder="Write details…"
                       maxLength={2000}
                     />
-                    <div className="mt-1 text-xs text-slate-500 flex justify-between">
-                      <span>Keep it clear and actionable.</span>
-                      <span>{(form.description || "").length}/2000</span>
+                    <div className="mt-1 text-xs text-slate-600 flex justify-between">
+                      <span className="text-slate-400">Keep it clear and actionable.</span>
+                      <span className="text-slate-600">{(form.description || "").length}/2000</span>
                     </div>
                   </Field>
 
                   {error ? (
-                    <div className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-                      {error}
+                    <div className="text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
+                      <span className="text-red-500 font-semibold">Error:</span>{" "}
+                      <span className="text-slate-900">{error}</span>
                     </div>
                   ) : null}
 
@@ -256,15 +271,15 @@ export default function Notification() {
                     disabled={saving}
                     className={cn(
                       "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl",
-                      "bg-blue-600 text-white font-semibold shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                      "bg-blue-600 text-white font-semibold disabled:opacity-60"
                     )}
                   >
                     <FiPlus />
                     {saving ? "Publishing..." : "Publish Notification"}
                   </button>
 
-                  <div className="text-xs text-slate-500">
-                    Note: “Day” is calculated automatically in backend.
+                  <div className="text-xs text-slate-400">
+                    Note: “Day” is calculated automatically.
                   </div>
                 </div>
               </form>
@@ -273,14 +288,14 @@ export default function Notification() {
 
           {/* Right: List */}
           <div className="lg:col-span-7">
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               {/* Toolbar */}
-              <div className="px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white">
                 <div>
-                  <h3 className="font-bold text-slate-900">All Notifications</h3>
+                  <h3 className="font-extrabold text-slate-900">All Notifications</h3>
                   <p className="text-sm text-slate-600 mt-1">
-                    Showing <span className="font-semibold text-slate-900">{filtered.length}</span>{" "}
-                    items
+                    Showing{" "}
+                    <span className="font-semibold text-slate-900">{filtered.length}</span> items
                   </p>
                 </div>
 
@@ -297,7 +312,7 @@ export default function Notification() {
                       <button
                         type="button"
                         onClick={() => setSearch("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                         title="Clear"
                       >
                         <FiX />
@@ -321,33 +336,31 @@ export default function Notification() {
 
               {/* List */}
               {filtered.length === 0 ? (
-                <div className="p-8 text-center">
+                <div className="p-8 text-center bg-white">
                   <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
                     <FiBell />
                   </div>
-                  <p className="mt-3 font-semibold text-slate-800">No notifications found</p>
+                  <p className="mt-3 font-semibold text-slate-900">No notifications found</p>
                   <p className="text-sm text-slate-600 mt-1">
                     Create a notification from the left panel.
                   </p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-200">
                   {filtered.map((n) => (
                     <div
                       key={n._id}
                       className={cn(
                         "p-5 group transition",
-                        !n.isRead ? "bg-blue-50/40" : "bg-white"
+                        !n.isRead ? "bg-slate-50" : "bg-white"
                       )}
                     >
                       <div className="flex gap-3">
                         <div className="mt-1">
                           <div
                             className={cn(
-                              "w-10 h-10 rounded-2xl flex items-center justify-center border shadow-sm",
-                              !n.isRead
-                                ? "bg-white border-blue-200 text-blue-700"
-                                : "bg-white border-slate-200 text-slate-500"
+                              "w-10 h-10 rounded-2xl flex items-center justify-center border border-slate-200 bg-white",
+                              !n.isRead ? "text-blue-600" : "text-green-600"
                             )}
                             title={!n.isRead ? "Unread" : "Read"}
                           >
@@ -359,7 +372,7 @@ export default function Notification() {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-slate-900 truncate max-w-[520px]">
+                                <h4 className="font-extrabold text-slate-900 truncate max-w-[520px]">
                                   {n.title}
                                 </h4>
 
@@ -378,7 +391,7 @@ export default function Notification() {
                                 </span>
                               </div>
 
-                              <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap leading-relaxed">
+                              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed">
                                 {n.description}
                               </p>
                             </div>
@@ -387,8 +400,8 @@ export default function Notification() {
                               <button
                                 onClick={() => toggleRead(n._id, n.isRead)}
                                 className={cn(
-                                  "px-3 py-2 rounded-2xl text-sm font-semibold border shadow-sm",
-                                  "border-slate-200 bg-white hover:bg-slate-50"
+                                  "px-3 py-2 rounded-2xl text-sm font-semibold border border-slate-200",
+                                  "bg-white text-slate-600 hover:bg-slate-50"
                                 )}
                                 title={n.isRead ? "Mark unread" : "Mark read"}
                               >
@@ -398,8 +411,8 @@ export default function Notification() {
                               <button
                                 onClick={() => deleteOne(n._id)}
                                 className={cn(
-                                  "px-3 py-2 rounded-2xl text-sm font-semibold border shadow-sm",
-                                  "border-red-200 bg-white hover:bg-red-50 text-red-700"
+                                  "px-3 py-2 rounded-2xl text-sm font-semibold border border-slate-200",
+                                  "bg-white text-red-500 hover:bg-slate-50"
                                 )}
                                 title="Delete"
                               >
@@ -414,13 +427,13 @@ export default function Notification() {
                       <div className="mt-4 flex md:hidden gap-2">
                         <button
                           onClick={() => toggleRead(n._id, n.isRead)}
-                          className="flex-1 px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold"
+                          className="flex-1 px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
                         >
                           {n.isRead ? "Mark Unread" : "Mark Read"}
                         </button>
                         <button
                           onClick={() => deleteOne(n._id)}
-                          className="px-3 py-2 rounded-2xl border border-red-200 bg-white hover:bg-red-50 text-red-700"
+                          className="px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-red-500"
                         >
                           <FiTrash2 />
                         </button>
@@ -431,8 +444,7 @@ export default function Notification() {
               )}
             </div>
 
-            {/* Footer note */}
-            <div className="text-xs text-slate-500 mt-3">
+            <div className="text-xs text-slate-400 mt-3">
               Tip: Use “Unread” tab to quickly find new updates for your team.
             </div>
           </div>
@@ -443,10 +455,10 @@ export default function Notification() {
           <div className="fixed bottom-5 right-5 z-50">
             <div
               className={cn(
-                "px-4 py-3 rounded-2xl shadow-lg border text-sm font-semibold",
-                toast.type === "success" && "bg-emerald-50 border-emerald-200 text-emerald-800",
-                toast.type === "error" && "bg-red-50 border-red-200 text-red-800",
-                toast.type === "info" && "bg-slate-50 border-slate-200 text-slate-800"
+                "px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white",
+                toast.type === "success" && "text-green-600",
+                toast.type === "error" && "text-red-500",
+                toast.type === "info" && "text-slate-600"
               )}
             >
               {toast.msg}
@@ -462,12 +474,12 @@ export default function Notification() {
 
 const inputClass =
   "w-full px-4 py-2.5 rounded-2xl border border-slate-200 bg-white outline-none " +
-  "focus:ring-2 focus:ring-blue-200 focus:border-blue-300 transition placeholder:text-slate-400";
+  "text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-slate-100 transition";
 
 function Field({ label, children }) {
   return (
     <div>
-      <label className="text-sm font-semibold text-slate-700">{label}</label>
+      <label className="text-sm font-semibold text-slate-900">{label}</label>
       <div className="mt-1.5">{children}</div>
     </div>
   );
@@ -477,9 +489,9 @@ function StatPill({ label, value, accent = "blue" }) {
   const cls =
     accent === "blue"
       ? "bg-blue-600 text-white"
-      : accent === "slate"
-      ? "bg-slate-900 text-white"
-      : "bg-slate-100 text-slate-800";
+      : accent === "green"
+      ? "bg-green-600 text-white"
+      : "bg-slate-100 text-slate-900 border border-slate-200";
 
   return (
     <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold", cls)}>
@@ -496,7 +508,9 @@ function TabButton({ active, onClick, children }) {
       onClick={onClick}
       className={cn(
         "px-3 py-2 rounded-2xl text-sm font-semibold transition",
-        active ? "bg-white border border-slate-200 shadow-sm" : "text-slate-600 hover:text-slate-900"
+        active
+          ? "bg-white border border-slate-200 text-slate-900"
+          : "text-slate-600 hover:text-slate-900"
       )}
     >
       {children}

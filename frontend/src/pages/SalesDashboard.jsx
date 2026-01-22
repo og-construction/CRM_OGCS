@@ -14,6 +14,7 @@ import ContactsCompanies from "../components/sales/ContactsCompanies";
 import TeamManagement from "../components/sales/TeamManagement";
 import CommunicationSystem from "../components/sales/CommunicationSystem";
 import SidebarButton from "../components/sales/SidebarButton";
+import VisitingPlaced from "../components/sales/VisitingPlaced";
 
 // ✅ FIXED PATHS
 import Notifications from "../components/sales/Notification.jsx";
@@ -72,62 +73,15 @@ const SalesDashboard = () => {
 
   const tabs = useMemo(
     () => [
-      {
-        id: "leads",
-        label: "Leads",
-        full: "Lead Management",
-        icon: <FiTrendingUp />,
-        tone: "emerald",
-      },
-      {
-        id: "followups",
-        label: "Follow-Ups",
-        full: "Follow-Up System",
-        icon: <FiClock />,
-        tone: "amber",
-      },
-      {
-        id: "quotes",
-        label: "Quotes",
-        full: "Quotation / Invoice",
-        icon: <FiFileText />,
-        tone: "indigo",
-      },
-      {
-        id: "contacts",
-        label: "Contacts",
-        full: "Contacts & Companies",
-        icon: <FiUsers />,
-        tone: "sky",
-      },
-      {
-        id: "team",
-        label: "Team",
-        full: "Upload Daily Report",
-        icon: <FiShield />,
-        tone: "slate",
-      },
-      {
-        id: "communication",
-        label: "Comm",
-        full: "Communication System",
-        icon: <FiMessageCircle />,
-        tone: "fuchsia",
-      },
-      {
-        id: "notifications",
-        label: "Notify",
-        full: "Notifications",
-        icon: <FiBell />,
-        tone: "rose",
-      },
-      {
-        id: "reports",
-        label: "Reports",
-        full: "Reports Dashboard",
-        icon: <FiBarChart2 />,
-        tone: "violet",
-      },
+      { id: "leads", label: "Leads", full: "Lead Management", icon: <FiTrendingUp /> },
+      {id: "visitingplaced", label: "Visiting Placed", full: "Visiting Placed", icon: <FiHome />},
+      { id: "followups", label: "Follow-Ups", full: "Follow-Up System", icon: <FiClock /> },
+      { id: "quotes", label: "Quotes", full: "Quotation / Invoice", icon: <FiFileText /> },
+      { id: "contacts", label: "Contacts", full: "Contacts & Companies", icon: <FiUsers /> },
+      { id: "team", label: "Team", full: "Upload Daily Report", icon: <FiShield /> },
+      { id: "communication", label: "Comm", full: "Communication System", icon: <FiMessageCircle /> },
+      { id: "notifications", label: "Notify", full: "Notifications", icon: <FiBell /> },
+      { id: "reports", label: "Reports", full: "Reports Dashboard", icon: <FiBarChart2 /> },
     ],
     []
   );
@@ -143,18 +97,14 @@ const SalesDashboard = () => {
     return (a + b).toUpperCase();
   }, [user?.name]);
 
+  // ✅ UI-only: badge color mapping (allowed colors only)
   const trackingBadge = useMemo(() => {
-    if (!trackingEnabled)
-      return { text: "OFF", cls: "bg-slate-100 text-slate-700 border-slate-200" };
-    if (status === "running")
-      return { text: "ON", cls: "bg-emerald-50 text-emerald-800 border-emerald-200" };
-    if (status === "denied")
-      return { text: "DENIED", cls: "bg-amber-50 text-amber-800 border-amber-200" };
-    if (status === "error")
-      return { text: "ERROR", cls: "bg-red-50 text-red-800 border-red-200" };
-    if (status === "waiting")
-      return { text: "WAITING", cls: "bg-sky-50 text-sky-800 border-sky-200" };
-    return { text: "STARTING", cls: "bg-sky-50 text-sky-800 border-sky-200" };
+    if (!trackingEnabled) return { text: "OFF", dot: "bg-slate-400" };
+    if (status === "running") return { text: "ON", dot: "bg-green-600" };
+    if (status === "denied") return { text: "DENIED", dot: "bg-orange-500" };
+    if (status === "error") return { text: "ERROR", dot: "bg-red-500" };
+    if (status === "waiting") return { text: "WAITING", dot: "bg-blue-600" };
+    return { text: "STARTING", dot: "bg-blue-600" };
   }, [status, trackingEnabled]);
 
   // close mobile drawer on tab change
@@ -175,114 +125,73 @@ const SalesDashboard = () => {
     exit: { x: "-100%", transition: { duration: 0.2 } },
   };
 
-  const tone = useMemo(() => {
-    const t = activeTab?.tone || "slate";
-    const map = {
-      emerald: {
-        chip: "bg-emerald-50 text-emerald-800 border-emerald-200",
-        ring: "focus:ring-emerald-200",
-      },
-      amber: {
-        chip: "bg-amber-50 text-amber-800 border-amber-200",
-        ring: "focus:ring-amber-200",
-      },
-      indigo: {
-        chip: "bg-indigo-50 text-indigo-800 border-indigo-200",
-        ring: "focus:ring-indigo-200",
-      },
-      sky: {
-        chip: "bg-sky-50 text-sky-800 border-sky-200",
-        ring: "focus:ring-sky-200",
-      },
-      slate: {
-        chip: "bg-slate-100 text-slate-700 border-slate-200",
-        ring: "focus:ring-slate-200",
-      },
-      fuchsia: {
-        chip: "bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200",
-        ring: "focus:ring-fuchsia-200",
-      },
-      rose: {
-        chip: "bg-rose-50 text-rose-800 border-rose-200",
-        ring: "focus:ring-rose-200",
-      },
-      violet: {
-        chip: "bg-violet-50 text-violet-800 border-violet-200",
-        ring: "focus:ring-violet-200",
-      },
-    };
-    return map[t] || map.slate;
-  }, [activeTab?.tone]);
-
   return (
-    <div className="min-h-screen bg-[#EFF6FF]">
+    <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen">
         {/* ===================== Sidebar (Desktop) ===================== */}
-        <aside className="hidden md:flex w-72 bg-white/90 backdrop-blur border-r border-slate-200 flex-col">
+        <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 flex-col">
           {/* Brand */}
-          <div className="px-5 py-5 border-b border-slate-100">
+          <div className="px-5 py-5 border-b border-slate-200">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                  <div className="h-9 w-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-extrabold">
                     <FiHome />
                   </div>
                   <div className="min-w-0">
                     <h1 className="text-lg font-extrabold text-slate-900 leading-tight">
                       OGCS CRM
                     </h1>
-                    <p className="text-xs text-slate-500">Sales Executive Panel</p>
+                    <p className="text-xs text-slate-400">Sales Executive Panel</p>
                   </div>
                 </div>
               </div>
-              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">
+
+              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
                 Sales
               </span>
             </div>
 
             {/* User Card */}
-            <div className="mt-4 rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-3 shadow-sm">
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                <div className="h-11 w-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-extrabold">
                   {initials}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-extrabold text-slate-900 truncate">
                     {user?.name || "Sales Executive"}
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                  <div className="text-[11px] text-slate-400 truncate flex items-center gap-1">
                     <FiMail className="shrink-0" />
                     <span className="truncate">{user?.email || "-"}</span>
                   </div>
 
                   {/* Tracking */}
                   <div className="mt-2 flex items-center gap-2">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold",
-                        trackingBadge.cls
-                      )}
-                    >
-                      <FiMapPin />
+                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900">
+                      <FiMapPin className="text-slate-600" />
                       TRACK {trackingBadge.text}
+                      <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
                     </span>
+
                     <button
                       onClick={sendLocationOnce}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition"
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.98] transition"
                       title="Send location now"
                       type="button"
                     >
-                      <FiRefreshCw />
+                      <FiRefreshCw className="text-slate-600" />
                       Ping
                     </button>
                   </div>
 
-                  <div className="mt-1 text-[10px] text-slate-500 truncate">
+                  <div className="mt-1 text-[10px] text-slate-400 truncate">
                     Last: {lastPingAt ? lastPingAt.toLocaleString() : "-"}
                   </div>
 
                   {lastError ? (
-                    <div className="mt-1 text-[10px] text-red-600">{lastError}</div>
+                    <div className="mt-1 text-[10px] text-red-500">{lastError}</div>
                   ) : null}
                 </div>
               </div>
@@ -302,17 +211,18 @@ const SalesDashboard = () => {
           </nav>
 
           {/* Logout */}
-          <div className="px-5 py-4 border-t border-slate-100">
+          <div className="px-5 py-4 border-t border-slate-200">
             <button
               onClick={handleLogout}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white py-2 text-xs font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99] transition"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99] transition"
               type="button"
             >
-              <FiLogOut />
+              <FiLogOut className="text-red-500" />
               Logout
             </button>
-            <div className="mt-3 text-[11px] text-slate-500">
-              <span className="font-semibold text-slate-700">Section:</span> {activeTitle}
+            <div className="mt-3 text-[11px] text-slate-400">
+              <span className="font-semibold text-slate-600">Section:</span>{" "}
+              <span className="text-slate-900">{activeTitle}</span>
             </div>
           </div>
         </aside>
@@ -335,54 +245,60 @@ const SalesDashboard = () => {
                 animate="show"
                 exit="exit"
               >
-                <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-9 w-9 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                    <div className="h-9 w-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-extrabold">
                       <FiHome />
                     </div>
                     <div>
                       <div className="text-sm font-extrabold text-slate-900">OGCS CRM</div>
-                      <div className="text-[11px] text-slate-500">Sales Panel</div>
+                      <div className="text-[11px] text-slate-400">Sales Panel</div>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setMobileOpen(false)}
-                    className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center"
+                    className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50"
                     aria-label="Close"
                   >
-                    <FiX />
+                    <FiX className="text-slate-900" />
                   </button>
                 </div>
 
-                <div className="px-4 py-4 border-b border-slate-100">
+                <div className="px-4 py-4 border-b border-slate-200">
                   <div className="flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold">
+                    <div className="h-11 w-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-extrabold">
                       {initials}
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-extrabold text-slate-900 truncate">
                         {user?.name || "Sales Executive"}
                       </div>
-                      <div className="text-[11px] text-slate-500 truncate flex items-center gap-1">
+                      <div className="text-[11px] text-slate-400 truncate flex items-center gap-1">
                         <FiMail className="shrink-0" />
                         <span className="truncate">{user?.email || "-"}</span>
                       </div>
+
                       <div className="mt-2 flex items-center gap-2">
-                        <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold", trackingBadge.cls)}>
-                          <FiMapPin />
+                        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900">
+                          <FiMapPin className="text-slate-600" />
                           {trackingBadge.text}
+                          <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
                         </span>
+
                         <button
                           onClick={sendLocationOnce}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-700 hover:bg-slate-50"
+                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-900 hover:bg-slate-50"
                           type="button"
                         >
-                          <FiRefreshCw />
+                          <FiRefreshCw className="text-slate-600" />
                           Ping
                         </button>
                       </div>
-                      {lastError ? <div className="mt-1 text-[10px] text-red-600">{lastError}</div> : null}
+
+                      {lastError ? (
+                        <div className="mt-1 text-[10px] text-red-500">{lastError}</div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -396,8 +312,8 @@ const SalesDashboard = () => {
                       className={cn(
                         "w-full text-left px-4 py-3 rounded-2xl border transition flex items-center justify-between",
                         active === t.id
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-white border-slate-200 hover:bg-slate-50 text-slate-800"
+                          ? "bg-blue-600 text-white border-slate-200"
+                          : "bg-white border-slate-200 hover:bg-slate-50 text-slate-900"
                       )}
                     >
                       <span className="flex items-center gap-2 font-semibold">
@@ -408,13 +324,13 @@ const SalesDashboard = () => {
                   ))}
                 </nav>
 
-                <div className="px-4 py-4 border-t border-slate-100">
+                <div className="px-4 py-4 border-t border-slate-200">
                   <button
                     onClick={handleLogout}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white py-2.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white py-2.5 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                     type="button"
                   >
-                    <FiLogOut />
+                    <FiLogOut className="text-red-500" />
                     Logout
                   </button>
                 </div>
@@ -426,9 +342,9 @@ const SalesDashboard = () => {
         {/* ===================== Main Area ===================== */}
         <main className="flex-1 flex flex-col min-w-0">
           {/* ===================== Top Header ===================== */}
-          <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-slate-200">
-            {/* OGCS Brand Strip */}
-            <div className="h-1 w-full bg-gradient-to-r from-[#8B0000] via-[#F4D03F] to-[#00204E]" />
+          <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+            {/* Brand Strip (allowed colors only) */}
+            <div className="h-1 w-full bg-blue-600" />
 
             <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3">
               {/* Left */}
@@ -440,7 +356,7 @@ const SalesDashboard = () => {
                   className="md:hidden h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
                   aria-label="Open menu"
                 >
-                  <FiMenu />
+                  <FiMenu className="text-slate-900" />
                 </button>
 
                 <div className="min-w-0">
@@ -448,7 +364,7 @@ const SalesDashboard = () => {
                     <span
                       className={cn(
                         "inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200",
-                        "bg-gradient-to-br from-white to-slate-50 text-slate-900 shadow-sm"
+                        "bg-slate-50 text-slate-900"
                       )}
                       title={activeTitle}
                     >
@@ -460,13 +376,13 @@ const SalesDashboard = () => {
                         OGCS CRM – Sales Dashboard
                       </h1>
 
-                      <p className="text-xs text-slate-500 truncate flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                      <p className="text-xs text-slate-400 truncate flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 font-semibold text-slate-600">
                           <FiUser />
                           {user?.name || "Sales Executive"}
                         </span>
                         {user?.email ? (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 text-slate-400">
                             <FiChevronRight className="text-slate-400" />
                             {user.email}
                           </span>
@@ -477,29 +393,29 @@ const SalesDashboard = () => {
 
                   {/* Tracking row */}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-extrabold", trackingBadge.cls)}>
-                      <FiMapPin />
+                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-extrabold text-slate-900">
+                      <FiMapPin className="text-slate-600" />
                       Tracking: {trackingBadge.text}
+                      <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
                     </span>
 
-                    <span className="text-[11px] text-slate-500">
+                    <span className="text-[11px] text-slate-400">
                       Last: {lastPingAt ? lastPingAt.toLocaleString() : "-"}
                     </span>
 
                     <button
                       onClick={sendLocationOnce}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition",
-                        tone.ring
+                        "inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.98] transition"
                       )}
                       type="button"
                     >
-                      <FiRefreshCw />
+                      <FiRefreshCw className="text-slate-600" />
                       Send Now
                     </button>
 
                     {lastError ? (
-                      <span className="text-[11px] text-red-600">{lastError}</span>
+                      <span className="text-[11px] text-red-500">{lastError}</span>
                     ) : null}
                   </div>
                 </div>
@@ -513,9 +429,8 @@ const SalesDashboard = () => {
                     value={active}
                     onChange={(e) => setActive(e.target.value)}
                     className={cn(
-                      "px-3 py-2 rounded-2xl border border-slate-200 bg-white text-xs font-bold",
-                      "outline-none focus:ring-2",
-                      tone.ring
+                      "px-3 py-2 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-slate-900",
+                      "outline-none focus:ring-4 focus:ring-blue-600/10"
                     )}
                   >
                     {tabs.map((t) => (
@@ -526,37 +441,37 @@ const SalesDashboard = () => {
                   </select>
                 </div>
 
-                {/* Quick Buttons */}
+                {/* Quick Buttons (desktop) */}
                 <button
                   onClick={() => setActive("notifications")}
-                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-pink-50 px-3 py-2 text-xs font-extrabold text-rose-700 shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] transition"
+                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-900 hover:bg-slate-100 active:scale-[0.98] transition"
                   title="Open notifications"
                   type="button"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-rose-200 text-rose-700 group-hover:rotate-6 transition">
-                    <FiBell />
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-900 group-hover:rotate-6 transition">
+                    <FiBell className="text-orange-500" />
                   </span>
                   Notifications
                 </button>
 
                 <button
                   onClick={() => setActive("reports")}
-                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50 to-indigo-50 px-3 py-2 text-xs font-extrabold text-violet-700 shadow-sm hover:shadow-md hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98] transition"
+                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-900 hover:bg-slate-100 active:scale-[0.98] transition"
                   title="Open reports"
                   type="button"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-violet-200 text-violet-700 group-hover:-rotate-6 transition">
-                    <FiBarChart2 />
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-900 group-hover:-rotate-6 transition">
+                    <FiBarChart2 className="text-blue-600" />
                   </span>
                   Reports
                 </button>
 
                 <button
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 active:scale-[0.99] transition"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99] transition"
                   type="button"
                 >
-                  <FiLogOut />
+                  <FiLogOut className="text-red-500" />
                   Logout
                 </button>
               </div>
@@ -569,12 +484,12 @@ const SalesDashboard = () => {
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22 }}
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-extrabold shadow-sm bg-white"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-extrabold bg-white"
               >
-                <span className={cn("rounded-full border px-2 py-1", tone.chip)}>
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-slate-900">
                   {activeTitle}
                 </span>
-                <span className="text-slate-500 hidden sm:inline-flex items-center gap-1">
+                <span className="text-slate-400 hidden sm:inline-flex items-center gap-1">
                   <FiChevronDown />
                   Switch from sidebar
                 </span>
@@ -583,13 +498,21 @@ const SalesDashboard = () => {
           </header>
 
           {/* ===================== Section Content ===================== */}
-          <section className="flex-1 p-4 md:p-6 min-w-0">
+          <section className="flex-1 p-3 sm:p-4 md:p-6 min-w-0">
             <div className="mx-auto w-full max-w-[1200px]">
               {/* Subtle animated container */}
               <motion.div variants={fadeUp} initial="hidden" animate="show">
                 <SectionWrapper show={active === "leads"}>
                   <LeadManagement />
                 </SectionWrapper>
+
+                 <SectionWrapper show={active === "visitingplaced"}>
+                  <VisitingPlaced />
+                </SectionWrapper>   
+                  
+                  
+
+
 
                 <SectionWrapper show={active === "followups"}>
                   <FollowUpSystem />

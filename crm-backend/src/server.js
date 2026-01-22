@@ -16,6 +16,7 @@ import quoteRoutes from "./routes/quoteRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import visitingPlaceRoutes from "./routes/visitingPlaceRoutes.js";
 
   
 
@@ -36,6 +37,7 @@ app.use(express.json());
 // serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+
 app.get("/", (req, res) => {
   res.send("OGCS CRM API running ✅");
 });
@@ -49,6 +51,7 @@ app.use("/api/quotes", quoteRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/daily-reports", dailyReportRoutes);
+app.use("/api/visiting-places", visitingPlaceRoutes);
 
 //Admin
 app.use("/api/admin", adminRoutes);
@@ -58,6 +61,8 @@ app.use("/api/admin", adminRoutes);
  
 app.use(notFound);
 app.use(errorHandler);
+const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
+app.use(`/${UPLOAD_DIR}`, express.static(path.join(process.cwd(), UPLOAD_DIR)));
 
 const PORT = process.env.PORT || 3181;
 app.listen(PORT, () => {
