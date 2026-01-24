@@ -38,7 +38,7 @@ export default function DailyReportTable({
           <tr className="text-slate-600">
             <th className="px-4 py-3 text-left">Date</th>
             <th className="px-4 py-3 text-left">Member</th>
-            <th className="px-4 py-3 text-left">Words</th>
+            {/* <th className="px-4 py-3 text-left">Words</th> */}
             <th className="px-4 py-3 text-left">Attachment</th>
             <th className="px-4 py-3 text-left">Preview</th>
             <th className="px-4 py-3 text-left">Action</th>
@@ -54,7 +54,7 @@ export default function DailyReportTable({
               <tr key={r._id} className="border-b last:border-b-0 hover:bg-slate-50/60">
                 <td className="px-4 py-3 whitespace-nowrap">{r.reportDate || "-"}</td>
                 <td className="px-4 py-3">{r.memberName || "-"}</td>
-                <td className="px-4 py-3">{r.wordCount ?? "-"}</td>
+                {/* <td className="px-4 py-3">{r.wordCount ?? "-"}</td> */}
 
                 <td className="px-4 py-3">
                   {fileUrl ? (

@@ -1,15 +1,13 @@
-// FollowUpSystem.jsx
+// src/components/sales/FollowUpSystem.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import {
   fetchMyLeads,
   clearLeadsError,
   patchLeadInList,
+  updateLeadFollowUp, // ✅ NEW thunk in leadsSlice.js
 } from "../../store/slices/leadsSlice";
-import {
-  updateMyFollowUp,
-  clearFollowUpsError,
-} from "../../store/slices/followUpsSlice";
 
 /* ================= helpers ================= */
 const fmt = (d) => {
@@ -50,35 +48,24 @@ const fromNow = (d) => {
   const abs = Math.abs(mins);
 
   if (abs < 60)
-    return `${mins >= 0 ? "in " : ""}${abs} min${abs > 1 ? "s" : ""}${
-      mins < 0 ? " ago" : ""
-    }`;
+    return `${mins >= 0 ? "in " : ""}${abs} min${abs > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
   const hrs = Math.round(abs / 60);
   if (hrs < 24)
-    return `${mins >= 0 ? "in " : ""}${hrs} hr${hrs > 1 ? "s" : ""}${
-      mins < 0 ? " ago" : ""
-    }`;
+    return `${mins >= 0 ? "in " : ""}${hrs} hr${hrs > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
   const days = Math.round(hrs / 24);
-  return `${mins >= 0 ? "in " : ""}${days} day${days > 1 ? "s" : ""}${
-    mins < 0 ? " ago" : ""
-  }`;
+  return `${mins >= 0 ? "in " : ""}${days} day${days > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
 };
 
 const getLeadTemperature = (lead) => {
-  if (!lead?.nextFollowUpAt) return "Cool";
-  const diffDays = Math.ceil(
-    (new Date(lead.nextFollowUpAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
+  const dt = lead?.followUpDate; // ✅ using followUpDate
+  if (!dt) return "Cool";
+  const diffDays = Math.ceil((new Date(dt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (diffDays <= 3) return "Hot";
   if (diffDays <= 10) return "Warm";
   return "Cool";
 };
 
-const tempTone = {
-  Hot: "red",
-  Warm: "amber",
-  Cool: "sky",
-};
+const tempTone = { Hot: "red", Warm: "amber", Cool: "sky" };
 
 /* ================= tiny ui atoms ================= */
 const TonePill = ({ tone = "slate", children }) => {
@@ -92,11 +79,7 @@ const TonePill = ({ tone = "slate", children }) => {
     violet: "bg-violet-50 text-violet-700 border-violet-200",
   };
   return (
-    <span
-      className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border ${
-        map[tone] || map.slate
-      }`}
-    >
+    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border ${map[tone] || map.slate}`}>
       {children}
     </span>
   );
@@ -128,11 +111,7 @@ const ClickStatCard = ({ title, value, hint, tone = "slate", active, onClick }) 
         <div className="min-w-0">
           <p className="text-xs font-semibold text-slate-600">{title}</p>
           <p className="mt-2 text-3xl font-extrabold text-slate-900">{value}</p>
-          {hint ? (
-            <p className="mt-2 text-[11px] text-slate-500 whitespace-normal break-words">
-              {hint}
-            </p>
-          ) : null}
+          {hint ? <p className="mt-2 text-[11px] text-slate-500 whitespace-normal break-words">{hint}</p> : null}
         </div>
         <TonePill tone={tone}>{title}</TonePill>
       </div>
@@ -174,26 +153,25 @@ export default function FollowUpSystem() {
 
   const [statusTab, setStatusTab] = useState("All");
   const [bucketTab, setBucketTab] = useState("today");
-  const [rangeTab, setRangeTab] = useState("all"); // all | 15d | 1m | 2m | 3m
+  const [rangeTab, setRangeTab] = useState("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState("created_desc");
 
-  const [tempFilter, setTempFilter] = useState("All"); // All | Hot | Warm | Cool
-  const [sourceFilter, setSourceFilter] = useState("All"); // All | Manual | Import
+  const [tempFilter, setTempFilter] = useState("All");
+  const [sourceFilter, setSourceFilter] = useState("All");
 
   const [picked, setPicked] = useState(null);
-  const [nextDate, setNextDate] = useState("");
-
-  // ✅ NEW: button loading state per lead
+  const [nextDate, setNextDate] = useState(""); // datetime-local string
+  const [followUpNotes, setFollowUpNotes] = useState("");
   const [btnLoadingId, setBtnLoadingId] = useState(null);
 
   useEffect(() => {
-    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "" }));
-    return () => {
-      dispatch(clearLeadsError());
-      dispatch(clearFollowUpsError());
-    };
+    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 200 }));
+    return () => dispatch(clearLeadsError());
   }, [dispatch]);
+
+  const refresh = () =>
+    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 200 }));
 
   const counts = useMemo(() => {
     const c = { All: leads.length, New: 0, "Follow-Up": 0, Closed: 0, Converted: 0 };
@@ -228,22 +206,24 @@ export default function FollowUpSystem() {
   const followUpBuckets = useMemo(() => {
     const todayStart = startOfToday();
     const todayEnd = endOfToday();
-    const base = leads.filter((l) => l.status === "Follow-Up" && l.nextFollowUpAt);
+
+    // ✅ using followUpDate
+    const base = leads.filter((l) => (l.status === "Follow-Up") && l.followUpDate);
 
     const today = [];
     const upcoming = [];
     const overdue = [];
 
     for (const l of base) {
-      const t = new Date(l.nextFollowUpAt).getTime();
+      const t = new Date(l.followUpDate).getTime();
       if (t >= todayStart && t <= todayEnd) today.push(l);
       else if (t > todayEnd) upcoming.push(l);
       else overdue.push(l);
     }
 
-    today.sort((a, b) => new Date(a.nextFollowUpAt) - new Date(b.nextFollowUpAt));
-    upcoming.sort((a, b) => new Date(a.nextFollowUpAt) - new Date(b.nextFollowUpAt));
-    overdue.sort((a, b) => new Date(a.nextFollowUpAt) - new Date(b.nextFollowUpAt));
+    today.sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
+    upcoming.sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
+    overdue.sort((a, b) => new Date(a.followUpDate) - new Date(b.followUpDate));
 
     return { today, upcoming, overdue };
   }, [leads]);
@@ -269,15 +249,11 @@ export default function FollowUpSystem() {
       const map = { "15d": daysAgo(15), "1m": daysAgo(30), "2m": daysAgo(60), "3m": daysAgo(90) };
       const since = map[rangeTab];
       if (since) {
-        list = list.filter(
-          (l) => l.nextFollowUpAt && new Date(l.nextFollowUpAt).getTime() >= since
-        );
+        list = list.filter((l) => l.followUpDate && new Date(l.followUpDate).getTime() >= since);
       }
     }
 
-    if (tempFilter !== "All") {
-      list = list.filter((l) => getLeadTemperature(l) === tempFilter);
-    }
+    if (tempFilter !== "All") list = list.filter((l) => getLeadTemperature(l) === tempFilter);
 
     if (sourceFilter !== "All") {
       list = list.filter((l) => {
@@ -303,63 +279,12 @@ export default function FollowUpSystem() {
     if (sort === "created_desc")
       list = [...list].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
     if (sort === "next_asc")
-      list = [...list].sort((a, b) => new Date(a.nextFollowUpAt || 0) - new Date(b.nextFollowUpAt || 0));
+      list = [...list].sort((a, b) => new Date(a.followUpDate || 0) - new Date(b.followUpDate || 0));
     if (sort === "name_asc")
       list = [...list].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
     return list;
   }, [leads, statusTab, bucketTab, rangeTab, q, sort, followUpBuckets, tempFilter, sourceFilter]);
-
-  const refresh = () =>
-    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "" }));
-
-  // ✅ SET follow-up (updates store immediately)
-  const onSetFollowUp = async () => {
-    if (!picked?._id || !nextDate) return;
-    setBtnLoadingId(picked._id);
-    try {
-      const updated = await dispatch(
-        updateMyFollowUp({ id: picked._id, nextFollowUpAt: nextDate })
-      ).unwrap();
-      dispatch(patchLeadInList(updated)); // ✅ instant UI
-      setPicked(null);
-      setNextDate("");
-      setStatusTab("Follow-Up");
-      refresh();
-    } catch (e) {
-      alert(e || "Failed to set follow-up");
-    } finally {
-      setBtnLoadingId(null);
-    }
-  };
-
-  // ✅ CLOSE (updates store immediately)
-  const onMarkClosed = async (id) => {
-    setBtnLoadingId(id);
-    try {
-      const updated = await dispatch(updateMyFollowUp({ id, status: "Closed" })).unwrap();
-      dispatch(patchLeadInList(updated));
-      refresh();
-    } catch (e) {
-      alert(e || "Failed to close lead");
-    } finally {
-      setBtnLoadingId(null);
-    }
-  };
-
-  // ✅ CONVERT (updates store immediately)
-  const onMarkConverted = async (id) => {
-    setBtnLoadingId(id);
-    try {
-      const updated = await dispatch(updateMyFollowUp({ id, status: "Converted" })).unwrap();
-      dispatch(patchLeadInList(updated));
-      refresh();
-    } catch (e) {
-      alert(e || "Failed to convert lead");
-    } finally {
-      setBtnLoadingId(null);
-    }
-  };
 
   const statusTone = (st) => {
     if (st === "New") return "violet";
@@ -370,8 +295,8 @@ export default function FollowUpSystem() {
   };
 
   const bucketMeta = (lead) => {
-    if (!lead?.nextFollowUpAt) return null;
-    const t = new Date(lead.nextFollowUpAt).getTime();
+    if (!lead?.followUpDate) return null;
+    const t = new Date(lead.followUpDate).getTime();
     const s = startOfToday();
     const e = endOfToday();
     if (t >= s && t <= e) return { label: "Today", tone: "amber" };
@@ -393,26 +318,74 @@ export default function FollowUpSystem() {
     if (kind === "CLOSED") setStatusTab("Closed");
     if (kind === "CONVERTED") setStatusTab("Converted");
 
-    if (kind === "HOT") {
-      setStatusTab("All");
-      setTempFilter("Hot");
-    }
-    if (kind === "WARM") {
-      setStatusTab("All");
-      setTempFilter("Warm");
-    }
-    if (kind === "COOL") {
-      setStatusTab("All");
-      setTempFilter("Cool");
-    }
+    if (kind === "HOT") { setStatusTab("All"); setTempFilter("Hot"); }
+    if (kind === "WARM") { setStatusTab("All"); setTempFilter("Warm"); }
+    if (kind === "COOL") { setStatusTab("All"); setTempFilter("Cool"); }
 
-    if (kind === "MANUAL") {
-      setStatusTab("All");
-      setSourceFilter("Manual");
+    if (kind === "MANUAL") { setStatusTab("All"); setSourceFilter("Manual"); }
+    if (kind === "IMPORTED") { setStatusTab("All"); setSourceFilter("Import"); }
+  };
+
+  // ✅ SET follow-up
+  const onSetFollowUp = async () => {
+    if (!picked?._id) return toast.error("No lead selected");
+    if (!nextDate) return toast.error("Please select date/time");
+
+    setBtnLoadingId(picked._id);
+    const toastId = toast.loading("Saving follow-up...");
+
+    try {
+      const updated = await dispatch(
+        updateLeadFollowUp({
+          id: picked._id,
+          followUpDate: new Date(nextDate).toISOString(),
+          followUpNotes: followUpNotes || "",
+          status: "Follow-Up",
+        })
+      ).unwrap();
+
+      dispatch(patchLeadInList(updated));
+      toast.success("Follow-up saved ✅", { id: toastId });
+
+      setPicked(null);
+      setNextDate("");
+      setFollowUpNotes("");
+      setStatusTab("Follow-Up");
+      refresh();
+    } catch (e) {
+      toast.error(String(e || "Failed to set follow-up"), { id: toastId });
+    } finally {
+      setBtnLoadingId(null);
     }
-    if (kind === "IMPORTED") {
-      setStatusTab("All");
-      setSourceFilter("Import");
+  };
+
+  const onMarkClosed = async (id) => {
+    setBtnLoadingId(id);
+    const toastId = toast.loading("Closing lead...");
+    try {
+      const updated = await dispatch(updateLeadFollowUp({ id, status: "Closed" })).unwrap();
+      dispatch(patchLeadInList(updated));
+      toast.success("Lead closed ✅", { id: toastId });
+      refresh();
+    } catch (e) {
+      toast.error(String(e || "Failed to close lead"), { id: toastId });
+    } finally {
+      setBtnLoadingId(null);
+    }
+  };
+
+  const onMarkConverted = async (id) => {
+    setBtnLoadingId(id);
+    const toastId = toast.loading("Converting lead...");
+    try {
+      const updated = await dispatch(updateLeadFollowUp({ id, status: "Converted" })).unwrap();
+      dispatch(patchLeadInList(updated));
+      toast.success("Lead converted ✅", { id: toastId });
+      refresh();
+    } catch (e) {
+      toast.error(String(e || "Failed to convert lead"), { id: toastId });
+    } finally {
+      setBtnLoadingId(null);
     }
   };
 
@@ -449,6 +422,7 @@ export default function FollowUpSystem() {
             <button
               onClick={refresh}
               className="w-full sm:w-auto text-xs px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] shadow-sm"
+              type="button"
             >
               Refresh
             </button>
@@ -500,54 +474,12 @@ export default function FollowUpSystem() {
 
       {/* Clickable Insights */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <ClickStatCard
-          title="Manual"
-          value={analytics.manual}
-          hint="Created manually"
-          tone="sky"
-          active={sourceFilter === "Manual"}
-          onClick={() => setViewFromCard("MANUAL")}
-        />
-        <ClickStatCard
-          title="Imported"
-          value={analytics.imported}
-          hint="From JSON import"
-          tone="violet"
-          active={sourceFilter === "Import"}
-          onClick={() => setViewFromCard("IMPORTED")}
-        />
-        <ClickStatCard
-          title="🔥 Hot"
-          value={analytics.hot}
-          hint="Follow-up ≤ 3 days"
-          tone="red"
-          active={tempFilter === "Hot"}
-          onClick={() => setViewFromCard("HOT")}
-        />
-        <ClickStatCard
-          title="🌤 Warm"
-          value={analytics.warm}
-          hint="Follow-up ≤ 10 days"
-          tone="amber"
-          active={tempFilter === "Warm"}
-          onClick={() => setViewFromCard("WARM")}
-        />
-        <ClickStatCard
-          title="❄ Cool"
-          value={analytics.cool}
-          hint="Not urgent / not set"
-          tone="sky"
-          active={tempFilter === "Cool"}
-          onClick={() => setViewFromCard("COOL")}
-        />
-        <ClickStatCard
-          title="New"
-          value={counts.New}
-          hint="Fresh inquiry"
-          tone="violet"
-          active={statusTab === "New"}
-          onClick={() => setViewFromCard("NEW")}
-        />
+        <ClickStatCard title="Manual" value={analytics.manual} hint="Created manually" tone="sky" active={sourceFilter === "Manual"} onClick={() => setViewFromCard("MANUAL")} />
+        <ClickStatCard title="Imported" value={analytics.imported} hint="From JSON import" tone="violet" active={sourceFilter === "Import"} onClick={() => setViewFromCard("IMPORTED")} />
+        <ClickStatCard title="🔥 Hot" value={analytics.hot} hint="Follow-up ≤ 3 days" tone="red" active={tempFilter === "Hot"} onClick={() => setViewFromCard("HOT")} />
+        <ClickStatCard title="🌤 Warm" value={analytics.warm} hint="Follow-up ≤ 10 days" tone="amber" active={tempFilter === "Warm"} onClick={() => setViewFromCard("WARM")} />
+        <ClickStatCard title="❄ Cool" value={analytics.cool} hint="Not urgent / not set" tone="sky" active={tempFilter === "Cool"} onClick={() => setViewFromCard("COOL")} />
+        <ClickStatCard title="New" value={counts.New} hint="Fresh inquiry" tone="violet" active={statusTab === "New"} onClick={() => setViewFromCard("NEW")} />
       </div>
 
       {/* Leads List */}
@@ -564,72 +496,6 @@ export default function FollowUpSystem() {
               <TonePill tone="indigo">{activeViewLabel}</TonePill>
             </div>
 
-            {/* Status tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {["All", "New", "Follow-Up", "Closed", "Converted"].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setStatusTab(st)}
-                  className={`shrink-0 text-xs px-3.5 py-2 rounded-2xl border transition active:scale-[0.99] ${
-                    statusTab === st
-                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {st} <span className="ml-1 opacity-90">({st === "All" ? counts.All : counts[st]})</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Bucket tabs */}
-            {statusTab === "Follow-Up" ? (
-              <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                {[
-                  { key: "today", label: "Today", count: followUpBuckets.today.length, tone: "amber" },
-                  { key: "upcoming", label: "Upcoming", count: followUpBuckets.upcoming.length, tone: "sky" },
-                  { key: "overdue", label: "Overdue", count: followUpBuckets.overdue.length, tone: "red" },
-                ].map((b) => (
-                  <button
-                    key={b.key}
-                    onClick={() => setBucketTab(b.key)}
-                    className={`shrink-0 text-xs px-3.5 py-2 rounded-2xl border transition active:scale-[0.99] ${
-                      bucketTab === b.key
-                        ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <span className={`h-2 w-2 rounded-full ${b.tone === "amber" ? "bg-amber-500" : b.tone === "sky" ? "bg-sky-500" : "bg-red-500"}`} />
-                      {b.label} <span className="opacity-90">({b.count})</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Range tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-              {[
-                { key: "all", label: "All Time" },
-                { key: "15d", label: "Last 15 Days" },
-                { key: "1m", label: "Last 1 Month" },
-                { key: "2m", label: "Last 2 Months" },
-                { key: "3m", label: "Last 3 Months" },
-              ].map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => setRangeTab(r.key)}
-                  className={`shrink-0 text-xs px-3.5 py-2 rounded-2xl border transition active:scale-[0.99] ${
-                    rangeTab === r.key
-                      ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-                      : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-
             {/* Search + dropdowns */}
             <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
               <div className="flex-1">
@@ -641,34 +507,22 @@ export default function FollowUpSystem() {
                 />
               </div>
 
-              <select
-                value={tempFilter}
-                onChange={(e) => setTempFilter(e.target.value)}
-                className="w-full lg:w-48 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-              >
+              <select value={tempFilter} onChange={(e) => setTempFilter(e.target.value)} className="w-full lg:w-48 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
                 <option value="All">Temp: All</option>
                 <option value="Hot">Temp: Hot</option>
                 <option value="Warm">Temp: Warm</option>
                 <option value="Cool">Temp: Cool</option>
               </select>
 
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="w-full lg:w-52 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-              >
+              <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="w-full lg:w-52 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
                 <option value="All">Source: All</option>
                 <option value="Manual">Source: Manual</option>
                 <option value="Import">Source: Import</option>
               </select>
 
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="w-full lg:w-56 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-              >
+              <select value={sort} onChange={(e) => setSort(e.target.value)} className="w-full lg:w-56 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
                 <option value="created_desc">Newest Created</option>
-                <option value="next_asc">Next Follow-Up (Earliest)</option>
+                <option value="next_asc">Follow-Up (Earliest)</option>
                 <option value="name_asc">Name (A-Z)</option>
               </select>
             </div>
@@ -683,174 +537,77 @@ export default function FollowUpSystem() {
               <SkeletonCard />
             </div>
           ) : filteredList.length === 0 ? (
-            <EmptyState title="No leads found" desc="Try changing cards/filters or search keyword." />
+            <EmptyState title="No leads found" desc="Try changing filters or search keyword." />
           ) : (
-            <>
-              {/* Mobile cards */}
-              <div className="grid gap-3 lg:hidden">
-                {filteredList.map((l) => {
-                  const st = l.status || "New";
-                  const b = st === "Follow-Up" ? bucketMeta(l) : null;
-                  const temp = getLeadTemperature(l);
+            <div className="grid gap-3">
+              {filteredList.map((l) => {
+                const st = l.status || "New";
+                const b = st === "Follow-Up" ? bucketMeta(l) : null;
+                const temp = getLeadTemperature(l);
 
-                  return (
-                    <div key={l._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-extrabold text-slate-900 whitespace-normal break-words">
-                            {l.name}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-600 whitespace-normal break-words">
-                            {l.company || "-"} {l.city ? `• ${l.city}` : ""}
-                          </div>
-                          <div className="mt-1 text-[11px] text-slate-500">
-                            Source: <b className="text-slate-700">{l.source || "Manual"}</b>
-                          </div>
-                        </div>
-
-                        <div className="shrink-0 flex flex-col items-end gap-1">
-                          <TonePill tone={statusTone(st)}>{st}</TonePill>
-                          {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
-                          <TonePill tone={tempTone[temp]}>{temp}</TonePill>
+                return (
+                  <div key={l._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-extrabold text-slate-900 break-words">{l.name}</div>
+                        <div className="mt-1 text-xs text-slate-600 break-words">{l.company || "-"} {l.city ? `• ${l.city}` : ""}</div>
+                        <div className="mt-1 text-[11px] text-slate-500">
+                          Source: <b className="text-slate-700">{l.source || "Manual"}</b>
                         </div>
                       </div>
 
-                      <div className="mt-3 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-[11px] font-semibold text-slate-600">Next Follow-Up</div>
-                          {l.nextFollowUpAt ? (
-                            <span className="text-[11px] text-slate-500">{fromNow(l.nextFollowUpAt)}</span>
-                          ) : null}
-                        </div>
-                        <div className="mt-1 text-sm font-semibold text-slate-900 break-words">
-                          {l.nextFollowUpAt ? fmt(l.nextFollowUpAt) : "-"}
-                        </div>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        <button
-                          onClick={() => {
-                            setPicked(l);
-                            setNextDate("");
-                          }}
-                          disabled={btnLoadingId === l._id}
-                          className="text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-60"
-                        >
-                          {btnLoadingId === l._id ? "..." : "Set"}
-                        </button>
-
-                        <button
-                          onClick={() => onMarkClosed(l._id)}
-                          disabled={btnLoadingId === l._id}
-                          className="text-xs px-3 py-2 rounded-2xl bg-slate-900 text-white hover:bg-black active:scale-[0.99] disabled:opacity-60"
-                        >
-                          {btnLoadingId === l._id ? "Closing..." : "Closed"}
-                        </button>
-
-                        <button
-                          onClick={() => onMarkConverted(l._id)}
-                          disabled={btnLoadingId === l._id}
-                          className="text-xs px-3 py-2 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60"
-                        >
-                          {btnLoadingId === l._id ? "Converting..." : "Won"}
-                        </button>
+                      <div className="shrink-0 flex flex-col items-end gap-1">
+                        <TonePill tone={statusTone(st)}>{st}</TonePill>
+                        {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
+                        <TonePill tone={tempTone[temp]}>{temp}</TonePill>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Desktop table */}
-              <div className="hidden lg:block overflow-x-auto rounded-3xl border border-slate-200 bg-white">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-slate-50 text-slate-700">
-                    <tr>
-                      <th className="text-left px-4 py-3">Lead</th>
-                      <th className="text-left px-4 py-3">Contact</th>
-                      <th className="text-left px-4 py-3">Status</th>
-                      <th className="text-left px-4 py-3">Temp</th>
-                      <th className="text-left px-4 py-3">Next Follow-Up</th>
-                      <th className="text-right px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredList.map((l) => {
-                      const st = l.status || "New";
-                      const b = st === "Follow-Up" ? bucketMeta(l) : null;
-                      const temp = getLeadTemperature(l);
+                    <div className="mt-3 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-[11px] font-semibold text-slate-600">Follow-Up Date</div>
+                        {l.followUpDate ? <span className="text-[11px] text-slate-500">{fromNow(l.followUpDate)}</span> : null}
+                      </div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900 break-words">
+                        {l.followUpDate ? fmt(l.followUpDate) : "-"}
+                      </div>
+                      {l.followUpNotes ? (
+                        <div className="mt-2 text-xs text-slate-600 whitespace-pre-wrap">{l.followUpNotes}</div>
+                      ) : null}
+                    </div>
 
-                      return (
-                        <tr key={l._id} className="border-t border-slate-100 hover:bg-slate-50">
-                          <td className="px-4 py-3">
-                            <div className="font-extrabold text-slate-900">{l.name}</div>
-                            <div className="text-xs text-slate-500">
-                              {l.company || "-"} {l.city ? `• ${l.city}` : ""} • Source:{" "}
-                              <b className="text-slate-700">{l.source || "Manual"}</b>
-                            </div>
-                          </td>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => { setPicked(l); setNextDate(""); setFollowUpNotes(l.followUpNotes || ""); }}
+                        disabled={btnLoadingId === l._id}
+                        className="text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
+                        type="button"
+                      >
+                        {btnLoadingId === l._id ? "..." : "Set"}
+                      </button>
 
-                          <td className="px-4 py-3">
-                            <div className="text-slate-700 font-semibold">{l.phone || "-"}</div>
-                            <div className="text-xs text-slate-500 break-all">{l.email || "-"}</div>
-                          </td>
+                      <button
+                        onClick={() => onMarkClosed(l._id)}
+                        disabled={btnLoadingId === l._id}
+                        className="text-xs px-3 py-2 rounded-2xl bg-slate-900 text-white hover:bg-black disabled:opacity-60"
+                        type="button"
+                      >
+                        {btnLoadingId === l._id ? "Closing..." : "Closed"}
+                      </button>
 
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <TonePill tone={statusTone(st)}>{st}</TonePill>
-                              {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <TonePill tone={tempTone[temp]}>{temp}</TonePill>
-                          </td>
-
-                          <td className="px-4 py-3 text-slate-700">
-                            <div className="font-semibold">{l.nextFollowUpAt ? fmt(l.nextFollowUpAt) : "-"}</div>
-                            {l.nextFollowUpAt ? <div className="text-xs text-slate-500">{fromNow(l.nextFollowUpAt)}</div> : null}
-                          </td>
-
-                          <td className="px-4 py-3 text-right">
-                            <div className="inline-flex gap-2">
-                              <button
-                                onClick={() => {
-                                  setPicked(l);
-                                  setNextDate("");
-                                }}
-                                disabled={btnLoadingId === l._id}
-                                className="text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                {btnLoadingId === l._id ? "..." : "Set Follow-Up"}
-                              </button>
-
-                              <button
-                                onClick={() => onMarkClosed(l._id)}
-                                disabled={btnLoadingId === l._id}
-                                className="text-xs px-3 py-2 rounded-2xl bg-slate-900 text-white hover:bg-black disabled:opacity-60"
-                              >
-                                {btnLoadingId === l._id ? "Closing..." : "Closed"}
-                              </button>
-
-                              <button
-                                onClick={() => onMarkConverted(l._id)}
-                                disabled={btnLoadingId === l._id}
-                                className="text-xs px-3 py-2 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                              >
-                                {btnLoadingId === l._id ? "Converting..." : "Converted"}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                <div className="px-4 py-3 border-t border-slate-100 text-xs text-slate-500">
-                  Tip: Closed/Converted now updates instantly (no refresh delay).
-                </div>
-              </div>
-            </>
+                      <button
+                        onClick={() => onMarkConverted(l._id)}
+                        disabled={btnLoadingId === l._id}
+                        className="text-xs px-3 py-2 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                        type="button"
+                      >
+                        {btnLoadingId === l._id ? "Converting..." : "Won"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -863,7 +620,7 @@ export default function FollowUpSystem() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="text-sm font-extrabold text-slate-900">Set / Reschedule Follow-Up</h3>
-                  <p className="text-xs text-slate-600 mt-1 whitespace-normal break-words">
+                  <p className="text-xs text-slate-600 mt-1 break-words">
                     Lead: <span className="font-semibold text-slate-800">{picked.name}</span>
                     {picked.company ? ` • ${picked.company}` : ""}
                   </p>
@@ -871,46 +628,66 @@ export default function FollowUpSystem() {
                 <button
                   onClick={() => setPicked(null)}
                   disabled={btnLoadingId === picked._id}
-                  className="shrink-0 text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-60"
+                  className="shrink-0 text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
+                  type="button"
                 >
                   Close
                 </button>
               </div>
             </div>
 
-            <div className="p-4">
-              <label className="block text-xs font-semibold text-slate-700 mb-2">Next Follow-Up Date & Time</label>
-              <input
-                type="datetime-local"
-                value={nextDate}
-                onChange={(e) => setNextDate(e.target.value)}
-                className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-              />
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Follow-Up Date & Time
+                </label>
+                <input
+                  type="datetime-local"
+                  value={nextDate}
+                  onChange={(e) => setNextDate(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
+                />
+              </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
-                <div className="text-xs text-slate-500 whitespace-normal break-words">
-                  Current: <span className="font-semibold">{fmt(picked.nextFollowUpAt)}</span>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">
+                  Follow-Up Notes (optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={followUpNotes}
+                  onChange={(e) => setFollowUpNotes(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
+                  placeholder="What discussed / next steps..."
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="text-xs text-slate-500">
+                  Current: <span className="font-semibold">{fmt(picked.followUpDate)}</span>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPicked(null)}
                     disabled={btnLoadingId === picked._id}
-                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] disabled:opacity-60"
+                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
+                    type="button"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={onSetFollowUp}
                     disabled={!nextDate || btnLoadingId === picked._id}
-                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl bg-sky-600 text-white hover:bg-sky-700 active:scale-[0.99] disabled:opacity-60"
+                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
+                    type="button"
                   >
                     {btnLoadingId === picked._id ? "Saving..." : "Save"}
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 whitespace-normal break-words">
-                Note: Saving a follow-up date will automatically move the lead to <b>Follow-Up</b> status.
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                Note: Saving a follow-up will automatically move the lead to <b>Follow-Up</b> status.
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
-// ✅ Updated MyLeads.jsx (Restricted Palette + Excel Import)
+// ✅ MyLeads.jsx — FULL CODE (Responsive on EVERY device + Responsive Create/Edit Form + Excel Import)
 // NOTE: npm i xlsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import * as XLSX from "xlsx";
 
@@ -47,7 +47,6 @@ const fmtDate = (d) => {
   return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 };
 
-// ✅ Pills using only allowed colors
 const statusPill = (status) => {
   switch (status) {
     case "New":
@@ -87,22 +86,56 @@ function useDebouncedValue(value, delay = 350) {
   return debounced;
 }
 
+// ✅ Responsive Modal: full-height on mobile, scroll body, sticky footer
 function Modal({ open, title, onClose, children, footer }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-          <div className="font-semibold text-slate-900">{title}</div>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4">
+      <div
+        className="
+          w-full
+          max-w-3xl
+          bg-white
+          rounded-2xl
+          border border-slate-200
+          overflow-hidden
+          flex flex-col
+          h-[92dvh]
+          sm:h-auto
+          sm:max-h-[92dvh]
+        "
+        role="dialog"
+        aria-modal="true"
+      >
+        {/* Header */}
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-white">
+          <div className="font-semibold text-slate-900 truncate pr-3">{title}</div>
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
+            className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 shrink-0"
+            type="button"
           >
             Close
           </button>
         </div>
-        <div className="p-5 bg-white">{children}</div>
-        {footer ? <div className="px-5 py-4 border-t border-slate-200 bg-slate-50">{footer}</div> : null}
+
+        {/* Body (scrollable) */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white">{children}</div>
+
+        {/* Footer (sticky at bottom) */}
+        {footer ? (
+          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">
+            {footer}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -110,8 +143,8 @@ function Modal({ open, title, onClose, children, footer }) {
 
 function Field({ label, required, hint, children }) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1">
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center gap-2 mb-1">
         <label className="text-xs font-semibold text-slate-600">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
@@ -135,8 +168,11 @@ function normalizeLeadRow(row = {}) {
   const statusRaw = pick(row, ["status", "Status"]);
   const sourceRaw = pick(row, ["source", "Source"]) || "Import";
 
-  const leadType = LEAD_TYPES.includes(String(leadTypeRaw)) ? String(leadTypeRaw) : "Buyer";
-  const status = STATUSES.includes(String(statusRaw)) ? String(statusRaw) : "New";
+  const allowedTypes = LEAD_TYPES.filter((x) => x !== "All");
+  const allowedStatuses = STATUSES.filter((x) => x !== "All");
+
+  const leadType = allowedTypes.includes(String(leadTypeRaw)) ? String(leadTypeRaw) : "Buyer";
+  const status = allowedStatuses.includes(String(statusRaw)) ? String(statusRaw) : "New";
 
   const phone = cleanPhone(pick(row, ["phone", "Phone", "mobile", "Mobile"]));
 
@@ -175,26 +211,30 @@ export default function MyLeads() {
   const [openDesc, setOpenDesc] = useState(false);
   const [descText, setDescText] = useState("");
 
+  // ✅ Fetch on filter/search change (debounced)
   useEffect(() => {
     dispatch(fetchMyLeads({ status, leadType, search: debouncedSearch }));
   }, [dispatch, status, leadType, debouncedSearch]);
 
-  const onSearch = (e) => {
-    e.preventDefault();
-    dispatch(fetchMyLeads({ status, leadType, search }));
-  };
+  const onSearch = useCallback(
+    (e) => {
+      e.preventDefault();
+      dispatch(fetchMyLeads({ status, leadType, search }));
+    },
+    [dispatch, status, leadType, search]
+  );
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setEditing(null);
     setForm(emptyForm);
-  };
+  }, []);
 
-  const startCreate = () => {
+  const startCreate = useCallback(() => {
     resetForm();
     setOpenForm(true);
-  };
+  }, [resetForm]);
 
-  const startEdit = (lead) => {
+  const startEdit = useCallback((lead) => {
     setEditing(lead);
     setForm({
       leadType: lead?.leadType || "Buyer",
@@ -209,53 +249,60 @@ export default function MyLeads() {
       status: lead?.status || "New",
     });
     setOpenForm(true);
-  };
+  }, []);
 
-  const submitLead = async (e) => {
-    e.preventDefault();
+  const submitLead = useCallback(
+    async (e) => {
+      e.preventDefault();
 
-    const payload = {
-      ...form,
-      leadType: String(form.leadType || "Buyer"),
-      phone: cleanPhone(form.phone),
-      email: String(form.email || "").trim().toLowerCase(),
-      name: String(form.name || "").trim(),
-      company: String(form.company || "").trim(),
-      city: String(form.city || "").trim(),
-      address: String(form.address || "").trim(),
-      description: String(form.description || "").trim(),
-      source: String(form.source || "").trim() || "Manual",
-    };
+      const payload = {
+        ...form,
+        leadType: String(form.leadType || "Buyer"),
+        phone: cleanPhone(form.phone),
+        email: String(form.email || "").trim().toLowerCase(),
+        name: String(form.name || "").trim(),
+        company: String(form.company || "").trim(),
+        city: String(form.city || "").trim(),
+        address: String(form.address || "").trim(),
+        description: String(form.description || "").trim(),
+        source: String(form.source || "").trim() || "Manual",
+      };
 
-    if (!payload.name) return alert("Name is required");
-    if (payload.phone && payload.phone.length !== 10) return alert("Phone must be 10 digits");
+      if (!payload.name) return alert("Name is required");
+      if (payload.phone && payload.phone.length !== 10) return alert("Phone must be 10 digits");
 
-    try {
-      setSaving(true);
-      if (editing?._id) {
-        await dispatch(updateMyLead({ id: editing._id, payload })).unwrap();
-      } else {
-        await dispatch(createMyLead(payload)).unwrap();
+      try {
+        setSaving(true);
+        if (editing?._id) {
+          await dispatch(updateMyLead({ id: editing._id, payload })).unwrap();
+        } else {
+          await dispatch(createMyLead(payload)).unwrap();
+        }
+        setOpenForm(false);
+        resetForm();
+      } catch {
+        // handled in slice
+      } finally {
+        setSaving(false);
       }
-      setOpenForm(false);
-      resetForm();
-    } catch {
-      // handled in slice
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+    [dispatch, editing?._id, form, resetForm]
+  );
 
-  const onDelete = async (lead) => {
-    const ok = confirm(`Delete lead: ${lead.name}?`);
-    if (!ok) return;
-    await dispatch(deleteMyLead(lead._id));
-  };
+  const onDelete = useCallback(
+    async (lead) => {
+      const ok = confirm(`Delete lead: ${lead.name}?`);
+      if (!ok) return;
+      await dispatch(deleteMyLead(lead._id));
+    },
+    [dispatch]
+  );
 
   const summary = useMemo(() => {
-    const total = items.length;
-    const by = (s) => items.filter((x) => x.status === s).length;
-    const byType = (t) => items.filter((x) => x.leadType === t).length;
+    const list = items || [];
+    const total = list.length;
+    const by = (s) => list.filter((x) => x.status === s).length;
+    const byType = (t) => list.filter((x) => x.leadType === t).length;
     return {
       total,
       newCount: by("New"),
@@ -269,12 +316,12 @@ export default function MyLeads() {
     };
   }, [items]);
 
-  const openDescription = (text) => {
+  const openDescription = useCallback((text) => {
     setDescText(text || "");
     setOpenDesc(true);
-  };
+  }, []);
 
-  const runImport = async () => {
+  const runImport = useCallback(async () => {
     try {
       const parsed = JSON.parse(importJson);
       if (!Array.isArray(parsed)) return alert("Import must be an array");
@@ -291,9 +338,9 @@ export default function MyLeads() {
     } catch {
       alert("Invalid JSON / Import failed");
     }
-  };
+  }, [dispatch, importJson, leadType, search, status]);
 
-  const onExcelPick = async (e) => {
+  const onExcelPick = useCallback(async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -306,48 +353,80 @@ export default function MyLeads() {
       const normalized = raw.map(normalizeLeadRow).filter((l) => l.name);
       setImportPreviewCount(normalized.length);
       setImportJson(JSON.stringify(normalized, null, 2));
-
       e.target.value = "";
     } catch {
       alert("Excel read failed. Please check the file format.");
     }
-  };
+  }, []);
+
+  const rows = useMemo(() => {
+    return (items || []).map((lead) => {
+      const desc = lead?.description || "";
+      const shortDesc = desc.length > 60 ? desc.slice(0, 60).trim() + "..." : desc;
+      return { lead, desc, shortDesc };
+    });
+  }, [items]);
+
+  // ✅ small helper
+  const inputClass =
+    "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto p-4 space-y-4">
-        {/* Header */}
+    <div className="min-h-[100dvh] bg-slate-50">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 space-y-4">
+        {/* Header Card */}
         <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
           <div className="h-1 bg-blue-600" />
-          <div className="p-5">
+          <div className="p-4 sm:p-5">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-xl font-extrabold text-slate-900">My Leads</h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Total <b className="text-slate-900">{summary.total}</b> • New{" "}
-                  <b className="text-slate-900">{summary.newCount}</b> • Follow-Up{" "}
-                  <b className="text-slate-900">{summary.fuCount}</b> • Closed{" "}
-                  <b className="text-slate-900">{summary.closedCount}</b> • Converted{" "}
-                  <b className="text-slate-900">{summary.convertedCount}</b>
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  Buyer <b className="text-slate-900">{summary.buyerCount}</b> • Contractor{" "}
-                  <b className="text-slate-900">{summary.contractorCount}</b> • Seller{" "}
-                  <b className="text-slate-900">{summary.sellerCount}</b> • Manufacturer{" "}
-                  <b className="text-slate-900">{summary.manufacturerCount}</b>
-                </p>
+                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">My Leads</h1>
+
+                <div className="mt-1 text-sm text-slate-600 leading-relaxed">
+                  <span>
+                    Total <b className="text-slate-900">{summary.total}</b>
+                  </span>
+                  <span className="mx-2 text-slate-400">•</span>
+                  <span>
+                    New <b className="text-slate-900">{summary.newCount}</b>
+                  </span>
+                  <span className="mx-2 text-slate-400">•</span>
+                  <span>
+                    Follow-Up <b className="text-slate-900">{summary.fuCount}</b>
+                  </span>
+                  <span className="mx-2 text-slate-400">•</span>
+                  <span>
+                    Closed <b className="text-slate-900">{summary.closedCount}</b>
+                  </span>
+                  <span className="mx-2 text-slate-400">•</span>
+                  <span>
+                    Converted <b className="text-slate-900">{summary.convertedCount}</b>
+                  </span>
+                </div>
+
+                <div className="mt-1 text-xs text-slate-400 leading-relaxed">
+                  Buyer <b className="text-slate-900">{summary.buyerCount}</b>
+                  <span className="mx-2">•</span>
+                  Contractor <b className="text-slate-900">{summary.contractorCount}</b>
+                  <span className="mx-2">•</span>
+                  Seller <b className="text-slate-900">{summary.sellerCount}</b>
+                  <span className="mx-2">•</span>
+                  Manufacturer <b className="text-slate-900">{summary.manufacturerCount}</b>
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
                   onClick={() => setOpenImport(true)}
+                  type="button"
                 >
                   Import Leads
                 </button>
                 <button
                   className="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
                   onClick={startCreate}
+                  type="button"
                 >
                   + Create Lead
                 </button>
@@ -357,13 +436,14 @@ export default function MyLeads() {
             {/* Alerts */}
             {error && (
               <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed">
+                <div className="leading-relaxed min-w-0">
                   <span className="text-red-500 font-semibold">Error:</span>{" "}
-                  <span className="text-slate-900">{error}</span>
+                  <span className="text-slate-900 break-words">{error}</span>
                 </div>
                 <button
                   className="text-xs underline shrink-0 text-slate-600"
                   onClick={() => dispatch(clearLeadsError())}
+                  type="button"
                 >
                   dismiss
                 </button>
@@ -372,7 +452,7 @@ export default function MyLeads() {
 
             {importResult && (
               <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed">
+                <div className="leading-relaxed min-w-0">
                   <span className="text-green-600 font-semibold">Import done:</span>{" "}
                   Added <b>{importResult.added}</b>, Duplicate skipped{" "}
                   <b>{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
@@ -381,6 +461,7 @@ export default function MyLeads() {
                 <button
                   className="text-xs underline shrink-0 text-slate-600"
                   onClick={() => dispatch(clearImportResult())}
+                  type="button"
                 >
                   dismiss
                 </button>
@@ -391,11 +472,7 @@ export default function MyLeads() {
             <form onSubmit={onSearch} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
               <div className="md:col-span-3">
                 <div className="text-xs font-semibold text-slate-600 mb-1">Status</div>
-                <select
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
+                <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
                       {s}
@@ -406,11 +483,7 @@ export default function MyLeads() {
 
               <div className="md:col-span-3">
                 <div className="text-xs font-semibold text-slate-600 mb-1">Lead Type</div>
-                <select
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
-                  value={leadType}
-                  onChange={(e) => setLeadType(e.target.value)}
-                >
+                <select className={inputClass} value={leadType} onChange={(e) => setLeadType(e.target.value)}>
                   {LEAD_TYPES.map((t) => (
                     <option key={t} value={t}>
                       {t}
@@ -422,7 +495,7 @@ export default function MyLeads() {
               <div className="md:col-span-4">
                 <div className="text-xs font-semibold text-slate-600 mb-1">Search</div>
                 <input
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                  className={inputClass}
                   placeholder="Name, company, phone, email, city..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -449,16 +522,123 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* Table Card */}
+        {/* List / Table Card */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="text-sm font-semibold text-slate-900">Leads List</div>
             <div className="text-xs text-slate-600">
               Showing <b className="text-slate-900">{items.length}</b> record(s)
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile/Tablet cards */}
+          <div className="block lg:hidden">
+            {loading ? (
+              <div className="p-5 text-slate-600">Loading leads...</div>
+            ) : rows.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="text-slate-900 font-semibold">No leads found</div>
+                <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
+                <button
+                  className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
+                  onClick={startCreate}
+                  type="button"
+                >
+                  + Create Lead
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {rows.map(({ lead, desc, shortDesc }) => (
+                  <div key={lead._id} className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-base font-extrabold text-slate-900 truncate">{lead.name}</div>
+                        <div className="text-xs text-slate-400 mt-1">Created: {fmtDate(lead.createdAt)}</div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2 shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(lead.status)}`}>
+                          {lead.status}
+                        </span>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(lead.leadType || "Buyer")}`}>
+                          {lead.leadType || "Buyer"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Company</div>
+                        <div className="text-slate-900 break-words">{lead.company || "-"}</div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Phone</div>
+                        <div className="text-slate-900 break-words">{lead.phone || "-"}</div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Email</div>
+                        <div className="text-slate-900 break-words">{lead.email || "-"}</div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">City</div>
+                        <div className="text-slate-900 break-words">{lead.city || "-"}</div>
+                      </div>
+
+                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Address</div>
+                        <div className="text-slate-900 break-words">{lead.address || "-"}</div>
+                      </div>
+
+                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Description</div>
+                        {desc ? (
+                          <button
+                            className="text-left text-sm font-semibold text-blue-600 hover:underline"
+                            onClick={() => openDescription(desc)}
+                            type="button"
+                            title={desc}
+                          >
+                            {shortDesc}
+                          </button>
+                        ) : (
+                          <div className="text-slate-600">-</div>
+                        )}
+                      </div>
+
+                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="text-[11px] text-slate-400">Source</div>
+                        <div className="text-slate-900 break-words">{lead.source || "-"}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                      <button
+                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        onClick={() => startEdit(lead)}
+                        type="button"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
+                        onClick={() => onDelete(lead)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
@@ -494,6 +674,7 @@ export default function MyLeads() {
                         <button
                           className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
                           onClick={startCreate}
+                          type="button"
                         >
                           + Create Lead
                         </button>
@@ -509,7 +690,7 @@ export default function MyLeads() {
                       <tr key={lead._id} className="hover:bg-slate-50 align-top">
                         <td className="p-3">
                           <div className="font-semibold text-slate-900">{lead.name}</div>
-                          <div className="text-xs text-slate-400">Created: {fmtDate(lead.createdAt)}</div>
+                          <div className="text-xs text-slate-400"> {fmtDate(lead.createdAt)}</div>
                         </td>
 
                         <td className="p-3">
@@ -524,9 +705,7 @@ export default function MyLeads() {
                           <div className="max-w-[220px] break-words text-slate-900">{lead.email || "-"}</div>
                         </td>
                         <td className="p-3 text-slate-900">{lead.city || "-"}</td>
-                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">
-                          {lead.address || "-"}
-                        </td>
+                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">{lead.address || "-"}</td>
 
                         <td className="p-3">
                           {desc ? (
@@ -534,6 +713,7 @@ export default function MyLeads() {
                               className="text-sm font-semibold text-blue-600 hover:underline"
                               onClick={() => openDescription(desc)}
                               title={desc}
+                              type="button"
                             >
                               {shortDesc}
                             </button>
@@ -555,12 +735,14 @@ export default function MyLeads() {
                             <button
                               className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
                               onClick={() => startEdit(lead)}
+                              type="button"
                             >
                               Edit
                             </button>
                             <button
                               className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
                               onClick={() => onDelete(lead)}
+                              type="button"
                             >
                               Delete
                             </button>
@@ -575,7 +757,7 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* Create/Edit Modal */}
+        {/* ✅ Create/Edit Modal (RESPONSIVE FORM) */}
         <Modal
           open={openForm}
           title={editing ? "Edit Lead" : "Create Lead"}
@@ -584,14 +766,16 @@ export default function MyLeads() {
             resetForm();
           }}
           footer={
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-xs text-slate-600">
                 Fields marked <span className="text-red-500 font-semibold">*</span> are required
               </div>
-              <div className="flex gap-2">
+
+              {/* ✅ Buttons are responsive + Save is REAL submit via form="leadForm" */}
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
                   onClick={() => {
                     setOpenForm(false);
                     resetForm();
@@ -600,9 +784,10 @@ export default function MyLeads() {
                 >
                   Cancel
                 </button>
+
                 <button
-                  type="button"
-                  onClick={submitLead}
+                  type="submit"
+                  form="leadForm"
                   disabled={saving}
                   className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                 >
@@ -612,13 +797,17 @@ export default function MyLeads() {
             </div>
           }
         >
-          <form onSubmit={submitLead} className="space-y-5">
+          {/* ✅ Form scrolls inside modal body; sections are responsive on all breakpoints */}
+          <form id="leadForm" onSubmit={submitLead} className="space-y-4 sm:space-y-5">
+            {/* Basic Details */}
             <div className="rounded-2xl border border-slate-200 p-4 bg-white">
               <div className="text-sm font-semibold text-slate-900 mb-3">Basic Details</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              {/* ✅ responsive grid: 1 col on mobile, 2 on md+, 3 on xl */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <Field label="Lead Type" required hint="Buyer / Contractor / Seller / Manufacturer">
                   <select
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     value={form.leadType}
                     onChange={(e) => setForm((p) => ({ ...p, leadType: e.target.value }))}
                   >
@@ -632,7 +821,7 @@ export default function MyLeads() {
 
                 <Field label="Name" required>
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="Enter lead name"
                     value={form.name}
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
@@ -641,7 +830,7 @@ export default function MyLeads() {
 
                 <Field label="Company">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="Company / firm name"
                     value={form.company}
                     onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
@@ -650,16 +839,17 @@ export default function MyLeads() {
 
                 <Field label="Phone" hint="10 digits">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="9876543210"
                     value={form.phone}
                     onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                    inputMode="numeric"
                   />
                 </Field>
 
                 <Field label="Email">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="example@email.com"
                     value={form.email}
                     onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
@@ -668,12 +858,15 @@ export default function MyLeads() {
               </div>
             </div>
 
+            {/* Location */}
             <div className="rounded-2xl border border-slate-200 p-4 bg-white">
               <div className="text-sm font-semibold text-slate-900 mb-3">Location</div>
+
+              {/* ✅ 1 col mobile, 2 col md+ */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="City">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="City"
                     value={form.city}
                     onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
@@ -682,7 +875,7 @@ export default function MyLeads() {
 
                 <Field label="Address">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="Full address"
                     value={form.address}
                     onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
@@ -691,12 +884,14 @@ export default function MyLeads() {
               </div>
             </div>
 
+            {/* Lead Info */}
             <div className="rounded-2xl border border-slate-200 p-4 bg-white">
               <div className="text-sm font-semibold text-slate-900 mb-3">Lead Info</div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Status">
                   <select
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     value={form.status}
                     onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
                   >
@@ -710,7 +905,7 @@ export default function MyLeads() {
 
                 <Field label="Source" hint="Manual/Import/Referral">
                   <input
-                    className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                    className={inputClass}
                     placeholder="Manual"
                     value={form.source}
                     onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
@@ -720,9 +915,9 @@ export default function MyLeads() {
                 <div className="md:col-span-2">
                   <Field label="Description">
                     <textarea
-                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+                      className={inputClass}
                       placeholder="Requirement / notes..."
-                      rows={4}
+                      rows={5}
                       value={form.description}
                       onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                     />
@@ -730,10 +925,6 @@ export default function MyLeads() {
                 </div>
               </div>
             </div>
-
-            <button type="submit" className="hidden">
-              submit
-            </button>
           </form>
         </Modal>
 
@@ -743,7 +934,7 @@ export default function MyLeads() {
           title="Import Leads (Excel / JSON)"
           onClose={() => setOpenImport(false)}
           footer={
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="text-xs text-slate-600">
                 {importPreviewCount > 0 ? (
                   <>
@@ -754,11 +945,12 @@ export default function MyLeads() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                   onClick={() => setOpenImport(false)}
                   disabled={importing}
+                  type="button"
                 >
                   Cancel
                 </button>
@@ -766,6 +958,7 @@ export default function MyLeads() {
                   className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                   disabled={importing}
                   onClick={runImport}
+                  type="button"
                 >
                   {importing ? "Importing..." : "Import"}
                 </button>
@@ -789,14 +982,12 @@ export default function MyLeads() {
                 className="mt-3 w-full"
                 disabled={importing}
               />
-              <div className="text-[11px] text-slate-400 mt-2">
-                Tip: Column name “Lead Type” also works.
-              </div>
+              <div className="text-[11px] text-slate-400 mt-2">Tip: Column name “Lead Type” also works.</div>
             </div>
 
             <div className="text-sm font-semibold text-slate-900">Or paste JSON array</div>
             <textarea
-              className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
+              className={inputClass}
               rows={10}
               placeholder="Excel data will auto-fill here OR paste JSON array here..."
               value={importJson}
@@ -810,9 +1001,7 @@ export default function MyLeads() {
 
         {/* Description Viewer */}
         <Modal open={openDesc} title="Lead Description" onClose={() => setOpenDesc(false)}>
-          <div className="whitespace-pre-wrap text-sm text-slate-900 leading-relaxed">
-            {descText || "-"}
-          </div>
+          <div className="whitespace-pre-wrap text-sm text-slate-900 leading-relaxed">{descText || "-"}</div>
         </Modal>
       </div>
     </div>

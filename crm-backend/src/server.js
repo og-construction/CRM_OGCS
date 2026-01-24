@@ -17,6 +17,9 @@ import adminRoutes from "./routes/adminRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import visitingPlaceRoutes from "./routes/visitingPlaceRoutes.js";
+import visitRoutes from "./routes/visitRoutes.js";
+
+
 
   
 
@@ -52,6 +55,7 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/daily-reports", dailyReportRoutes);
 app.use("/api/visiting-places", visitingPlaceRoutes);
+app.use("/api/visits", visitRoutes);
 
 //Admin
 app.use("/api/admin", adminRoutes);

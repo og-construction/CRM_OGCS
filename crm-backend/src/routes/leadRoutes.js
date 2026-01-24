@@ -6,15 +6,27 @@ import {
   updateMyLead,
   deleteMyLead,
   importMyLeads,
-} from "../controllers/leadController.js";
+  updateLeadFollowUp, 
+  getMyFollowUps,
+  getMyFollowUpsSummary,
+} from "../controllers/leadsController.js";
 
 const router = express.Router();
 
-// /api/leads/my
+// ===================
+// LEADS CRUD
+// ===================
 router.get("/my", protect, getMyLeads);
 router.post("/my", protect, createMyLead);
-router.post("/my/import", protect, importMyLeads);
 router.put("/my/:id", protect, updateMyLead);
 router.delete("/my/:id", protect, deleteMyLead);
+router.post("/my/import", protect, importMyLeads);
+router.patch("/my/:id/followup", protect, updateLeadFollowUp);
+
+// Follow-up dashboard APIs
+router.get("/my/followups", protect, getMyFollowUps);
+router.get("/my/followups/summary", protect, getMyFollowUpsSummary);
+
+
 
 export default router;

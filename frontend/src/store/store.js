@@ -9,6 +9,8 @@ import contactSimpleReducer from "./slices/contactSimpleSlice";
 import adminOverviewReducer from "./slices/adminOverviewSlice";
 import adminSettingsReducer from "./slices/adminSettingsSlice";
 import dailyReportsReducer from "./slices/dailyReportsSlice";
+import visitsReducer from "./slices/visitsSlice";
+
 
 
 const store = configureStore({
@@ -21,6 +23,7 @@ const store = configureStore({
     adminOverview: adminOverviewReducer, // ✅ REQUIRED
     adminSettings: adminSettingsReducer,
     dailyReports: dailyReportsReducer,
+    visits: visitsReducer,
   },
 });
 

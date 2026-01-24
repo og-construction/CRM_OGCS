@@ -1,4 +1,4 @@
-import Lead from "../models/Lead.js";
+import Lead from "../models/leadModel.js";
 
 const allowedStatuses = ["New", "Follow-Up", "Closed", "Converted"];
 const allowedLeadTypes = ["Buyer", "Contractor", "Seller", "Manufacturer"];

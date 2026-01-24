@@ -1,20 +1,21 @@
 // src/pages/SalesDashboard.jsx
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../store/slices/authSlice";
+
+import MyLeads from "../components/sales/MyLeads.jsx";
+import Visits from "../components/sales/Visits";
 
 // ✅ Location tracker hook
 import useLocationTracker from "../hooks/useLocationTracker";
 
 // Sales Components
-import LeadManagement from "../components/sales/LeadManagement";
 import FollowUpSystem from "../components/sales/FollowUpSystem";
 import QuotationInvoice from "../components/sales/QuotationInvoice";
 import ContactsCompanies from "../components/sales/ContactsCompanies";
 import TeamManagement from "../components/sales/TeamManagement";
 import CommunicationSystem from "../components/sales/CommunicationSystem";
 import SidebarButton from "../components/sales/SidebarButton";
-import VisitingPlaced from "../components/sales/VisitingPlaced";
 
 // ✅ FIXED PATHS
 import Notifications from "../components/sales/Notification.jsx";
@@ -42,21 +43,21 @@ import {
   FiBarChart2,
   FiMenu,
   FiX,
-  FiChevronDown,
+  FiCheckCircle,
+  FiXCircle,
 } from "react-icons/fi";
 
 const cn = (...a) => a.filter(Boolean).join(" ");
 
-/**
- * ✅ KEY FIX:
- * Keep all sections mounted, only hide/show.
- * This prevents forms from unmounting/remounting (typing stops after 1 char).
- */
-const SectionWrapper = ({ show, children }) => (
-  <div className={show ? "block" : "hidden"}>{children}</div>
-);
+const SectionWrapper = React.memo(function SectionWrapper({ show, children }) {
+  return (
+    <div className={show ? "block" : "hidden"} aria-hidden={!show}>
+      {children}
+    </div>
+  );
+});
 
-const SalesDashboard = () => {
+export default function SalesDashboard() {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.auth.user);
 
@@ -69,25 +70,36 @@ const SalesDashboard = () => {
     enabled: trackingEnabled,
   });
 
-  const handleLogout = () => dispatch(logout());
+  // ✅ Location color: green if allowed, red if denied/off/error
+  const locationPinClass = useMemo(() => {
+    const ok = trackingEnabled && (status === "running" || status === "waiting");
+    return ok ? "text-green-600" : "text-red-500";
+  }, [trackingEnabled, status]);
+
+  const locationTitle = useMemo(() => {
+    const ok = trackingEnabled && (status === "running" || status === "waiting");
+    return ok ? "Location allowed" : "Location denied / off";
+  }, [trackingEnabled, status]);
+
+  const handleLogout = useCallback(() => dispatch(logout()), [dispatch]);
 
   const tabs = useMemo(
     () => [
-      { id: "leads", label: "Leads", full: "Lead Management", icon: <FiTrendingUp /> },
-      {id: "visitingplaced", label: "Visiting Placed", full: "Visiting Placed", icon: <FiHome />},
-      { id: "followups", label: "Follow-Ups", full: "Follow-Up System", icon: <FiClock /> },
-      { id: "quotes", label: "Quotes", full: "Quotation / Invoice", icon: <FiFileText /> },
-      { id: "contacts", label: "Contacts", full: "Contacts & Companies", icon: <FiUsers /> },
-      { id: "team", label: "Team", full: "Upload Daily Report", icon: <FiShield /> },
-      { id: "communication", label: "Comm", full: "Communication System", icon: <FiMessageCircle /> },
-      { id: "notifications", label: "Notify", full: "Notifications", icon: <FiBell /> },
-      { id: "reports", label: "Reports", full: "Reports Dashboard", icon: <FiBarChart2 /> },
+      { id: "leads", full: "My Leads", icon: <FiTrendingUp /> },
+      { id: "visits", full: "Visits", icon: <FiMapPin /> },
+      { id: "followups", full: "Follow-Up System", icon: <FiClock /> },
+      { id: "quotes", full: "Quotation / Invoice", icon: <FiFileText /> },
+      { id: "contacts", full: "Contacts & Companies", icon: <FiUsers /> },
+      { id: "team", full: "Upload Daily Report", icon: <FiShield /> },
+      { id: "communication", full: "Communication System", icon: <FiMessageCircle /> },
+      { id: "notifications", full: "Notifications", icon: <FiBell /> },
+      { id: "reports", full: "Reports Dashboard", icon: <FiBarChart2 /> },
     ],
     []
   );
 
-  const activeTab = tabs.find((t) => t.id === active) || tabs[0];
-  const activeTitle = activeTab?.full || "Lead Management";
+  const activeTab = useMemo(() => tabs.find((t) => t.id === active) || tabs[0], [tabs, active]);
+  const activeTitle = activeTab?.full || "My Leads";
 
   const initials = useMemo(() => {
     const n = String(user?.name || "Sales Executive").trim();
@@ -97,14 +109,11 @@ const SalesDashboard = () => {
     return (a + b).toUpperCase();
   }, [user?.name]);
 
-  // ✅ UI-only: badge color mapping (allowed colors only)
-  const trackingBadge = useMemo(() => {
-    if (!trackingEnabled) return { text: "OFF", dot: "bg-slate-400" };
-    if (status === "running") return { text: "ON", dot: "bg-green-600" };
-    if (status === "denied") return { text: "DENIED", dot: "bg-orange-500" };
-    if (status === "error") return { text: "ERROR", dot: "bg-red-500" };
-    if (status === "waiting") return { text: "WAITING", dot: "bg-blue-600" };
-    return { text: "STARTING", dot: "bg-blue-600" };
+  // ✅ Location icon UI: green check if allowed/running, red cross if denied/error/off
+  const locationUI = useMemo(() => {
+    const ok = trackingEnabled && (status === "running" || status === "waiting");
+    if (ok) return { icon: <FiCheckCircle className="text-green-600" />, title: "Location allowed" };
+    return { icon: <FiXCircle className="text-red-500" />, title: "Location denied / off" };
   }, [status, trackingEnabled]);
 
   // close mobile drawer on tab change
@@ -113,7 +122,16 @@ const SalesDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  // ----- animation variants -----
+  // ESC close drawer
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e) => e.key === "Escape" && setMobileOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
+  const onSelectTab = useCallback((id) => setActive(id), []);
+
   const fadeUp = {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
@@ -126,8 +144,8 @@ const SalesDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="flex min-h-screen">
+    <div className="min-h-[100dvh] bg-slate-50">
+      <div className="flex min-h-[100dvh]">
         {/* ===================== Sidebar (Desktop) ===================== */}
         <aside className="hidden md:flex w-72 bg-white border-r border-slate-200 flex-col">
           {/* Brand */}
@@ -139,9 +157,7 @@ const SalesDashboard = () => {
                     <FiHome />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-lg font-extrabold text-slate-900 leading-tight">
-                      OGCS CRM
-                    </h1>
+                    <h1 className="text-lg font-extrabold text-slate-900 leading-tight">OGCS CRM</h1>
                     <p className="text-xs text-slate-400">Sales Executive Panel</p>
                   </div>
                 </div>
@@ -162,27 +178,30 @@ const SalesDashboard = () => {
                   <div className="text-sm font-extrabold text-slate-900 truncate">
                     {user?.name || "Sales Executive"}
                   </div>
+
                   <div className="text-[11px] text-slate-400 truncate flex items-center gap-1">
                     <FiMail className="shrink-0" />
                     <span className="truncate">{user?.email || "-"}</span>
                   </div>
 
-                  {/* Tracking */}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900">
-                      <FiMapPin className="text-slate-600" />
-                      TRACK {trackingBadge.text}
-                      <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
+                  {/* Tracking (icon only) */}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      title={locationUI.title}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900"
+                    >
+                      <FiMapPin className="text-slate-700" />
+                      {locationUI.icon}
                     </span>
 
                     <button
                       onClick={sendLocationOnce}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.98] transition"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50 active:scale-[0.98] transition"
                       title="Send location now"
                       type="button"
+                      aria-label="Ping location"
                     >
-                      <FiRefreshCw className="text-slate-600" />
-                      Ping
+                      <FiRefreshCw className="text-slate-700" />
                     </button>
                   </div>
 
@@ -190,22 +209,20 @@ const SalesDashboard = () => {
                     Last: {lastPingAt ? lastPingAt.toLocaleString() : "-"}
                   </div>
 
-                  {lastError ? (
-                    <div className="mt-1 text-[10px] text-red-500">{lastError}</div>
-                  ) : null}
+                  {lastError ? <div className="mt-1 text-[10px] text-red-500">{lastError}</div> : null}
                 </div>
               </div>
             </div>
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 px-3 py-4 space-y-1">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {tabs.map((t) => (
               <SidebarButton
                 key={t.id}
                 label={t.full}
                 active={active === t.id}
-                onClick={() => setActive(t.id)}
+                onClick={() => onSelectTab(t.id)}
               />
             ))}
           </nav>
@@ -244,6 +261,9 @@ const SalesDashboard = () => {
                 initial="hidden"
                 animate="show"
                 exit="exit"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Navigation"
               >
                 <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -255,6 +275,7 @@ const SalesDashboard = () => {
                       <div className="text-[11px] text-slate-400">Sales Panel</div>
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => setMobileOpen(false)}
@@ -279,26 +300,27 @@ const SalesDashboard = () => {
                         <span className="truncate">{user?.email || "-"}</span>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900">
-                          <FiMapPin className="text-slate-600" />
-                          {trackingBadge.text}
-                          <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span
+                          title={locationUI.title}
+                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-extrabold text-slate-900"
+                        >
+                          <FiMapPin className="text-slate-700" />
+                          {locationUI.icon}
                         </span>
 
                         <button
                           onClick={sendLocationOnce}
-                          className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-900 hover:bg-slate-50"
+                          className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50"
                           type="button"
+                          aria-label="Ping location"
+                          title="Send location now"
                         >
-                          <FiRefreshCw className="text-slate-600" />
-                          Ping
+                          <FiRefreshCw className="text-slate-700" />
                         </button>
                       </div>
 
-                      {lastError ? (
-                        <div className="mt-1 text-[10px] text-red-500">{lastError}</div>
-                      ) : null}
+                      {lastError ? <div className="mt-1 text-[10px] text-red-500">{lastError}</div> : null}
                     </div>
                   </div>
                 </div>
@@ -308,9 +330,10 @@ const SalesDashboard = () => {
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setActive(t.id)}
+                      onClick={() => onSelectTab(t.id)}
                       className={cn(
                         "w-full text-left px-4 py-3 rounded-2xl border transition flex items-center justify-between",
+                        "focus:outline-none focus:ring-4 focus:ring-blue-600/10",
                         active === t.id
                           ? "bg-blue-600 text-white border-slate-200"
                           : "bg-white border-slate-200 hover:bg-slate-50 text-slate-900"
@@ -343,22 +366,12 @@ const SalesDashboard = () => {
         <main className="flex-1 flex flex-col min-w-0">
           {/* ===================== Top Header ===================== */}
           <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
-            {/* Brand Strip (allowed colors only) */}
             <div className="h-1 w-full bg-blue-600" />
 
-            <div className="px-4 py-3 md:px-6 md:py-4 flex items-center justify-between gap-3">
+            {/* ✅ Desktop header + Right Icons */}
+            <div className="hidden md:flex px-4 py-3 md:px-6 md:py-4 items-start sm:items-center justify-between gap-3">
               {/* Left */}
               <div className="flex items-center gap-3 min-w-0">
-                {/* Mobile menu */}
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(true)}
-                  className="md:hidden h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
-                  aria-label="Open menu"
-                >
-                  <FiMenu className="text-slate-900" />
-                </button>
-
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span
@@ -391,12 +404,12 @@ const SalesDashboard = () => {
                     </div>
                   </div>
 
-                  {/* Tracking row */}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-extrabold text-slate-900">
-                      <FiMapPin className="text-slate-600" />
-                      Tracking: {trackingBadge.text}
-                      <span className={cn("h-2 w-2 rounded-full", trackingBadge.dot)} />
+                    <span
+                      className="inline-flex items-center gap-2 rounded-full px-2 py-1 text-[11px] font-extrabold text-slate-900"
+                      title={locationTitle}
+                    >
+                      <FiMapPin className={cn("text-lg", locationPinClass)} />
                     </span>
 
                     <span className="text-[11px] text-slate-400">
@@ -406,113 +419,111 @@ const SalesDashboard = () => {
                     <button
                       onClick={sendLocationOnce}
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.98] transition"
+                        "inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50 active:scale-[0.98] transition",
+                        "focus:outline-none focus:ring-4 focus:ring-blue-600/10"
                       )}
                       type="button"
+                      title="Send location now"
+                      aria-label="Ping location"
                     >
-                      <FiRefreshCw className="text-slate-600" />
-                      Send Now
+                      <FiRefreshCw className="text-slate-700" />
                     </button>
 
-                    {lastError ? (
-                      <span className="text-[11px] text-red-500">{lastError}</span>
-                    ) : null}
+                    {lastError ? <span className="text-[11px] text-red-500">{lastError}</span> : null}
                   </div>
                 </div>
               </div>
 
-              {/* Right actions */}
+              {/* Right Icons */}
               <div className="flex items-center gap-2">
-                {/* Quick Switch (mobile) */}
-                <div className="sm:hidden">
-                  <select
-                    value={active}
-                    onChange={(e) => setActive(e.target.value)}
-                    className={cn(
-                      "px-3 py-2 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-slate-900",
-                      "outline-none focus:ring-4 focus:ring-blue-600/10"
-                    )}
-                  >
-                    {tabs.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.full}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quick Buttons (desktop) */}
                 <button
-                  onClick={() => setActive("notifications")}
-                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-900 hover:bg-slate-100 active:scale-[0.98] transition"
-                  title="Open notifications"
                   type="button"
+                  onClick={() => onSelectTab("notifications")}
+                  className={cn(
+                    "h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition",
+                    "focus:outline-none focus:ring-4 focus:ring-blue-600/10",
+                    active === "notifications" ? "ring-2 ring-blue-600/20" : ""
+                  )}
+                  aria-label="Open notifications"
+                  title="Notifications"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-900 group-hover:rotate-6 transition">
-                    <FiBell className="text-orange-500" />
-                  </span>
-                  Notifications
+                  <FiBell className="text-slate-900" />
                 </button>
 
                 <button
-                  onClick={() => setActive("reports")}
-                  className="group hidden sm:inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-extrabold text-slate-900 hover:bg-slate-100 active:scale-[0.98] transition"
-                  title="Open reports"
                   type="button"
+                  onClick={() => onSelectTab("reports")}
+                  className={cn(
+                    "h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition",
+                    "focus:outline-none focus:ring-4 focus:ring-blue-600/10",
+                    active === "reports" ? "ring-2 ring-blue-600/20" : ""
+                  )}
+                  aria-label="Open reports"
+                  title="Reports"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-900 group-hover:-rotate-6 transition">
-                    <FiBarChart2 className="text-blue-600" />
-                  </span>
-                  Reports
+                  <FiBarChart2 className="text-slate-900" />
                 </button>
 
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99] transition"
-                  type="button"
+                  className={cn(
+                    "h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition",
+                    "focus:outline-none focus:ring-4 focus:ring-red-600/10"
+                  )}
+                  aria-label="Logout"
+                  title="Logout"
                 >
                   <FiLogOut className="text-red-500" />
-                  Logout
                 </button>
               </div>
             </div>
 
-            {/* Animated section indicator */}
-            <div className="px-4 md:px-6 pb-3">
-              <motion.div
-                key={active}
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.22 }}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-extrabold bg-white"
+            {/* ✅ Mobile header: ONLY Menu + Notification + Location */}
+            <div className="md:hidden px-4 py-3 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
+                aria-label="Open menu"
+                title="Menu"
               >
-                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-slate-900">
-                  {activeTitle}
+                <FiMenu className="text-slate-900" />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSelectTab("notifications")}
+                  className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-50 transition"
+                  aria-label="Open notifications"
+                  title="Notifications"
+                >
+                  <FiBell className="text-slate-900" />
+                </button>
+
+                <span
+                  title={locationTitle}
+                  className="h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center"
+                  aria-label="Location status"
+                >
+                  <FiMapPin className={cn("text-xl", locationPinClass)} />
                 </span>
-                <span className="text-slate-400 hidden sm:inline-flex items-center gap-1">
-                  <FiChevronDown />
-                  Switch from sidebar
-                </span>
-              </motion.div>
+              </div>
             </div>
           </header>
 
           {/* ===================== Section Content ===================== */}
           <section className="flex-1 p-3 sm:p-4 md:p-6 min-w-0">
             <div className="mx-auto w-full max-w-[1200px]">
-              {/* Subtle animated container */}
-              <motion.div variants={fadeUp} initial="hidden" animate="show">
-                <SectionWrapper show={active === "leads"}>
-                  <LeadManagement />
+              <motion.div initial="hidden" animate="show" variants={fadeUp}>
+                <SectionWrapper show={active === "visits"}>
+                  <Visits />
                 </SectionWrapper>
 
-                 <SectionWrapper show={active === "visitingplaced"}>
-                  <VisitingPlaced />
-                </SectionWrapper>   
-                  
-                  
-
-
+                <SectionWrapper show={active === "leads"}>
+                  <MyLeads />
+                </SectionWrapper>
 
                 <SectionWrapper show={active === "followups"}>
                   <FollowUpSystem />
@@ -544,10 +555,75 @@ const SalesDashboard = () => {
               </motion.div>
             </div>
           </section>
+
+          {/* ✅ Mobile bottom bar */}
+          <div className="md:hidden sticky bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto max-w-[1200px] px-2 py-2 flex items-center justify-between gap-1">
+              <button
+                type="button"
+                onClick={() => onSelectTab("leads")}
+                className={cn(
+                  "flex-1 rounded-2xl px-2 py-2 text-[11px] font-extrabold border",
+                  active === "leads"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-900 border-slate-200"
+                )}
+              >
+                Leads
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectTab("visits")}
+                className={cn(
+                  "flex-1 rounded-2xl px-2 py-2 text-[11px] font-extrabold border",
+                  active === "visits"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-900 border-slate-200"
+                )}
+              >
+                Visits
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectTab("followups")}
+                className={cn(
+                  "flex-1 rounded-2xl px-2 py-2 text-[11px] font-extrabold border",
+                  active === "followups"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-900 border-slate-200"
+                )}
+              >
+                Follow
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelectTab("reports")}
+                className={cn(
+                  "flex-1 rounded-2xl px-2 py-2 text-[11px] font-extrabold border",
+                  active === "reports"
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "bg-white text-slate-900 border-slate-200"
+                )}
+              >
+                Reports
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className="shrink-0 h-10 w-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center"
+                aria-label="More"
+                title="More"
+              >
+                <FiMenu className="text-slate-900" />
+              </button>
+            </div>
+          </div>
         </main>
       </div>
     </div>
   );
-};
-
-export default SalesDashboard;
+}

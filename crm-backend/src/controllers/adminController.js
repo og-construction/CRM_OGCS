@@ -1,5 +1,5 @@
 import Quote from "../models/Quote.js";
-import Lead from "../models/Lead.js";
+import Lead from "../models/leadModel.js";
 
 const startOfWeek = (date = new Date()) => {
   const d = new Date(date);
