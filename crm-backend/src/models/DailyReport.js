@@ -2,11 +2,24 @@ import mongoose from "mongoose";
 
 const DailyReportSchema = new mongoose.Schema(
   {
-    reportDate: { type: String, required: true }, // YYYY-MM-DD
-    memberName: { type: String, required: true, trim: true, maxlength: 120 },
+    reportDate: {
+      type: String,
+      required: true, // YYYY-MM-DD
+    },
 
-    reportText: { type: String, required: true, trim: true, maxlength: 5000 },
-    wordCount: { type: Number, required: true },
+    memberName: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 120,
+    },
+
+    reportText: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 5000,
+    },
 
     attachment: {
       originalName: { type: String, default: "" },
@@ -16,10 +29,15 @@ const DailyReportSchema = new mongoose.Schema(
       url: { type: String, default: "" }, // /uploads/filename
     },
 
-    // Optional: if later you want link to logged-in user
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.model("DailyReport", DailyReportSchema);
