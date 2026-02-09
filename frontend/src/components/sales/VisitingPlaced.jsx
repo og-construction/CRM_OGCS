@@ -1,862 +1,326 @@
-// src/components/sales/VisitingPlaces.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import axiosClient from "../../api/axiosClient";
-import {
-  FiPlus,
-  FiRefreshCw,
-  FiSearch,
-  FiFilter,
-  FiImage,
-  FiChevronLeft,
-  FiChevronRight,
-  FiEdit2,
-  FiTrash2,
-  FiX,
-  FiSave,
-} from "react-icons/fi";
+// src/components/sales/Visits.jsx
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+
+import { createMyVisit, fetchMyVisits, clearVisitsMsg } from "../../store/slices/visitsSlice";
 
 const cn = (...a) => a.filter(Boolean).join(" ");
 
-const prettyDT = (v) => {
-  if (!v) return "-";
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return String(v);
-  return d.toLocaleString("en-IN");
-};
+const PARTY_TYPES = ["Buyer", "Contractor", "Seller", "Manufacturer", "Other"];
+const STATUSES = ["Visited", "Follow-Up", "Closed"];
 
-export default function VisitingPlaces() {
-  // ✅ form state
-  const [form, setForm] = useState({
-    companyName: "",
-    personName: "",
-    partyType: "Buyer",
-    contactName: "",
-    contactPhone: "",
-    contactEmail: "",
-    address: "",
-    status: "Visited",
-    visitedAt: "", // datetime-local
-    notes: "",
-  });
+const inputClass =
+  "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
-  const [visitImage, setVisitImage] = useState(null);
-  const [visitingCardImage, setVisitingCardImage] = useState(null);
+const emptyForm = () => ({
+  companyName: "",
+  personName: "",
+  partyType: "Buyer",
+  contactName: "",
+  contactPhone: "",
+  contactEmail: "",
+  address: "",
+  status: "Visited",
+  visitedAt: new Date().toISOString().slice(0, 10), // yyyy-mm-dd
+  notes: "",
+  visitImage: null,
+  visitingCardImage: null,
+});
 
-  // ✅ list state
-  const [items, setItems] = useState([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+export default function Visits() {
+  const dispatch = useDispatch();
 
-  // ✅ filters
-  const [q, setQ] = useState("");
-  const [partyType, setPartyType] = useState("");
-  const [status, setStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const { items = [], loading = false, saving = false, lastActionMsg = null, page = 1, pages = 1, total = 0, limit = 10 } =
+    useSelector((s) => s.visits || {});
 
-  // ✅ paging
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [form, setForm] = useState(emptyForm());
 
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
-
-  // ✅ Edit/Delete state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editRow, setEditRow] = useState(null);
-  const [editVisitImage, setEditVisitImage] = useState(null);
-  const [editVisitingCardImage, setEditVisitingCardImage] = useState(null);
-  const [updating, setUpdating] = useState(false);
-  const [deletingId, setDeletingId] = useState("");
-
-  const statusOptions = ["Planned", "Visited", "Follow-Up", "Closed", "Not Interested"];
-  const partyOptions = ["Seller", "Manufacturer", "Buyer", "Customer"];
-
+  // Pagination controls
   const canPrev = page > 1;
-  const canNext = page < totalPages;
-
-  const fetchData = async (p = page) => {
-    setLoading(true);
-    setErr("");
-    try {
-      const params = {
-        page: p,
-        limit,
-        q: q.trim() || undefined,
-        partyType: partyType || undefined,
-        status: status || undefined,
-        from: from ? new Date(from).toISOString() : undefined,
-        to: to ? new Date(to).toISOString() : undefined,
-        onlyMine: 1, // sales sees own
-      };
-
-      const res = await axiosClient.get("/visiting-places", { params });
-      setItems(res.data.items || []);
-      setTotal(res.data.total || 0);
-      setTotalPages(res.data.totalPages || 1);
-      setPage(res.data.page || p);
-    } catch (e) {
-      setErr(e?.response?.data?.message || e.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const canNext = page < pages;
 
   useEffect(() => {
-    fetchData(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit]);
+    dispatch(fetchMyVisits({ page: 1, limit: 10, onlyMine: "1" }));
+  }, [dispatch]);
 
-  const onChange = (k, v) => setForm((s) => ({ ...s, [k]: v }));
+  // Clear slice msg silently
+  useEffect(() => {
+    if (!lastActionMsg) return;
+    const t = setTimeout(() => dispatch(clearVisitsMsg()), 400);
+    return () => clearTimeout(t);
+  }, [dispatch, lastActionMsg]);
 
-  const resetForm = () => {
-    setForm({
-      companyName: "",
-      personName: "",
-      partyType: "Buyer",
-      contactName: "",
-      contactPhone: "",
-      contactEmail: "",
-      address: "",
-      status: "Visited",
-      visitedAt: "",
-      notes: "",
-    });
-    setVisitImage(null);
-    setVisitingCardImage(null);
-  };
+  const onSave = useCallback(async () => {
+    const companyName = String(form.companyName || "").trim();
+    const partyType = String(form.partyType || "").trim();
+    const contactName = String(form.contactName || "").trim();
+    const visitedAt = String(form.visitedAt || "").trim();
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setErr("");
-    setMsg("");
+    if (!companyName) return toast.error("Company Name is required");
+    if (!partyType) return toast.error("Party Type is required");
+    if (!contactName) return toast.error("Contact Name is required");
+    if (!visitedAt) return toast.error("Visited Date is required");
+
+    const toastId = toast.loading("Saving visit...");
 
     try {
-      if (!form.companyName || !form.partyType || !form.contactName || !form.visitedAt) {
-        throw new Error("Company Name, Party Type, Contact Name, Visited Date+Time required.");
+      // ✅ Send multipart ONLY if files exist
+      const hasFiles = !!form.visitImage || !!form.visitingCardImage;
+
+      let payload = null;
+
+      if (hasFiles) {
+        const fd = new FormData();
+        fd.append("companyName", companyName);
+        fd.append("personName", form.personName || "");
+        fd.append("partyType", partyType);
+        fd.append("contactName", contactName);
+        fd.append("contactPhone", form.contactPhone || "");
+        fd.append("contactEmail", (form.contactEmail || "").toLowerCase());
+        fd.append("address", form.address || "");
+        fd.append("status", form.status || "Visited");
+        fd.append("visitedAt", new Date(visitedAt).toISOString());
+        fd.append("notes", form.notes || "");
+
+        if (form.visitImage) fd.append("visitImage", form.visitImage);
+        if (form.visitingCardImage) fd.append("visitingCardImage", form.visitingCardImage);
+
+        payload = fd;
+      } else {
+        payload = {
+          companyName,
+          personName: form.personName || "",
+          partyType,
+          contactName,
+          contactPhone: form.contactPhone || "",
+          contactEmail: (form.contactEmail || "").toLowerCase(),
+          address: form.address || "",
+          status: form.status || "Visited",
+          visitedAt: new Date(visitedAt).toISOString(),
+          notes: form.notes || "",
+        };
       }
 
-      const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ""));
-      if (visitImage) fd.append("visitImage", visitImage);
-      if (visitingCardImage) fd.append("visitingCardImage", visitingCardImage);
+      await dispatch(createMyVisit(payload)).unwrap();
 
-      await axiosClient.post("/visiting-places", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      toast.success("Visit saved ✅", { id: toastId });
+      setForm(emptyForm());
 
-      setMsg("✅ Visit saved");
-      resetForm();
-      fetchData(1);
-    } catch (e2) {
-      setErr(e2?.response?.data?.message || e2.message || "Save failed");
-    } finally {
-      setSaving(false);
+      // refresh first page
+      dispatch(fetchMyVisits({ page: 1, limit, onlyMine: "1" }));
+    } catch (errMsg) {
+      toast.error(String(errMsg || "Failed to save visit"), { id: toastId });
     }
-  };
-
-  const excelRows = useMemo(() => {
-    return items.map((it, idx) => ({
-      sNo: (page - 1) * limit + idx + 1,
-      ...it,
-    }));
-  }, [items, page, limit]);
-
-  // ✅ Edit helpers
-  const openEdit = (row) => {
-    setErr("");
-    setMsg("");
-    setEditRow({
-      _id: row._id,
-      companyName: row.companyName || "",
-      personName: row.personName || "",
-      partyType: row.partyType || "Buyer",
-      contactName: row.contactName || "",
-      contactPhone: row.contactPhone || "",
-      contactEmail: row.contactEmail || "",
-      address: row.address || "",
-      status: row.status || "Visited",
-      visitedAt: row.visitedAt ? new Date(row.visitedAt).toISOString().slice(0, 16) : "",
-      notes: row.notes || "",
-    });
-    setEditVisitImage(null);
-    setEditVisitingCardImage(null);
-    setEditOpen(true);
-  };
-
-  const closeEdit = () => {
-    setEditOpen(false);
-    setEditRow(null);
-    setEditVisitImage(null);
-    setEditVisitingCardImage(null);
-  };
-
-  const updateVisit = async (e) => {
-    e.preventDefault();
-    if (!editRow?._id) return;
-
-    setUpdating(true);
-    setErr("");
-    setMsg("");
-
-    try {
-      if (!editRow.companyName || !editRow.partyType || !editRow.contactName || !editRow.visitedAt) {
-        throw new Error("Company Name, Party Type, Contact Name, Date+Time required.");
-      }
-
-      const fd = new FormData();
-      Object.entries(editRow).forEach(([k, v]) => {
-        if (k !== "_id") fd.append(k, v ?? "");
-      });
-      if (editVisitImage) fd.append("visitImage", editVisitImage);
-      if (editVisitingCardImage) fd.append("visitingCardImage", editVisitingCardImage);
-
-      await axiosClient.put(`/visiting-places/${editRow._id}`, fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setMsg("✅ Updated successfully");
-      closeEdit();
-      fetchData(page);
-    } catch (e2) {
-      setErr(e2?.response?.data?.message || e2.message || "Update failed");
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const deleteVisit = async (id) => {
-    if (!id) return;
-
-    const ok = window.confirm("Are you sure you want to delete this visit?");
-    if (!ok) return;
-
-    setDeletingId(id);
-    setErr("");
-    setMsg("");
-
-    try {
-      await axiosClient.delete(`/visiting-places/${id}`);
-      setMsg("🗑️ Deleted successfully");
-
-      // Safe page recalculation
-      const nextTotal = Math.max(0, total - 1);
-      const nextPages = Math.max(1, Math.ceil(nextTotal / limit));
-      const nextPage = Math.min(page, nextPages);
-
-      fetchData(nextPage);
-    } catch (e2) {
-      setErr(e2?.response?.data?.message || e2.message || "Delete failed");
-    } finally {
-      setDeletingId("");
-    }
-  };
+  }, [dispatch, form, limit]);
 
   return (
-    <div className="w-full p-3 md:p-5" style={{ background: "#EFF6FF" }}>
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Visiting Places</h2>
-            <p className="text-sm text-slate-600">
-              Sales visit form + Excel-like list (Search, Filters, Pagination)
-            </p>
-          </div>
+    <div className="min-h-[100dvh] bg-slate-50">
+      <div className="max-w-[1200px] mx-auto px-3 sm:px-4 md:px-6 py-4 space-y-4">
+        {/* Create */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="h-1 bg-blue-600" />
+          <div className="p-4 sm:p-5">
+            <div className="text-lg font-extrabold text-slate-900">Add Visiting Place</div>
+            <div className="text-xs text-slate-400 mt-1">This matches backend VisitingPlace controller fields.</div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => fetchData(1)}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-slate-800 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
-              disabled={loading}
-            >
-              <FiRefreshCw /> Refresh
-            </button>
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={submit} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div>
-              <label className="text-xs font-medium text-slate-700">Company Name *</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.companyName}
-                onChange={(e) => onChange("companyName", e.target.value)}
-                placeholder="e.g. ABC Constructions"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Person Name</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.personName}
-                onChange={(e) => onChange("personName", e.target.value)}
-                placeholder="e.g. Mr. Raj"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">
-                Seller / Manufacturer / Buyer / Customer *
-              </label>
-              <select
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.partyType}
-                onChange={(e) => onChange("partyType", e.target.value)}
-              >
-                {partyOptions.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Contact Name *</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.contactName}
-                onChange={(e) => onChange("contactName", e.target.value)}
-                placeholder="e.g. Site Engineer / Purchase Head"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Contact Phone</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.contactPhone}
-                onChange={(e) => onChange("contactPhone", e.target.value)}
-                placeholder="e.g. 98XXXXXXXX"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Contact Email</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.contactEmail}
-                onChange={(e) => onChange("contactEmail", e.target.value)}
-                placeholder="e.g. mail@company.com"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium text-slate-700">Address</label>
-              <input
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.address}
-                onChange={(e) => onChange("address", e.target.value)}
-                placeholder="Full address / area / city"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Status</label>
-              <select
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.status}
-                onChange={(e) => onChange("status", e.target.value)}
-              >
-                {statusOptions.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Date & Time *</label>
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                value={form.visitedAt}
-                onChange={(e) => onChange("visitedAt", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Visit Image</label>
-              <div className="mt-1 flex items-center gap-2">
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Company Name *</div>
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setVisitImage(e.target.files?.[0] || null)}
-                  className="w-full text-sm"
-                />
-                <FiImage className="text-slate-500" />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-slate-700">Visiting Card Image</label>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setVisitingCardImage(e.target.files?.[0] || null)}
-                  className="w-full text-sm"
-                />
-                <FiImage className="text-slate-500" />
-              </div>
-            </div>
-
-            <div className="md:col-span-3">
-              <label className="text-xs font-medium text-slate-700">Notes</label>
-              <textarea
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                rows={2}
-                value={form.notes}
-                onChange={(e) => onChange("notes", e.target.value)}
-                placeholder="Discussion summary, next steps..."
-              />
-            </div>
-          </div>
-
-          <div className="mt-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="text-sm">
-              {err ? <span className="text-red-600">{err}</span> : null}
-              {msg ? <span className="text-green-700">{msg}</span> : null}
-            </div>
-
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-            >
-              <FiPlus />
-              {saving ? "Saving..." : "Save Visit"}
-            </button>
-          </div>
-        </form>
-
-        {/* Filters */}
-        <div className="mt-4 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="flex w-full flex-col gap-2 md:flex-row md:items-center">
-              <div className="relative w-full md:w-80">
-                <FiSearch className="absolute left-3 top-2.5 text-slate-500" />
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 py-2 pl-9 pr-3 text-sm outline-none focus:border-slate-400"
-                  placeholder="Search company / contact / address..."
+                  className={inputClass}
+                  value={form.companyName}
+                  onChange={(e) => setForm((p) => ({ ...p, companyName: e.target.value }))}
+                  placeholder="e.g., ABC Builders"
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Party Type *</div>
                 <select
-                  value={partyType}
-                  onChange={(e) => setPartyType(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+                  className={inputClass}
+                  value={form.partyType}
+                  onChange={(e) => setForm((p) => ({ ...p, partyType: e.target.value }))}
                 >
-                  <option value="">All Party</option>
-                  {partyOptions.map((x) => (
+                  {PARTY_TYPES.map((x) => (
                     <option key={x} value={x}>
                       {x}
                     </option>
                   ))}
                 </select>
+              </div>
 
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Visited At *</div>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.visitedAt}
+                  onChange={(e) => setForm((p) => ({ ...p, visitedAt: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Contact Name *</div>
+                <input
+                  className={inputClass}
+                  value={form.contactName}
+                  onChange={(e) => setForm((p) => ({ ...p, contactName: e.target.value }))}
+                  placeholder="Person met"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Contact Phone</div>
+                <input
+                  className={inputClass}
+                  value={form.contactPhone}
+                  onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
+                  placeholder="9876543210"
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Contact Email</div>
+                <input
+                  className={inputClass}
+                  value={form.contactEmail}
+                  onChange={(e) => setForm((p) => ({ ...p, contactEmail: e.target.value }))}
+                  placeholder="email@example.com"
+                />
+              </div>
+
+              <div className="xl:col-span-2">
+                <div className="text-xs font-semibold text-slate-600 mb-1">Address</div>
+                <input
+                  className={inputClass}
+                  value={form.address}
+                  onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Full address"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Status</div>
                 <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+                  className={inputClass}
+                  value={form.status}
+                  onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
                 >
-                  <option value="">All Status</option>
-                  {statusOptions.map((x) => (
+                  {STATUSES.map((x) => (
                     <option key={x} value={x}>
                       {x}
                     </option>
                   ))}
                 </select>
+              </div>
 
-                <button
-                  onClick={() => fetchData(1)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 ring-1 ring-slate-200 hover:bg-slate-100"
-                  disabled={loading}
-                  type="button"
-                >
-                  <FiFilter /> Apply
-                </button>
+              <div className="xl:col-span-3">
+                <div className="text-xs font-semibold text-slate-600 mb-1">Notes</div>
+                <textarea
+                  className={inputClass}
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Notes..."
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Visit Image</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="w-full"
+                  onChange={(e) => setForm((p) => ({ ...p, visitImage: e.target.files?.[0] || null }))}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-slate-600 mb-1">Visiting Card Image</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="w-full"
+                  onChange={(e) => setForm((p) => ({ ...p, visitingCardImage: e.target.files?.[0] || null }))}
+                />
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-600">From</span>
-                <input
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                />
-                <span className="text-xs text-slate-600">To</span>
-                <input
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                  className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                />
-              </div>
-
-              <select
-                value={limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving}
+                className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
               >
-                {[10, 20, 30, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {n}/page
-                  </option>
-                ))}
-              </select>
+                {saving ? "Saving..." : "Save Visit"}
+              </button>
             </div>
-          </div>
-
-          <div className="mt-2 text-sm text-slate-600">
-            Total: <span className="font-semibold text-slate-900">{total}</span>
           </div>
         </div>
 
-        {/* Table (Excel-like) */}
-        <div className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div className="overflow-x-auto">
-            <table className="min-w-[1300px] w-full border-collapse text-sm">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  <th className="border-b border-slate-200 px-3 py-3">S.No</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Company</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Person</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Party Type</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Contact</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Phone</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Address</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Initiated By</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Status</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Visit Img</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Card Img</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Date & Time</th>
-                  <th className="border-b border-slate-200 px-3 py-3">Actions</th>
-                </tr>
-              </thead>
+        {/* List */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div className="text-sm font-semibold text-slate-900">My Visits</div>
+            <div className="text-xs text-slate-600">
+              Total <b className="text-slate-900">{total}</b> • Page <b className="text-slate-900">{page}</b> /{" "}
+              <b className="text-slate-900">{pages}</b>
+            </div>
+          </div>
 
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={13}>
-                      Loading...
-                    </td>
-                  </tr>
-                ) : excelRows.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={13}>
-                      No records found.
-                    </td>
-                  </tr>
-                ) : (
-                  excelRows.map((r) => (
-                    <tr key={r._id} className="hover:bg-slate-50">
-                      <td className="border-b border-slate-100 px-3 py-3">{r.sNo}</td>
-                      <td className="border-b border-slate-100 px-3 py-3 font-medium text-slate-900">
-                        {r.companyName}
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3">{r.personName || "-"}</td>
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                          {r.partyType}
-                        </span>
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3">{r.contactName}</td>
-                      <td className="border-b border-slate-100 px-3 py-3">{r.contactPhone || "-"}</td>
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        <span className="line-clamp-2">{r.address || "-"}</span>
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        {r.initiatedBy?.name || r.initiatedBy?.email || "-"}
-                      </td>
-                      <td className="border-b border-slate-100 px-3 py-3">{r.status}</td>
+          <div className="p-4 sm:p-5 space-y-3">
+            {loading ? (
+              <div className="text-slate-600">Loading...</div>
+            ) : items.length === 0 ? (
+              <div className="text-slate-600">No visits found.</div>
+            ) : (
+              items.map((v) => (
+                <div key={v._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-base font-extrabold text-slate-900 truncate">{v.companyName}</div>
+                      <div className="text-xs text-slate-400 mt-1">
+                        {v.partyType} • {v.visitedAt ? new Date(v.visitedAt).toLocaleString("en-IN") : "-"}
+                      </div>
+                      <div className="text-xs text-slate-600 mt-1">
+                        Contact: <span className="text-slate-900">{v.contactName || "-"}</span>{" "}
+                        {v.contactPhone ? `• ${v.contactPhone}` : ""}
+                      </div>
+                    </div>
+                  </div>
 
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        {r.visitImage?.url ? (
-                          <a
-                            href={r.visitImage.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-700 underline"
-                          >
-                            View
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        {r.visitingCardImage?.url ? (
-                          <a
-                            href={r.visitingCardImage.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-blue-700 underline"
-                          >
-                            View
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-
-                      <td className="border-b border-slate-100 px-3 py-3">{prettyDT(r.visitedAt)}</td>
-
-                      {/* ✅ Actions */}
-                      <td className="border-b border-slate-100 px-3 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(r)}
-                            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2 py-1 text-xs font-semibold text-white hover:bg-slate-800"
-                            title="Edit"
-                          >
-                            <FiEdit2 /> Edit
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => deleteVisit(r._id)}
-                            disabled={deletingId === r._id}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold ring-1",
-                              deletingId === r._id
-                                ? "bg-slate-100 text-slate-400 ring-slate-200"
-                                : "bg-white text-red-700 ring-red-200 hover:bg-red-50"
-                            )}
-                            title="Delete"
-                          >
-                            <FiTrash2 /> {deletingId === r._id ? "Deleting..." : "Delete"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  {v.notes ? (
+                    <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{v.notes}</div>
+                  ) : null}
+                </div>
+              ))
+            )}
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-slate-200 px-3 py-3">
-            <div className="text-sm text-slate-600">
-              Page <span className="font-semibold text-slate-900">{page}</span> /{" "}
-              <span className="font-semibold text-slate-900">{totalPages}</span>
-            </div>
+          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 flex items-center justify-between">
+            <button
+              type="button"
+              disabled={!canPrev || loading}
+              className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-white disabled:opacity-60"
+              onClick={() => dispatch(fetchMyVisits({ page: page - 1, limit, onlyMine: "1" }))}
+            >
+              Prev
+            </button>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={!canPrev || loading}
-                onClick={() => fetchData(page - 1)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ring-1",
-                  canPrev
-                    ? "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
-                    : "bg-slate-100 text-slate-400 ring-slate-200"
-                )}
-              >
-                <FiChevronLeft /> Prev
-              </button>
-
-              <button
-                type="button"
-                disabled={!canNext || loading}
-                onClick={() => fetchData(page + 1)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ring-1",
-                  canNext
-                    ? "bg-white text-slate-800 ring-slate-200 hover:bg-slate-50"
-                    : "bg-slate-100 text-slate-400 ring-slate-200"
-                )}
-              >
-                Next <FiChevronRight />
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={!canNext || loading}
+              className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-white disabled:opacity-60"
+              onClick={() => dispatch(fetchMyVisits({ page: page + 1, limit, onlyMine: "1" }))}
+            >
+              Next
+            </button>
           </div>
         </div>
-
-        {/* ✅ Edit Modal */}
-        {editOpen && editRow && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3">
-            <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-slate-200">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Edit Visit</h3>
-                  <p className="text-xs text-slate-600">Update fields and save</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeEdit}
-                  className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200 hover:bg-slate-100"
-                >
-                  <FiX />
-                </button>
-              </div>
-
-              <form onSubmit={updateVisit} className="p-4">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Company Name *</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.companyName}
-                      onChange={(e) => setEditRow((s) => ({ ...s, companyName: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Person Name</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.personName}
-                      onChange={(e) => setEditRow((s) => ({ ...s, personName: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Party Type *</label>
-                    <select
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.partyType}
-                      onChange={(e) => setEditRow((s) => ({ ...s, partyType: e.target.value }))}
-                    >
-                      {partyOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Contact Name *</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.contactName}
-                      onChange={(e) => setEditRow((s) => ({ ...s, contactName: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Contact Phone</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.contactPhone}
-                      onChange={(e) => setEditRow((s) => ({ ...s, contactPhone: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Contact Email</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.contactEmail}
-                      onChange={(e) => setEditRow((s) => ({ ...s, contactEmail: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-xs font-medium text-slate-700">Address</label>
-                    <input
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.address}
-                      onChange={(e) => setEditRow((s) => ({ ...s, address: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Status</label>
-                    <select
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.status}
-                      onChange={(e) => setEditRow((s) => ({ ...s, status: e.target.value }))}
-                    >
-                      {statusOptions.map((x) => (
-                        <option key={x} value={x}>
-                          {x}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Date & Time *</label>
-                    <input
-                      type="datetime-local"
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.visitedAt}
-                      onChange={(e) => setEditRow((s) => ({ ...s, visitedAt: e.target.value }))}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Replace Visit Image</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setEditVisitImage(e.target.files?.[0] || null)}
-                      className="mt-1 w-full text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-medium text-slate-700">Replace Visiting Card</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setEditVisitingCardImage(e.target.files?.[0] || null)}
-                      className="mt-1 w-full text-sm"
-                    />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="text-xs font-medium text-slate-700">Notes</label>
-                    <textarea
-                      rows={2}
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                      value={editRow.notes}
-                      onChange={(e) => setEditRow((s) => ({ ...s, notes: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={closeEdit}
-                    className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={updating}
-                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                  >
-                    <FiSave /> {updating ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

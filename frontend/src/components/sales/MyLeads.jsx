@@ -1,4 +1,4 @@
-// ✅ MyLeads.jsx — FULL CODE (Responsive + Create/Edit + Excel Import + Pagination)
+// ✅ MyLeads.jsx — FULL CODE (Responsive + Create/Edit + Excel Import + PROFESSIONAL Pagination)
 // NOTE: npm i xlsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -101,16 +101,8 @@ function Modal({ open, title, onClose, children, footer }) {
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4">
       <div
         className="
-          w-full
-          max-w-3xl
-          bg-white
-          rounded-2xl
-          border border-slate-200
-          overflow-hidden
-          flex flex-col
-          h-[92dvh]
-          sm:h-auto
-          sm:max-h-[92dvh]
+          w-full max-w-3xl bg-white rounded-2xl border border-slate-200
+          overflow-hidden flex flex-col h-[92dvh] sm:h-auto sm:max-h-[92dvh]
         "
         role="dialog"
         aria-modal="true"
@@ -132,9 +124,7 @@ function Modal({ open, title, onClose, children, footer }) {
 
         {/* Footer */}
         {footer ? (
-          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">
-            {footer}
-          </div>
+          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">{footer}</div>
         ) : null}
       </div>
     </div>
@@ -190,6 +180,187 @@ function normalizeLeadRow(row = {}) {
   };
 }
 
+/** ✅ Pagination helpers (scalable + clean) */
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function buildPageItems({ page, pages, siblingCount = 1 }) {
+  // Returns: [1, "...", 4,5,6, "...", 10]
+  if (!pages || pages <= 1) return [1];
+
+  const totalNumbers = siblingCount * 2 + 5; // first + last + current + 2 siblings + 2 dots
+  if (pages <= totalNumbers) return Array.from({ length: pages }, (_, i) => i + 1);
+
+  const leftSibling = Math.max(page - siblingCount, 1);
+  const rightSibling = Math.min(page + siblingCount, pages);
+
+  const showLeftDots = leftSibling > 2;
+  const showRightDots = rightSibling < pages - 1;
+
+  const items = [];
+
+  // Always show first
+  items.push(1);
+
+  if (showLeftDots) items.push("...");
+  else {
+    for (let i = 2; i < leftSibling; i++) items.push(i);
+  }
+
+  for (let i = leftSibling; i <= rightSibling; i++) {
+    if (i !== 1 && i !== pages) items.push(i);
+  }
+
+  if (showRightDots) items.push("...");
+  else {
+    for (let i = rightSibling + 1; i < pages; i++) items.push(i);
+  }
+
+  // Always show last
+  if (pages !== 1) items.push(pages);
+
+  // Remove duplicates (safety)
+  return items.filter((v, idx, arr) => idx === arr.findIndex((x) => x === v));
+}
+
+function PaginationBar({
+  page,
+  pages,
+  total,
+  limit,
+  countOnPage,
+  loading,
+  onPageChange,
+  onLimitChange,
+}) {
+  const canPrev = page > 1;
+  const canNext = pages ? page < pages : false;
+
+  const from = total ? (page - 1) * limit + 1 : 0;
+  const to = total ? Math.min(page * limit, total) : countOnPage;
+
+  const pageItems = useMemo(() => buildPageItems({ page, pages, siblingCount: 1 }), [page, pages]);
+
+  const btnBase =
+    "px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60";
+  const pageBtn =
+    "min-w-[42px] px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60";
+  const activePageBtn = "bg-slate-900 text-white border-slate-900 hover:bg-slate-900";
+
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div className="text-xs text-slate-600">
+        {total ? (
+          <>
+            Showing <b className="text-slate-900">{from}</b> - <b className="text-slate-900">{to}</b> of{" "}
+            <b className="text-slate-900">{total}</b>
+          </>
+        ) : (
+          <>
+            Page <b className="text-slate-900">{page}</b> / <b className="text-slate-900">{pages || 1}</b>
+            <span className="text-slate-400"> • </span>
+            Showing <b className="text-slate-900">{countOnPage}</b> record(s)
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        {/* Page size */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-600">Page size</span>
+          <select
+            className="border border-slate-200 rounded-2xl px-3 py-2 text-sm bg-white text-slate-900"
+            value={limit}
+            onChange={(e) => onLimitChange?.(Number(e.target.value) || 20)}
+            disabled={loading}
+          >
+            {[10, 20, 30, 50].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={`${btnBase} text-slate-600`}
+            disabled={!canPrev || loading}
+            onClick={() => onPageChange?.(1)}
+          >
+            First
+          </button>
+
+          <button
+            type="button"
+            className={`${btnBase} text-slate-600`}
+            disabled={!canPrev || loading}
+            onClick={() => onPageChange?.(page - 1)}
+          >
+            Prev
+          </button>
+
+          {/* Page numbers */}
+          <div className="flex flex-wrap items-center gap-2">
+            {pageItems.map((it, idx) =>
+              it === "..." ? (
+                <span key={`dots-${idx}`} className="px-2 text-slate-400 text-sm">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={it}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => onPageChange?.(it)}
+                  className={`${pageBtn} ${it === page ? activePageBtn : "text-slate-600 bg-white"}`}
+                >
+                  {it}
+                </button>
+              )
+            )}
+          </div>
+
+          <button
+            type="button"
+            className={`${btnBase} text-slate-600`}
+            disabled={!canNext || loading}
+            onClick={() => onPageChange?.(page + 1)}
+          >
+            Next
+          </button>
+
+          <button
+            type="button"
+            className={`${btnBase} text-slate-600`}
+            disabled={!canNext || loading}
+            onClick={() => onPageChange?.(pages)}
+          >
+            Last
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkeletonRow({ cols = 10 }) {
+  return (
+    <tr>
+      <td colSpan={cols} className="p-6">
+        <div className="animate-pulse space-y-3">
+          <div className="h-3 bg-slate-100 rounded w-2/3" />
+          <div className="h-3 bg-slate-100 rounded w-1/2" />
+          <div className="h-3 bg-slate-100 rounded w-3/4" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 export default function MyLeads() {
   const dispatch = useDispatch();
 
@@ -213,7 +384,7 @@ export default function MyLeads() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
 
-  // ✅ Pagination state (frontend-side)
+  // ✅ Pagination state (front-end)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -229,6 +400,37 @@ export default function MyLeads() {
   const [openDesc, setOpenDesc] = useState(false);
   const [descText, setDescText] = useState("");
 
+  const inputClass =
+    "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
+
+  /** ✅ Effective pagination (backend meta preferred; fallback safe) */
+  const effectiveLimit = sliceLimit ?? limit;
+  const effectiveTotal = sliceTotal ?? null; // if null => unknown total
+  const effectivePages =
+    slicePages ??
+    (effectiveTotal ? Math.max(1, Math.ceil(effectiveTotal / effectiveLimit)) : 1);
+  const effectivePage = slicePage ?? page;
+
+  /** ✅ Build request args in one place (clean + scalable) */
+  const queryArgs = useMemo(
+    () => ({
+      status,
+      leadType,
+      search: debouncedSearch,
+      page: effectivePage,
+      limit: effectiveLimit,
+    }),
+    [status, leadType, debouncedSearch, effectivePage, effectiveLimit]
+  );
+
+  const fetchNow = useCallback(
+    (overrides = {}) => {
+      const next = { ...queryArgs, ...overrides };
+      dispatch(fetchMyLeads(next));
+    },
+    [dispatch, queryArgs]
+  );
+
   // ✅ When filter/search changes -> reset to page 1
   useEffect(() => {
     setPage(1);
@@ -236,10 +438,11 @@ export default function MyLeads() {
 
   // ✅ Fetch on filter/search/page/limit change
   useEffect(() => {
-    dispatch(fetchMyLeads({ status, leadType, search: debouncedSearch, page, limit }));
-  }, [dispatch, status, leadType, debouncedSearch, page, limit]);
+    // If backend returns slicePage/limit it may override; we still send local state
+    fetchNow({ page, limit });
+  }, [fetchNow, page, limit]);
 
-  const onSearch = useCallback(
+  const onSearchSubmit = useCallback(
     (e) => {
       e.preventDefault();
       setPage(1);
@@ -290,6 +493,7 @@ export default function MyLeads() {
         address: String(form.address || "").trim(),
         description: String(form.description || "").trim(),
         source: String(form.source || "").trim() || "Manual",
+        status: String(form.status || "New"),
       };
 
       if (!payload.name) return alert("Name is required");
@@ -305,32 +509,37 @@ export default function MyLeads() {
         setOpenForm(false);
         resetForm();
 
-        // ✅ refresh current list
-        dispatch(fetchMyLeads({ status, leadType, search: debouncedSearch, page, limit }));
+        // ✅ refresh list (keep current filters)
+        fetchNow({ page, limit });
       } catch {
         // handled in slice
       } finally {
         setSaving(false);
       }
     },
-    [dispatch, editing?._id, form, resetForm, status, leadType, debouncedSearch, page, limit]
+    [dispatch, editing?._id, form, resetForm, fetchNow, page, limit]
   );
 
   const onDelete = useCallback(
     async (lead) => {
       const ok = confirm(`Delete lead: ${lead.name}?`);
       if (!ok) return;
-      await dispatch(deleteMyLead(lead._id)).unwrap?.();
+
+      try {
+        await dispatch(deleteMyLead(lead._id)).unwrap?.();
+      } catch {
+        // handled by slice (if any)
+      }
 
       // ✅ if deleting last item on page, move back one page safely
       const remainingOnPage = Math.max(0, (items?.length || 0) - 1);
       if (page > 1 && remainingOnPage === 0) setPage((p) => Math.max(1, p - 1));
-      else dispatch(fetchMyLeads({ status, leadType, search: debouncedSearch, page, limit }));
+      else fetchNow({ page, limit });
     },
-    [dispatch, items?.length, page, status, leadType, debouncedSearch, limit]
+    [dispatch, items?.length, page, fetchNow, limit]
   );
 
-  // ✅ Summary can be either page-only OR total from backend
+  // ✅ Summary (page-level; total from backend if available)
   const summary = useMemo(() => {
     const list = items || [];
     const by = (s) => list.filter((x) => x.status === s).length;
@@ -367,11 +576,11 @@ export default function MyLeads() {
       setImportPreviewCount(0);
 
       setPage(1);
-      dispatch(fetchMyLeads({ status, leadType, search: debouncedSearch, page: 1, limit }));
+      fetchNow({ page: 1, limit });
     } catch {
       alert("Invalid JSON / Import failed");
     }
-  }, [dispatch, importJson, leadType, status, debouncedSearch, limit]);
+  }, [dispatch, importJson, fetchNow, limit]);
 
   const onExcelPick = useCallback(async (e) => {
     const file = e.target.files?.[0];
@@ -400,17 +609,21 @@ export default function MyLeads() {
     });
   }, [items]);
 
-  // ✅ Pagination derived (works with or without backend meta)
-  const effectivePage = slicePage ?? page;
-  const effectiveLimit = sliceLimit ?? limit;
-  const effectivePages = slicePages ?? (items?.length ? 1 : 0);
-  const effectiveTotal = sliceTotal ?? items.length;
+  /** ✅ Pagination actions (professional + safe) */
+  const onPageChange = useCallback(
+    (nextPage) => {
+      const next = clamp(Number(nextPage) || 1, 1, effectivePages || 1);
+      setPage(next);
+      // fetch will happen via useEffect
+    },
+    [effectivePages]
+  );
 
-  const canPrev = effectivePage > 1;
-  const canNext = effectivePages ? effectivePage < effectivePages : false;
-
-  const inputClass =
-    "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
+  const onLimitChange = useCallback((nextLimit) => {
+    const n = Number(nextLimit) || 20;
+    setLimit(n);
+    setPage(1);
+  }, []);
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
@@ -494,9 +707,8 @@ export default function MyLeads() {
             {importResult && (
               <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
                 <div className="leading-relaxed min-w-0">
-                  <span className="text-green-600 font-semibold">Import done:</span>{" "}
-                  Added <b>{importResult.added}</b>, Duplicate skipped{" "}
-                  <b>{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
+                  <span className="text-green-600 font-semibold">Import done:</span> Added{" "}
+                  <b>{importResult.added}</b>, Duplicate skipped <b>{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
                   <b>{importResult.skippedInvalid}</b>
                 </div>
                 <button
@@ -510,7 +722,7 @@ export default function MyLeads() {
             )}
 
             {/* Filters */}
-            <form onSubmit={onSearch} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
+            <form onSubmit={onSearchSubmit} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
               <div className="md:col-span-3">
                 <div className="text-xs font-semibold text-slate-600 mb-1">Status</div>
                 <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -554,7 +766,7 @@ export default function MyLeads() {
                 <button
                   type="button"
                   className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                  onClick={() => dispatch(fetchMyLeads({ status, leadType, search, page, limit }))}
+                  onClick={() => fetchNow({ page, limit, search })}
                 >
                   Refresh
                 </button>
@@ -562,51 +774,18 @@ export default function MyLeads() {
             </form>
 
             {/* ✅ Pagination Controls (top) */}
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="text-xs text-slate-600">
-                Page <b className="text-slate-900">{effectivePage}</b> of{" "}
-                <b className="text-slate-900">{effectivePages || 1}</b>{" "}
-                <span className="text-slate-400">•</span>{" "}
-                Total <b className="text-slate-900">{effectiveTotal}</b>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600">Page size</span>
-                  <select
-                    className="border border-slate-200 rounded-2xl px-3 py-2 text-sm bg-white text-slate-900"
-                    value={limit}
-                    onChange={(e) => {
-                      setLimit(Number(e.target.value) || 20);
-                      setPage(1);
-                    }}
-                  >
-                    {[10, 20, 30, 50].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                    disabled={!canPrev || loading}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                    disabled={!canNext || loading}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
+            <div className="mt-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <PaginationBar
+                  page={effectivePage}
+                  pages={effectivePages}
+                  total={effectiveTotal}
+                  limit={limit}
+                  countOnPage={items.length}
+                  loading={loading}
+                  onPageChange={onPageChange}
+                  onLimitChange={onLimitChange}
+                />
               </div>
             </div>
           </div>
@@ -756,19 +935,13 @@ export default function MyLeads() {
 
               <tbody className="divide-y divide-slate-200">
                 {loading ? (
-                  <tr>
-                    <td colSpan={11} className="p-6 text-slate-600">
-                      Loading leads...
-                    </td>
-                  </tr>
+                  <SkeletonRow cols={11} />
                 ) : items.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="p-10">
                       <div className="text-center">
                         <div className="text-slate-900 font-semibold">No leads found</div>
-                        <div className="text-slate-600 text-sm mt-1">
-                          Try changing filters or create a new lead.
-                        </div>
+                        <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
                         <button
                           className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
                           onClick={startCreate}
@@ -803,10 +976,13 @@ export default function MyLeads() {
 
                         <td className="p-3 text-slate-900">{lead.company || "-"}</td>
                         <td className="p-3 text-slate-900">{lead.phone || "-"}</td>
+
                         <td className="p-3">
                           <div className="max-w-[220px] break-words text-slate-900">{lead.email || "-"}</div>
                         </td>
+
                         <td className="p-3 text-slate-900">{lead.city || "-"}</td>
+
                         <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">
                           {lead.address || "-"}
                         </td>
@@ -865,30 +1041,17 @@ export default function MyLeads() {
           </div>
 
           {/* ✅ Pagination Controls (bottom) */}
-          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="text-xs text-slate-600">
-              Page <b className="text-slate-900">{effectivePage}</b> /{" "}
-              <b className="text-slate-900">{effectivePages || 1}</b> • Total{" "}
-              <b className="text-slate-900">{effectiveTotal}</b>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                disabled={!canPrev || loading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Prev
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-                disabled={!canNext || loading}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
+          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3">
+            <PaginationBar
+              page={effectivePage}
+              pages={effectivePages}
+              total={effectiveTotal}
+              limit={limit}
+              countOnPage={items.length}
+              loading={loading}
+              onPageChange={onPageChange}
+              onLimitChange={onLimitChange}
+            />
           </div>
         </div>
 

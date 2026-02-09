@@ -6,16 +6,14 @@ import {
   deleteNotification,
 } from "../controllers/notificationController.js";
 
+import { protect } from "../middlewares/authMiddleware.js";
+
 const router = express.Router();
 
-// GET list, POST create
-router.get("/", getNotifications);
-router.post("/", createNotification);
-
-// PATCH read status
-router.patch("/:id/read", updateNotificationRead);
-
-// DELETE
-router.delete("/:id", deleteNotification);
+// ✅ Protect all notification routes
+router.get("/", protect, getNotifications);
+router.post("/", protect, createNotification);
+router.patch("/:id/read", protect, updateNotificationRead);
+router.delete("/:id", protect, deleteNotification);
 
 export default router;

@@ -1,20 +1,17 @@
 import mongoose from "mongoose";
 
-const notificationSchema = new mongoose.Schema(
+const NotificationSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true, maxlength: 120 },
-    description: { type: String, required: true, trim: true, maxlength: 2000 },
-
-    // Date selected from form
+    title: { type: String, required: true, trim: true },
+    description: { type: String, required: true, trim: true },
     notifyDate: { type: Date, required: true },
-
-    // Auto-calculated day name (Mon/Tue...)
-    day: { type: String, required: true },
-
-    // Simple read status
+    day: { type: String, default: "" },
     isRead: { type: Boolean, default: false },
+
+    // ✅ who created this notification
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("Notification", notificationSchema);
+export default mongoose.models.Notification || mongoose.model("Notification", NotificationSchema);

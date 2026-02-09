@@ -1,12 +1,3 @@
-// ✅ Optimized, responsive, mobile-first Notification.jsx (with Follow-up Cards + Notifications)
-// - Better spacing + responsive layout
-// - Icons auto-scale on mobile/desktop
-// - Sticky toolbars where useful
-// - Cleaner cards & list rows
-// - Keeps your restricted palette
-// - Uses your existing custom toast (no react-hot-toast)
-// - Follow-up dashboard: Today/Upcoming/Overdue + list
-
 // src/components/sales/Notification.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axiosClient from "../../api/axiosClient";
@@ -23,6 +14,14 @@ import {
   FiAlertTriangle,
   FiChevronRight,
 } from "react-icons/fi";
+
+// ✅ Redux for followups
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchFollowUpSummary,
+  fetchFollowUpsByBucket,
+  setBucket,
+} from "../../store/slices/followUpsSlice";
 
 /**
  * ✅ Restricted palette ONLY:
@@ -94,12 +93,7 @@ function StatPill({ label, value, accent = "slate" }) {
       : "bg-slate-100 text-slate-900 border border-slate-200";
 
   return (
-    <div
-      className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold",
-        cls
-      )}
-    >
+    <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold", cls)}>
       <span className="opacity-90">{label}</span>
       <span className="bg-white/20 px-2 py-0.5 rounded-full">{value}</span>
     </div>
@@ -144,13 +138,11 @@ function IconBadge({ tone = "blue", children, title }) {
         toneCls
       )}
     >
-      {/* icon size adjusts automatically */}
       <div className="text-lg sm:text-xl">{children}</div>
     </div>
   );
 }
 
-/** Follow-up Card (responsive + icon scaling) */
 function FollowCard({ title, value, hint, tone = "blue", active, onClick, icon }) {
   const toneBorder =
     tone === "blue"
@@ -217,16 +209,13 @@ function Toast({ show, type, msg, onClose }) {
 /* ---------------- Component ---------------- */
 
 export default function Notification() {
-  /* Notifications state */
+  /* Notifications state (UNCHANGED) */
   const [form, setForm] = useState(empty);
   const [items, setItems] = useState([]);
-
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
   const [toast, setToast] = useState({ show: false, type: "info", msg: "" });
-
   const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -235,7 +224,10 @@ export default function Notification() {
   const showToast = (type, msg) => {
     setToast({ show: true, type, msg });
     window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast({ show: false, type: "info", msg: "" }), 2200);
+    showToast._t = window.setTimeout(
+      () => setToast({ show: false, type: "info", msg: "" }),
+      2200
+    );
   };
 
   const loadNotifications = async () => {
@@ -337,49 +329,25 @@ export default function Notification() {
       });
   }, [items, tab, search]);
 
-  /* Follow-up Reminder Dashboard */
-  const [fuSummary, setFuSummary] = useState({ today: 0, upcoming: 0, overdue: 0 });
-  const [fuBucket, setFuBucket] = useState("today");
-  const [fuItems, setFuItems] = useState([]);
-  const [fuLoading, setFuLoading] = useState(false);
-  const [fuError, setFuError] = useState("");
+  /* ✅ Follow-up Reminder Dashboard (REDUX) */
+  const dispatch = useDispatch();
 
-  const loadFollowUpSummary = async () => {
-    try {
-      setFuError("");
-      const res = await axiosClient.get("/leads/my/followups/summary");
-      setFuSummary({
-        today: Number(res.data?.today || 0),
-        upcoming: Number(res.data?.upcoming || 0),
-        overdue: Number(res.data?.overdue || 0),
-      });
-    } catch (e) {
-      const msg = e.response?.data?.message || "Follow-up summary not available";
-      setFuError(msg);
-    }
+  // ✅ safe fallbacks (prevents crash if state not ready)
+  const fuSummary = useSelector((s) => s.followups?.summary) || {
+    today: 0,
+    upcoming: 0,
+    overdue: 0,
   };
-
-  const loadFollowUps = async (bucket) => {
-    try {
-      setFuError("");
-      setFuLoading(true);
-      const res = await axiosClient.get("/leads/my/followups", {
-        params: { bucket: bucket || fuBucket, page: 1, limit: 50 },
-      });
-      const list = res.data?.items || res.data?.data || [];
-      setFuItems(Array.isArray(list) ? list : []);
-    } catch (e) {
-      const msg = e.response?.data?.message || "Failed to load follow-ups";
-      setFuError(msg);
-      setFuItems([]);
-    } finally {
-      setFuLoading(false);
-    }
-  };
+  const fuBucket = useSelector((s) => s.followups?.bucket) || "today";
+  const fuItems = useSelector((s) => s.followups?.items) || [];
+  const fuLoading = useSelector(
+    (s) => (s.followups?.loadingSummary || s.followups?.loadingItems) ?? false
+  );
+  const fuError = useSelector((s) => s.followups?.error) || "";
 
   const refreshFollowUps = async () => {
-    await loadFollowUpSummary();
-    await loadFollowUps(fuBucket);
+    await dispatch(fetchFollowUpSummary());
+    await dispatch(fetchFollowUpsByBucket({ bucket: fuBucket, page: 1, limit: 50 }));
   };
 
   useEffect(() => {
@@ -388,8 +356,8 @@ export default function Notification() {
   }, []);
 
   const onPickBucket = async (b) => {
-    setFuBucket(b);
-    await loadFollowUps(b);
+    dispatch(setBucket(b));
+    await dispatch(fetchFollowUpsByBucket({ bucket: b, page: 1, limit: 50 }));
   };
 
   return (
@@ -500,6 +468,7 @@ export default function Notification() {
                               ({l.leadType || "Lead"})
                             </span>
                           </div>
+
                           <div className="text-sm text-slate-600 mt-1 truncate">
                             {l.company || "-"} {l.city ? `• ${l.city}` : ""}
                           </div>
@@ -528,7 +497,7 @@ export default function Notification() {
           </div>
         </section>
 
-        {/* ===================== Notifications ===================== */}
+        {/* ===================== Notifications (UNCHANGED) ===================== */}
         <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="h-1 bg-blue-600" />
           <div className="p-4 sm:p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -592,7 +561,12 @@ export default function Notification() {
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="Date" hint="required">
-                    <input type="date" value={form.notifyDate} onChange={onChange("notifyDate")} className={inputClass} />
+                    <input
+                      type="date"
+                      value={form.notifyDate}
+                      onChange={onChange("notifyDate")}
+                      className={inputClass}
+                    />
                   </Field>
 
                   <Field label="Day" hint="auto">
@@ -654,14 +628,22 @@ export default function Notification() {
                     <div className="min-w-0">
                       <h3 className="font-extrabold text-slate-900">All Notifications</h3>
                       <p className="text-sm text-slate-600 mt-1">
-                        Showing <span className="font-semibold text-slate-900">{filtered.length}</span> items
+                        Showing{" "}
+                        <span className="font-semibold text-slate-900">{filtered.length}</span>{" "}
+                        items
                       </p>
                     </div>
 
                     <div className="inline-flex rounded-2xl border border-slate-200 p-1 bg-slate-50 shrink-0">
-                      <TabButton active={tab === "all"} onClick={() => setTab("all")}>All</TabButton>
-                      <TabButton active={tab === "unread"} onClick={() => setTab("unread")}>Unread</TabButton>
-                      <TabButton active={tab === "read"} onClick={() => setTab("read")}>Read</TabButton>
+                      <TabButton active={tab === "all"} onClick={() => setTab("all")}>
+                        All
+                      </TabButton>
+                      <TabButton active={tab === "unread"} onClick={() => setTab("unread")}>
+                        Unread
+                      </TabButton>
+                      <TabButton active={tab === "read"} onClick={() => setTab("read")}>
+                        Read
+                      </TabButton>
                     </div>
                   </div>
 
@@ -709,14 +691,21 @@ export default function Notification() {
                     <FiBell />
                   </div>
                   <p className="mt-3 font-semibold text-slate-900">No notifications found</p>
-                  <p className="text-sm text-slate-600 mt-1">Create a notification from the left panel.</p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Create a notification from the left panel.
+                  </p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-200">
                   {filtered.map((n) => (
-                    <div key={n._id} className={cn("p-4 sm:p-5 group transition", !n.isRead ? "bg-slate-50" : "bg-white")}>
+                    <div
+                      key={n._id}
+                      className={cn(
+                        "p-4 sm:p-5 group transition",
+                        !n.isRead ? "bg-slate-50" : "bg-white"
+                      )}
+                    >
                       <div className="flex gap-3">
-                        {/* status icon */}
                         <div className="mt-0.5">
                           <div
                             className={cn(
@@ -731,7 +720,6 @@ export default function Notification() {
                           </div>
                         </div>
 
-                        {/* content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -760,7 +748,6 @@ export default function Notification() {
                               </p>
                             </div>
 
-                            {/* desktop actions */}
                             <div className="hidden md:flex items-center gap-2 opacity-80 group-hover:opacity-100 transition shrink-0">
                               <button
                                 onClick={() => toggleRead(n._id, n.isRead)}
@@ -788,7 +775,6 @@ export default function Notification() {
                             </div>
                           </div>
 
-                          {/* mobile actions */}
                           <div className="mt-3 flex md:hidden gap-2">
                             <button
                               onClick={() => toggleRead(n._id, n.isRead)}

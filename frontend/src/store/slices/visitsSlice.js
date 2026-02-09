@@ -9,74 +9,66 @@ import axiosClient from "../../api/axiosClient";
 
 /** ✅ Normalize backend responses */
 const normalizeVisitsResponse = (data) => {
-  // Backend can return:
-  // A) { success, data: [], page, pages, total, limit }
-  // B) { items: [], page, pages, total, limit }
-  // C) [] (old)
   if (Array.isArray(data)) {
-    return { items: data, page: 1, pages: 1, total: data.length, limit: data.length || 50 };
+    return { items: data, page: 1, pages: 1, total: data.length, limit: data.length || 10 };
   }
 
   const items =
-    Array.isArray(data?.data) ? data.data :
     Array.isArray(data?.items) ? data.items :
+    Array.isArray(data?.data) ? data.data :
     [];
 
   const total = Number.isFinite(Number(data?.total)) ? Number(data.total) : items.length;
-  const limit = Number.isFinite(Number(data?.limit)) ? Number(data.limit) : 50;
+  const limit = Number.isFinite(Number(data?.limit)) ? Number(data.limit) : 10;
+
+  // ✅ support pages OR totalPages
   const pagesRaw =
-    Number.isFinite(Number(data?.pages)) ? Number(data.pages) : Math.ceil((total || 0) / (limit || 1));
+    Number.isFinite(Number(data?.pages)) ? Number(data.pages) :
+    Number.isFinite(Number(data?.totalPages)) ? Number(data.totalPages) :
+    Math.ceil((total || 0) / (limit || 1));
+
   const pages = Math.max(1, pagesRaw || 1);
   const page = Math.max(1, Number(data?.page) || 1);
 
   return { items, page, pages, total, limit };
 };
 
-/** ✅ POST /visits  (create visit) */
+/** ✅ POST /visits (create) */
 export const createMyVisit = createAsyncThunk("visits/createMyVisit", async (payload, thunkAPI) => {
   try {
-    const { data } = await axiosClient.post("/visits", payload);
-    // backend may return {success:true,data:visit} OR visit directly
-    const visit = data?.data || data;
-    return visit;
+    const isFormData = payload instanceof FormData;
+
+    const { data } = await axiosClient.post("/visits", payload, {
+      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
+    });
+
+    return data?.data || data;
   } catch (e) {
     return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
   }
 });
 
-/** ✅ GET /visits/my */
+/** ✅ GET /visits (list) */
 export const fetchMyVisits = createAsyncThunk(
   "visits/fetchMyVisits",
-  async ({ date = "", page = 1, limit = 50 } = {}, thunkAPI) => {
+  async (
+    {
+      q = "",
+      status = "",
+      partyType = "",
+      from = "",
+      to = "",
+      onlyMine = "1",
+      page = 1,
+      limit = 10,
+    } = {},
+    thunkAPI
+  ) => {
     try {
-      const { data } = await axiosClient.get("/visits/my", { params: { date, page, limit } });
+      const { data } = await axiosClient.get("/visits", {
+        params: { q, status, partyType, from, to, onlyMine, page, limit },
+      });
       return normalizeVisitsResponse(data);
-    } catch (e) {
-      return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
-    }
-  }
-);
-
-/** ✅ POST /visits/:visitId/create-lead */
-export const createLeadFromMetPerson = createAsyncThunk(
-  "visits/createLeadFromMetPerson",
-  async ({ visitId, metIndex }, thunkAPI) => {
-    try {
-      const { data } = await axiosClient.post(`/visits/${visitId}/create-lead`, { metIndex });
-      return { visitId, metIndex, data };
-    } catch (e) {
-      return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
-    }
-  }
-);
-
-// ✅ Optional: update location (only if you implemented backend PATCH route)
-export const updateMyVisitLocation = createAsyncThunk(
-  "visits/updateMyVisitLocation",
-  async ({ id, location }, thunkAPI) => {
-    try {
-      const { data } = await axiosClient.patch(`/visits/my/${id}/location`, { location });
-      return { id, location: data?.location || data?.data?.location || location };
     } catch (e) {
       return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
     }
@@ -95,7 +87,7 @@ const visitsSlice = createSlice({
     page: 1,
     pages: 1,
     total: 0,
-    limit: 50,
+    limit: 10,
   },
   reducers: {
     clearVisitsError(s) {
@@ -140,30 +132,6 @@ const visitsSlice = createSlice({
     b.addCase(createMyVisit.rejected, (s, a) => {
       s.saving = false;
       s.error = a.payload || "Failed to save visit";
-    });
-
-    b.addCase(createLeadFromMetPerson.fulfilled, (s, a) => {
-      const { visitId, metIndex, data } = a.payload;
-
-      const v = s.items.find((x) => x._id === visitId);
-      const lead = data?.lead || data?.data?.lead;
-
-      if (v?.metPeople?.[metIndex] && lead?._id) {
-        // ✅ store only id
-        v.metPeople[metIndex].leadId = lead._id;
-      }
-
-      s.lastActionMsg = data?.message || data?.data?.message || "Lead linked";
-    });
-
-    b.addCase(createLeadFromMetPerson.rejected, (s, a) => {
-      s.error = a.payload || "Failed to create/link lead";
-    });
-
-    b.addCase(updateMyVisitLocation.fulfilled, (s, a) => {
-      const { id, location } = a.payload;
-      const v = s.items.find((x) => x._id === id);
-      if (v) v.location = location;
     });
   },
 });
