@@ -1,5 +1,5 @@
-// ✅ MyLeads.jsx — FULL CODE (Responsive + Create/Edit + Excel Import + PROFESSIONAL Pagination)
-// NOTE: npm i xlsx
+// ✅ MyLeads.jsx — FULL CODE (Clean + Fully Responsive + Create/Edit + Excel Import + PROFESSIONAL Pagination)
+
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import * as XLSX from "xlsx";
@@ -38,6 +38,7 @@ const emptyForm = {
   status: "New",
 };
 
+const cn = (...a) => a.filter(Boolean).join(" ");
 const cleanPhone = (v) => String(v || "").replace(/\D/g, "").slice(-10);
 
 const fmtDate = (d) => {
@@ -86,46 +87,61 @@ function useDebouncedValue(value, delay = 350) {
   return debounced;
 }
 
-// ✅ Responsive Modal: full-height on mobile, scroll body, sticky footer
-function Modal({ open, title, onClose, children, footer }) {
+/* ========================= Modal (Fully Responsive) =========================
+  - Mobile: bottom-sheet feel + full height + scroll body
+  - Desktop: centered
+  - Esc closes
+============================================================================= */
+function Modal({ open, title, subtitle, onClose, children, footer }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4">
-      <div
-        className="
-          w-full max-w-3xl bg-white rounded-2xl border border-slate-200
-          overflow-hidden flex flex-col h-[92dvh] sm:h-auto sm:max-h-[92dvh]
-        "
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Header */}
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-          <div className="font-semibold text-slate-900 truncate pr-3">{title}</div>
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 shrink-0"
-            type="button"
-          >
-            Close
-          </button>
+    <div className="fixed inset-0 z-50">
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Close modal" />
+      <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
+        <div
+          className={cn(
+            "w-full max-w-3xl bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col",
+            "h-[92dvh] sm:h-auto sm:max-h-[92dvh]"
+          )}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="h-1 bg-blue-600" />
+
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-extrabold text-slate-900 truncate">{title}</div>
+                {subtitle ? <div className="mt-1 text-xs text-slate-600 break-words">{subtitle}</div> : null}
+              </div>
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 shrink-0"
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white">{children}</div>
+
+          {footer ? (
+            <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">{footer}</div>
+          ) : null}
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white">{children}</div>
-
-        {/* Footer */}
-        {footer ? (
-          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">{footer}</div>
-        ) : null}
       </div>
     </div>
   );
@@ -136,7 +152,7 @@ function Field({ label, required, hint, children }) {
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <label className="text-xs font-semibold text-slate-600">
-          {label} {required && <span className="text-red-500">*</span>}
+          {label} {required ? <span className="text-red-500">*</span> : null}
         </label>
         {hint ? <span className="text-[11px] text-slate-400">{hint}</span> : null}
       </div>
@@ -145,7 +161,45 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-// ✅ Normalize excel/json row -> lead object
+function Section({ title, children }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4 bg-white">
+      <div className="text-sm font-extrabold text-slate-900 mb-3">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function InfoCard({ label, value, mono }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="text-[11px] text-slate-400">{label}</div>
+      <div className={cn("mt-1 text-slate-900 break-words", mono ? "font-mono break-all" : "")}>{value}</div>
+    </div>
+  );
+}
+
+function StatPill({ label, value, tone = "slate" }) {
+  const cls =
+    tone === "blue"
+      ? "bg-slate-50 text-blue-600 border-slate-200"
+      : tone === "green"
+      ? "bg-slate-50 text-green-600 border-slate-200"
+      : tone === "orange"
+      ? "bg-slate-50 text-orange-500 border-slate-200"
+      : tone === "red"
+      ? "bg-slate-50 text-red-500 border-slate-200"
+      : "bg-slate-50 text-slate-600 border-slate-200";
+
+  return (
+    <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold inline-flex items-center gap-2", cls)}>
+      <span className="text-slate-400">{label}:</span>
+      <span className="text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+/* ========================= Import Helpers ========================= */
 function normalizeLeadRow(row = {}) {
   const pick = (obj, keys) => {
     for (const k of keys) {
@@ -180,16 +234,16 @@ function normalizeLeadRow(row = {}) {
   };
 }
 
-/** ✅ Pagination helpers (scalable + clean) */
+/* ========================= Pagination Helpers ========================= */
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
+// [1, "...", 4,5,6, "...", 10]
 function buildPageItems({ page, pages, siblingCount = 1 }) {
-  // Returns: [1, "...", 4,5,6, "...", 10]
   if (!pages || pages <= 1) return [1];
 
-  const totalNumbers = siblingCount * 2 + 5; // first + last + current + 2 siblings + 2 dots
+  const totalNumbers = siblingCount * 2 + 5;
   if (pages <= totalNumbers) return Array.from({ length: pages }, (_, i) => i + 1);
 
   const leftSibling = Math.max(page - siblingCount, 1);
@@ -199,41 +253,22 @@ function buildPageItems({ page, pages, siblingCount = 1 }) {
   const showRightDots = rightSibling < pages - 1;
 
   const items = [];
-
-  // Always show first
   items.push(1);
 
   if (showLeftDots) items.push("...");
-  else {
-    for (let i = 2; i < leftSibling; i++) items.push(i);
-  }
+  else for (let i = 2; i < leftSibling; i++) items.push(i);
 
-  for (let i = leftSibling; i <= rightSibling; i++) {
-    if (i !== 1 && i !== pages) items.push(i);
-  }
+  for (let i = leftSibling; i <= rightSibling; i++) if (i !== 1 && i !== pages) items.push(i);
 
   if (showRightDots) items.push("...");
-  else {
-    for (let i = rightSibling + 1; i < pages; i++) items.push(i);
-  }
+  else for (let i = rightSibling + 1; i < pages; i++) items.push(i);
 
-  // Always show last
-  if (pages !== 1) items.push(pages);
+  items.push(pages);
 
-  // Remove duplicates (safety)
   return items.filter((v, idx, arr) => idx === arr.findIndex((x) => x === v));
 }
 
-function PaginationBar({
-  page,
-  pages,
-  total,
-  limit,
-  countOnPage,
-  loading,
-  onPageChange,
-  onLimitChange,
-}) {
+function PaginationBar({ page, pages, total, limit, countOnPage, loading, onPageChange, onLimitChange }) {
   const canPrev = page > 1;
   const canNext = pages ? page < pages : false;
 
@@ -266,7 +301,6 @@ function PaginationBar({
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        {/* Page size */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-slate-600">Page size</span>
           <select
@@ -283,27 +317,14 @@ function PaginationBar({
           </select>
         </div>
 
-        {/* Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className={`${btnBase} text-slate-600`}
-            disabled={!canPrev || loading}
-            onClick={() => onPageChange?.(1)}
-          >
+          <button type="button" className={cn(btnBase, "text-slate-600")} disabled={!canPrev || loading} onClick={() => onPageChange?.(1)}>
             First
           </button>
-
-          <button
-            type="button"
-            className={`${btnBase} text-slate-600`}
-            disabled={!canPrev || loading}
-            onClick={() => onPageChange?.(page - 1)}
-          >
+          <button type="button" className={cn(btnBase, "text-slate-600")} disabled={!canPrev || loading} onClick={() => onPageChange?.(page - 1)}>
             Prev
           </button>
 
-          {/* Page numbers */}
           <div className="flex flex-wrap items-center gap-2">
             {pageItems.map((it, idx) =>
               it === "..." ? (
@@ -316,7 +337,7 @@ function PaginationBar({
                   type="button"
                   disabled={loading}
                   onClick={() => onPageChange?.(it)}
-                  className={`${pageBtn} ${it === page ? activePageBtn : "text-slate-600 bg-white"}`}
+                  className={cn(pageBtn, it === page ? activePageBtn : "text-slate-600 bg-white")}
                 >
                   {it}
                 </button>
@@ -324,21 +345,10 @@ function PaginationBar({
             )}
           </div>
 
-          <button
-            type="button"
-            className={`${btnBase} text-slate-600`}
-            disabled={!canNext || loading}
-            onClick={() => onPageChange?.(page + 1)}
-          >
+          <button type="button" className={cn(btnBase, "text-slate-600")} disabled={!canNext || loading} onClick={() => onPageChange?.(page + 1)}>
             Next
           </button>
-
-          <button
-            type="button"
-            className={`${btnBase} text-slate-600`}
-            disabled={!canNext || loading}
-            onClick={() => onPageChange?.(pages)}
-          >
+          <button type="button" className={cn(btnBase, "text-slate-600")} disabled={!canNext || loading} onClick={() => onPageChange?.(pages)}>
             Last
           </button>
         </div>
@@ -347,7 +357,7 @@ function PaginationBar({
   );
 }
 
-function SkeletonRow({ cols = 10 }) {
+function SkeletonRow({ cols = 11 }) {
   return (
     <tr>
       <td colSpan={cols} className="p-6">
@@ -361,12 +371,25 @@ function SkeletonRow({ cols = 10 }) {
   );
 }
 
+function EmptyBlock({ onCreate }) {
+  return (
+    <div className="p-10 text-center">
+      <div className="text-slate-900 font-semibold">No leads found</div>
+      <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
+      <button className="mt-4 px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold" onClick={onCreate} type="button">
+        + Create Lead
+      </button>
+    </div>
+  );
+}
+
+/* ========================= Component ========================= */
 export default function MyLeads() {
   const dispatch = useDispatch();
 
   // ✅ Slice can be either:
-  // - old: { items: [] }
-  // - new: { items: [], page, pages, total, limit }
+  // old: { items: [] }
+  // new: { items: [], page, pages, total, limit }
   const {
     items = [],
     loading,
@@ -384,7 +407,7 @@ export default function MyLeads() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 400);
 
-  // ✅ Pagination state (front-end)
+  // local pagination state (works even if backend doesn't support total/pages)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -403,42 +426,34 @@ export default function MyLeads() {
   const inputClass =
     "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
-  /** ✅ Effective pagination (backend meta preferred; fallback safe) */
   const effectiveLimit = sliceLimit ?? limit;
-  const effectiveTotal = sliceTotal ?? null; // if null => unknown total
-  const effectivePages =
-    slicePages ??
-    (effectiveTotal ? Math.max(1, Math.ceil(effectiveTotal / effectiveLimit)) : 1);
+  const effectiveTotal = sliceTotal ?? null;
+  const effectivePages = slicePages ?? (effectiveTotal ? Math.max(1, Math.ceil(effectiveTotal / effectiveLimit)) : 1);
   const effectivePage = slicePage ?? page;
-
-  /** ✅ Build request args in one place (clean + scalable) */
-  const queryArgs = useMemo(
-    () => ({
-      status,
-      leadType,
-      search: debouncedSearch,
-      page: effectivePage,
-      limit: effectiveLimit,
-    }),
-    [status, leadType, debouncedSearch, effectivePage, effectiveLimit]
-  );
 
   const fetchNow = useCallback(
     (overrides = {}) => {
-      const next = { ...queryArgs, ...overrides };
-      dispatch(fetchMyLeads(next));
+      dispatch(
+        fetchMyLeads({
+          status,
+          leadType,
+          search: debouncedSearch,
+          page,
+          limit,
+          ...overrides,
+        })
+      );
     },
-    [dispatch, queryArgs]
+    [dispatch, status, leadType, debouncedSearch, page, limit]
   );
 
-  // ✅ When filter/search changes -> reset to page 1
+  // reset page when filters/search change
   useEffect(() => {
     setPage(1);
   }, [status, leadType, debouncedSearch]);
 
-  // ✅ Fetch on filter/search/page/limit change
+  // fetch on changes
   useEffect(() => {
-    // If backend returns slicePage/limit it may override; we still send local state
     fetchNow({ page, limit });
   }, [fetchNow, page, limit]);
 
@@ -501,18 +516,14 @@ export default function MyLeads() {
 
       try {
         setSaving(true);
-        if (editing?._id) {
-          await dispatch(updateMyLead({ id: editing._id, payload })).unwrap();
-        } else {
-          await dispatch(createMyLead(payload)).unwrap();
-        }
+        if (editing?._id) await dispatch(updateMyLead({ id: editing._id, payload })).unwrap();
+        else await dispatch(createMyLead(payload)).unwrap();
+
         setOpenForm(false);
         resetForm();
-
-        // ✅ refresh list (keep current filters)
         fetchNow({ page, limit });
       } catch {
-        // handled in slice
+        // slice handles
       } finally {
         setSaving(false);
       }
@@ -528,10 +539,9 @@ export default function MyLeads() {
       try {
         await dispatch(deleteMyLead(lead._id)).unwrap?.();
       } catch {
-        // handled by slice (if any)
+        // ignore
       }
 
-      // ✅ if deleting last item on page, move back one page safely
       const remainingOnPage = Math.max(0, (items?.length || 0) - 1);
       if (page > 1 && remainingOnPage === 0) setPage((p) => Math.max(1, p - 1));
       else fetchNow({ page, limit });
@@ -539,7 +549,6 @@ export default function MyLeads() {
     [dispatch, items?.length, page, fetchNow, limit]
   );
 
-  // ✅ Summary (page-level; total from backend if available)
   const summary = useMemo(() => {
     const list = items || [];
     const by = (s) => list.filter((x) => x.status === s).length;
@@ -604,17 +613,15 @@ export default function MyLeads() {
   const rows = useMemo(() => {
     return (items || []).map((lead) => {
       const desc = lead?.description || "";
-      const shortDesc = desc.length > 60 ? desc.slice(0, 60).trim() + "..." : desc;
+      const shortDesc = desc.length > 80 ? desc.slice(0, 80).trim() + "..." : desc;
       return { lead, desc, shortDesc };
     });
   }, [items]);
 
-  /** ✅ Pagination actions (professional + safe) */
   const onPageChange = useCallback(
     (nextPage) => {
       const next = clamp(Number(nextPage) || 1, 1, effectivePages || 1);
       setPage(next);
-      // fetch will happen via useEffect
     },
     [effectivePages]
   );
@@ -627,38 +634,29 @@ export default function MyLeads() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 space-y-4">
-        {/* Header Card */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
+        {/* ===================== Header Card ===================== */}
         <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
           <div className="h-1 bg-blue-600" />
           <div className="p-4 sm:p-5">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">My Leads</h1>
-
-                <div className="mt-1 text-sm text-slate-600 leading-relaxed">
-                  <span>
-                    Total <b className="text-slate-900">{summary.total}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    New <b className="text-slate-900">{summary.newCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Follow-Up <b className="text-slate-900">{summary.fuCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Closed <b className="text-slate-900">{summary.closedCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Converted <b className="text-slate-900">{summary.convertedCount}</b>
-                  </span>
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <span className="h-2 w-2 rounded-full bg-green-600" />
+                  Sales • Leads
                 </div>
 
-                <div className="mt-1 text-xs text-slate-400 leading-relaxed">
+                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">My Leads</h1>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatPill label="Total" value={summary.total} tone="blue" />
+                  <StatPill label="New" value={summary.newCount} tone="blue" />
+                  <StatPill label="Follow-Up" value={summary.fuCount} tone="orange" />
+                  <StatPill label="Closed" value={summary.closedCount} tone="slate" />
+                  <StatPill label="Converted" value={summary.convertedCount} tone="green" />
+                </div>
+
+                <div className="mt-2 text-[11px] text-slate-400 leading-relaxed">
                   Buyer <b className="text-slate-900">{summary.buyerCount}</b>
                   <span className="mx-2">•</span>
                   Contractor <b className="text-slate-900">{summary.contractorCount}</b>
@@ -669,16 +667,16 @@ export default function MyLeads() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                 <button
-                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => setOpenImport(true)}
                   type="button"
                 >
                   Import Leads
                 </button>
                 <button
-                  className="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
                   onClick={startCreate}
                   type="button"
                 >
@@ -688,9 +686,9 @@ export default function MyLeads() {
             </div>
 
             {/* Alerts */}
-            {error && (
-              <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed min-w-0">
+            {error ? (
+              <div className="mt-4 p-3 rounded-2xl bg-white border border-slate-200 flex items-start justify-between gap-3">
+                <div className="leading-relaxed min-w-0 text-sm">
                   <span className="text-red-500 font-semibold">Error:</span>{" "}
                   <span className="text-slate-900 break-words">{error}</span>
                 </div>
@@ -702,14 +700,15 @@ export default function MyLeads() {
                   dismiss
                 </button>
               </div>
-            )}
+            ) : null}
 
-            {importResult && (
-              <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed min-w-0">
-                  <span className="text-green-600 font-semibold">Import done:</span> Added{" "}
-                  <b>{importResult.added}</b>, Duplicate skipped <b>{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
-                  <b>{importResult.skippedInvalid}</b>
+            {importResult ? (
+              <div className="mt-3 p-3 rounded-2xl bg-white border border-slate-200 flex items-start justify-between gap-3">
+                <div className="leading-relaxed min-w-0 text-sm">
+                  <span className="text-green-600 font-semibold">Import done:</span>{" "}
+                  Added <b className="text-slate-900">{importResult.added}</b>, Duplicate skipped{" "}
+                  <b className="text-slate-900">{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
+                  <b className="text-slate-900">{importResult.skippedInvalid}</b>
                 </div>
                 <button
                   className="text-xs underline shrink-0 text-slate-600"
@@ -719,7 +718,7 @@ export default function MyLeads() {
                   dismiss
                 </button>
               </div>
-            )}
+            ) : null}
 
             {/* Filters */}
             <form onSubmit={onSearchSubmit} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
@@ -758,14 +757,14 @@ export default function MyLeads() {
 
               <div className="md:col-span-2 flex items-end gap-2">
                 <button
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   type="submit"
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
                 <button
                   type="button"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => fetchNow({ page, limit, search })}
                 >
                   Refresh
@@ -773,7 +772,7 @@ export default function MyLeads() {
               </div>
             </form>
 
-            {/* ✅ Pagination Controls (top) */}
+            {/* Pagination (top) */}
             <div className="mt-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                 <PaginationBar
@@ -791,31 +790,21 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* List / Table Card */}
+        {/* ===================== List / Table Card ===================== */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="text-sm font-semibold text-slate-900">Leads List</div>
+            <div className="text-sm font-extrabold text-slate-900">Leads List</div>
             <div className="text-xs text-slate-600">
               Showing <b className="text-slate-900">{items.length}</b> record(s) on this page
             </div>
           </div>
 
-          {/* Mobile/Tablet cards */}
+          {/* Mobile / Tablet */}
           <div className="block lg:hidden">
             {loading ? (
               <div className="p-5 text-slate-600">Loading leads...</div>
             ) : rows.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-slate-900 font-semibold">No leads found</div>
-                <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
-                <button
-                  className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
-                  onClick={startCreate}
-                  type="button"
-                >
-                  + Create Lead
-                </button>
-              </div>
+              <EmptyBlock onCreate={startCreate} />
             ) : (
               <div className="divide-y divide-slate-200">
                 {rows.map(({ lead, desc, shortDesc }) => (
@@ -827,81 +816,57 @@ export default function MyLeads() {
                       </div>
 
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(
-                            lead.status
-                          )}`}
-                        >
+                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
                           {lead.status}
                         </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(
-                            lead.leadType || "Buyer"
-                          )}`}
-                        >
+                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
                           {lead.leadType || "Buyer"}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Company</div>
-                        <div className="text-slate-900 break-words">{lead.company || "-"}</div>
+                      <InfoCard label="Company" value={lead.company || "-"} />
+                      <InfoCard label="Phone" value={lead.phone || "-"} mono />
+                      <InfoCard label="Email" value={lead.email || "-"} mono />
+                      <InfoCard label="City" value={lead.city || "-"} />
+                      <div className="sm:col-span-2">
+                        <InfoCard label="Address" value={lead.address || "-"} />
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Phone</div>
-                        <div className="text-slate-900 break-words">{lead.phone || "-"}</div>
+                      <div className="sm:col-span-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="text-[11px] text-slate-400">Description</div>
+                          {desc ? (
+                            <button
+                              className="mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words"
+                              onClick={() => openDescription(desc)}
+                              type="button"
+                              title={desc}
+                            >
+                              {shortDesc}
+                            </button>
+                          ) : (
+                            <div className="mt-1 text-slate-600">-</div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Email</div>
-                        <div className="text-slate-900 break-words">{lead.email || "-"}</div>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">City</div>
-                        <div className="text-slate-900 break-words">{lead.city || "-"}</div>
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Address</div>
-                        <div className="text-slate-900 break-words">{lead.address || "-"}</div>
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Description</div>
-                        {desc ? (
-                          <button
-                            className="text-left text-sm font-semibold text-blue-600 hover:underline"
-                            onClick={() => openDescription(desc)}
-                            type="button"
-                            title={desc}
-                          >
-                            {shortDesc}
-                          </button>
-                        ) : (
-                          <div className="text-slate-600">-</div>
-                        )}
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Source</div>
-                        <div className="text-slate-900 break-words">{lead.source || "-"}</div>
+                      <div className="sm:col-span-2">
+                        <InfoCard label="Source" value={lead.source || "-"} />
                       </div>
                     </div>
 
-                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
-                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                         onClick={() => startEdit(lead)}
                         type="button"
                       >
                         Edit
                       </button>
                       <button
-                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
                         onClick={() => onDelete(lead)}
                         type="button"
                       >
@@ -914,7 +879,7 @@ export default function MyLeads() {
             )}
           </div>
 
-          {/* Desktop table */}
+          {/* Desktop Table */}
           <div className="hidden lg:block overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
@@ -938,38 +903,24 @@ export default function MyLeads() {
                   <SkeletonRow cols={11} />
                 ) : items.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="p-10">
-                      <div className="text-center">
-                        <div className="text-slate-900 font-semibold">No leads found</div>
-                        <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
-                        <button
-                          className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
-                          onClick={startCreate}
-                          type="button"
-                        >
-                          + Create Lead
-                        </button>
-                      </div>
+                    <td colSpan={11}>
+                      <EmptyBlock onCreate={startCreate} />
                     </td>
                   </tr>
                 ) : (
                   items.map((lead) => {
                     const desc = lead?.description || "";
-                    const shortDesc = desc.length > 36 ? desc.slice(0, 36).trim() + "..." : desc;
+                    const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
 
                     return (
                       <tr key={lead._id} className="hover:bg-slate-50 align-top">
                         <td className="p-3">
-                          <div className="font-semibold text-slate-900">{lead.name}</div>
+                          <div className="font-extrabold text-slate-900">{lead.name}</div>
                           <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
                         </td>
 
                         <td className="p-3">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(
-                              lead.leadType || "Buyer"
-                            )}`}
-                          >
+                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
                             {lead.leadType || "Buyer"}
                           </span>
                         </td>
@@ -983,18 +934,11 @@ export default function MyLeads() {
 
                         <td className="p-3 text-slate-900">{lead.city || "-"}</td>
 
-                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">
-                          {lead.address || "-"}
-                        </td>
+                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">{lead.address || "-"}</td>
 
                         <td className="p-3">
                           {desc ? (
-                            <button
-                              className="text-sm font-semibold text-blue-600 hover:underline"
-                              onClick={() => openDescription(desc)}
-                              title={desc}
-                              type="button"
-                            >
+                            <button className="text-sm font-semibold text-blue-600 hover:underline" onClick={() => openDescription(desc)} title={desc} type="button">
                               {shortDesc}
                             </button>
                           ) : (
@@ -1005,11 +949,7 @@ export default function MyLeads() {
                         <td className="p-3 text-slate-900">{lead.source || "-"}</td>
 
                         <td className="p-3">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(
-                              lead.status
-                            )}`}
-                          >
+                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
                             {lead.status}
                           </span>
                         </td>
@@ -1017,14 +957,14 @@ export default function MyLeads() {
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button
-                              className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                               onClick={() => startEdit(lead)}
                               type="button"
                             >
                               Edit
                             </button>
                             <button
-                              className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
+                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
                               onClick={() => onDelete(lead)}
                               type="button"
                             >
@@ -1040,7 +980,7 @@ export default function MyLeads() {
             </table>
           </div>
 
-          {/* ✅ Pagination Controls (bottom) */}
+          {/* Pagination (bottom) */}
           <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3">
             <PaginationBar
               page={effectivePage}
@@ -1055,10 +995,11 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* ✅ Create/Edit Modal */}
+        {/* ===================== Create/Edit Modal ===================== */}
         <Modal
           open={openForm}
           title={editing ? "Edit Lead" : "Create Lead"}
+          subtitle={editing ? `Editing: ${editing.name || ""}` : "Add new lead details"}
           onClose={() => {
             setOpenForm(false);
             resetForm();
@@ -1068,11 +1009,10 @@ export default function MyLeads() {
               <div className="text-xs text-slate-600">
                 Fields marked <span className="text-red-500 font-semibold">*</span> are required
               </div>
-
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
                   onClick={() => {
                     setOpenForm(false);
                     resetForm();
@@ -1081,12 +1021,11 @@ export default function MyLeads() {
                 >
                   Cancel
                 </button>
-
                 <button
                   type="submit"
                   form="leadForm"
                   disabled={saving}
-                  className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Save Lead"}
                 </button>
@@ -1095,16 +1034,10 @@ export default function MyLeads() {
           }
         >
           <form id="leadForm" onSubmit={submitLead} className="space-y-4 sm:space-y-5">
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Basic Details</div>
-
+            <Section title="Basic Details">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <Field label="Lead Type" required hint="Buyer / Contractor / Seller / Manufacturer">
-                  <select
-                    className={inputClass}
-                    value={form.leadType}
-                    onChange={(e) => setForm((p) => ({ ...p, leadType: e.target.value }))}
-                  >
+                  <select className={inputClass} value={form.leadType} onChange={(e) => setForm((p) => ({ ...p, leadType: e.target.value }))}>
                     {LEAD_TYPES.filter((x) => x !== "All").map((t) => (
                       <option key={t} value={t}>
                         {t}
@@ -1114,78 +1047,38 @@ export default function MyLeads() {
                 </Field>
 
                 <Field label="Name" required>
-                  <input
-                    className={inputClass}
-                    placeholder="Enter lead name"
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="Enter lead name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
                 </Field>
 
                 <Field label="Company">
-                  <input
-                    className={inputClass}
-                    placeholder="Company / firm name"
-                    value={form.company}
-                    onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="Company / firm name" value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} />
                 </Field>
 
                 <Field label="Phone" hint="10 digits">
-                  <input
-                    className={inputClass}
-                    placeholder="9876543210"
-                    value={form.phone}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                    inputMode="numeric"
-                  />
+                  <input className={inputClass} placeholder="9876543210" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} inputMode="numeric" />
                 </Field>
 
                 <Field label="Email">
-                  <input
-                    className={inputClass}
-                    placeholder="example@email.com"
-                    value={form.email}
-                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="example@email.com" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
                 </Field>
               </div>
-            </div>
+            </Section>
 
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Location</div>
-
+            <Section title="Location">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="City">
-                  <input
-                    className={inputClass}
-                    placeholder="City"
-                    value={form.city}
-                    onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="City" value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
                 </Field>
-
                 <Field label="Address">
-                  <input
-                    className={inputClass}
-                    placeholder="Full address"
-                    value={form.address}
-                    onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="Full address" value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
                 </Field>
               </div>
-            </div>
+            </Section>
 
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Lead Info</div>
-
+            <Section title="Lead Info">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Status">
-                  <select
-                    className={inputClass}
-                    value={form.status}
-                    onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}
-                  >
+                  <select className={inputClass} value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>
                     {STATUSES.filter((x) => x !== "All").map((s) => (
                       <option key={s} value={s}>
                         {s}
@@ -1195,34 +1088,24 @@ export default function MyLeads() {
                 </Field>
 
                 <Field label="Source" hint="Manual/Import/Referral">
-                  <input
-                    className={inputClass}
-                    placeholder="Manual"
-                    value={form.source}
-                    onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
-                  />
+                  <input className={inputClass} placeholder="Manual" value={form.source} onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))} />
                 </Field>
 
                 <div className="md:col-span-2">
                   <Field label="Description">
-                    <textarea
-                      className={inputClass}
-                      placeholder="Requirement / notes..."
-                      rows={5}
-                      value={form.description}
-                      onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                    />
+                    <textarea className={inputClass} placeholder="Requirement / notes..." rows={6} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
                   </Field>
                 </div>
               </div>
-            </div>
+            </Section>
           </form>
         </Modal>
 
-        {/* Import Modal */}
+        {/* ===================== Import Modal ===================== */}
         <Modal
           open={openImport}
           title="Import Leads (Excel / JSON)"
+          subtitle="Upload Excel or paste JSON array"
           onClose={() => setOpenImport(false)}
           footer={
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -1238,7 +1121,7 @@ export default function MyLeads() {
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => setOpenImport(false)}
                   disabled={importing}
                   type="button"
@@ -1246,7 +1129,7 @@ export default function MyLeads() {
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                   disabled={importing}
                   onClick={runImport}
                   type="button"
@@ -1259,24 +1142,16 @@ export default function MyLeads() {
         >
           <div className="space-y-3">
             <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-              <div className="text-sm font-semibold text-slate-900">Upload Excel (.xlsx/.xls)</div>
-              <div className="text-xs text-slate-600 mt-1">
+              <div className="text-sm font-extrabold text-slate-900">Upload Excel (.xlsx/.xls)</div>
+              <div className="text-xs text-slate-600 mt-1 break-words">
                 Headers supported:{" "}
-                <b className="text-slate-900">
-                  leadType, name, company, phone, email, city, address, description, status, source
-                </b>
+                <b className="text-slate-900">leadType, name, company, phone, email, city, address, description, status, source</b>
               </div>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={onExcelPick}
-                className="mt-3 w-full"
-                disabled={importing}
-              />
+              <input type="file" accept=".xlsx,.xls" onChange={onExcelPick} className="mt-3 w-full" disabled={importing} />
               <div className="text-[11px] text-slate-400 mt-2">Tip: Column name “Lead Type” also works.</div>
             </div>
 
-            <div className="text-sm font-semibold text-slate-900">Or paste JSON array</div>
+            <div className="text-sm font-extrabold text-slate-900">Or paste JSON array</div>
             <textarea
               className={inputClass}
               rows={10}
@@ -1290,7 +1165,7 @@ export default function MyLeads() {
           </div>
         </Modal>
 
-        {/* Description Viewer */}
+        {/* ===================== Description Viewer ===================== */}
         <Modal open={openDesc} title="Lead Description" onClose={() => setOpenDesc(false)}>
           <div className="whitespace-pre-wrap text-sm text-slate-900 leading-relaxed">{descText || "-"}</div>
         </Modal>

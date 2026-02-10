@@ -1,5 +1,5 @@
-// ✅ MyLeads.jsx — FULL CODE (Responsive on EVERY device + Responsive Create/Edit Form + Excel Import)
-// NOTE: npm i xlsx
+// ✅ MyLeads.jsx — FULL CODE (Professional UI + Fully Responsive + Create/Edit Modal + Excel Import)
+
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import * as XLSX from "xlsx";
@@ -37,6 +37,8 @@ const emptyForm = {
   source: "Manual",
   status: "New",
 };
+
+const cn = (...a) => a.filter(Boolean).join(" ");
 
 const cleanPhone = (v) => String(v || "").replace(/\D/g, "").slice(-10);
 
@@ -86,56 +88,71 @@ function useDebouncedValue(value, delay = 350) {
   return debounced;
 }
 
-// ✅ Responsive Modal: full-height on mobile, scroll body, sticky footer
-function Modal({ open, title, onClose, children, footer }) {
+/* ========================= Modal (Responsive + Accessible) =========================
+  - Mobile: bottom-sheet feel (safe area), scroll body
+  - Desktop: centered
+  - Click backdrop or Esc to close
+==================================================================================== */
+function Modal({ open, title, subtitle, onClose, children, footer }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => e.key === "Escape" && onClose?.();
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
   }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 sm:p-4">
-      <div
-        className="
-          w-full
-          max-w-3xl
-          bg-white
-          rounded-2xl
-          border border-slate-200
-          overflow-hidden
-          flex flex-col
-          h-[92dvh]
-          sm:h-auto
-          sm:max-h-[92dvh]
-        "
-        role="dialog"
-        aria-modal="true"
-      >
-        {/* Header */}
-        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-          <div className="font-semibold text-slate-900 truncate pr-3">{title}</div>
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 shrink-0"
-            type="button"
-          >
-            Close
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close modal"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/50"
+      />
+      <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
+        <div
+          className={cn(
+            "w-full max-w-3xl bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col",
+            "h-[92dvh] sm:h-auto sm:max-h-[92dvh]"
+          )}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="h-1 bg-blue-600" />
 
-        {/* Body (scrollable) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white">{children}</div>
-
-        {/* Footer (sticky at bottom) */}
-        {footer ? (
-          <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">
-            {footer}
+          {/* Header */}
+          <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-extrabold text-slate-900 truncate">{title}</div>
+                {subtitle ? <div className="mt-1 text-xs text-slate-600 break-words">{subtitle}</div> : null}
+              </div>
+              <button
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 shrink-0"
+                type="button"
+              >
+                Close
+              </button>
+            </div>
           </div>
-        ) : null}
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-white">{children}</div>
+
+          {/* Footer */}
+          {footer ? (
+            <div className="border-t border-slate-200 bg-slate-50 px-4 sm:px-5 py-3 sm:py-4">
+              {footer}
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -146,7 +163,7 @@ function Field({ label, required, hint, children }) {
     <div className="min-w-0">
       <div className="flex flex-wrap items-center gap-2 mb-1">
         <label className="text-xs font-semibold text-slate-600">
-          {label} {required && <span className="text-red-500">*</span>}
+          {label} {required ? <span className="text-red-500">*</span> : null}
         </label>
         {hint ? <span className="text-[11px] text-slate-400">{hint}</span> : null}
       </div>
@@ -155,7 +172,69 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-// ✅ Normalize excel/json row -> lead object
+/* ========================= Small UI ========================= */
+
+function StatPill({ label, value, tone = "slate" }) {
+  const cls =
+    tone === "blue"
+      ? "bg-slate-50 text-blue-600 border-slate-200"
+      : tone === "green"
+      ? "bg-slate-50 text-green-600 border-slate-200"
+      : tone === "red"
+      ? "bg-slate-50 text-red-500 border-slate-200"
+      : tone === "orange"
+      ? "bg-slate-50 text-orange-500 border-slate-200"
+      : "bg-slate-50 text-slate-600 border-slate-200";
+
+  return (
+    <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold inline-flex items-center gap-2", cls)}>
+      <span className="text-slate-400">{label}:</span>
+      <span className="text-slate-900">{value}</span>
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className="p-4 sm:p-5 space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="h-4 w-44 bg-slate-100 rounded" />
+          <div className="mt-2 h-3 w-72 bg-slate-100 rounded" />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl" />
+            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyBlock({ title, desc, actionLabel, onAction }) {
+  return (
+    <div className="p-8 sm:p-10 text-center">
+      <div className="mx-auto h-12 w-12 rounded-2xl border border-slate-200 bg-slate-50 grid place-items-center text-slate-600">
+        ✓
+      </div>
+      <div className="mt-3 text-slate-900 font-extrabold">{title}</div>
+      <div className="mt-1 text-slate-600 text-sm">{desc}</div>
+      {actionLabel ? (
+        <button
+          className="mt-4 px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
+          onClick={onAction}
+          type="button"
+        >
+          {actionLabel}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/* ========================= Import Helpers ========================= */
+
+// Normalize excel/json row -> lead object
 function normalizeLeadRow(row = {}) {
   const pick = (obj, keys) => {
     for (const k of keys) {
@@ -190,9 +269,11 @@ function normalizeLeadRow(row = {}) {
   };
 }
 
+/* ========================= Component ========================= */
+
 export default function MyLeads() {
   const dispatch = useDispatch();
-  const { items, loading, error, importing, importResult } = useSelector((s) => s.leads);
+  const { items = [], loading, error, importing, importResult } = useSelector((s) => s.leads);
 
   const [status, setStatus] = useState("All");
   const [leadType, setLeadType] = useState("All");
@@ -281,7 +362,7 @@ export default function MyLeads() {
         setOpenForm(false);
         resetForm();
       } catch {
-        // handled in slice
+        // slice handles error
       } finally {
         setSaving(false);
       }
@@ -362,49 +443,41 @@ export default function MyLeads() {
   const rows = useMemo(() => {
     return (items || []).map((lead) => {
       const desc = lead?.description || "";
-      const shortDesc = desc.length > 60 ? desc.slice(0, 60).trim() + "..." : desc;
+      const shortDesc = desc.length > 80 ? desc.slice(0, 80).trim() + "..." : desc;
       return { lead, desc, shortDesc };
     });
   }, [items]);
 
-  // ✅ small helper
   const inputClass =
     "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 space-y-4">
-        {/* Header Card */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
+        {/* ===================== Header ===================== */}
         <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
           <div className="h-1 bg-blue-600" />
           <div className="p-4 sm:p-5">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">My Leads</h1>
-
-                <div className="mt-1 text-sm text-slate-600 leading-relaxed">
-                  <span>
-                    Total <b className="text-slate-900">{summary.total}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    New <b className="text-slate-900">{summary.newCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Follow-Up <b className="text-slate-900">{summary.fuCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Closed <b className="text-slate-900">{summary.closedCount}</b>
-                  </span>
-                  <span className="mx-2 text-slate-400">•</span>
-                  <span>
-                    Converted <b className="text-slate-900">{summary.convertedCount}</b>
-                  </span>
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                  <span className="h-2 w-2 rounded-full bg-green-600" />
+                  Sales • Leads
                 </div>
 
-                <div className="mt-1 text-xs text-slate-400 leading-relaxed">
+                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">
+                  My Leads
+                </h1>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <StatPill label="Total" value={summary.total} tone="blue" />
+                  <StatPill label="New" value={summary.newCount} tone="blue" />
+                  <StatPill label="Follow-Up" value={summary.fuCount} tone="orange" />
+                  <StatPill label="Closed" value={summary.closedCount} tone="slate" />
+                  <StatPill label="Converted" value={summary.convertedCount} tone="green" />
+                </div>
+
+                <div className="mt-2 text-[11px] text-slate-400 leading-relaxed">
                   Buyer <b className="text-slate-900">{summary.buyerCount}</b>
                   <span className="mx-2">•</span>
                   Contractor <b className="text-slate-900">{summary.contractorCount}</b>
@@ -415,16 +488,16 @@ export default function MyLeads() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                 <button
-                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => setOpenImport(true)}
                   type="button"
                 >
                   Import Leads
                 </button>
                 <button
-                  className="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
                   onClick={startCreate}
                   type="button"
                 >
@@ -434,9 +507,9 @@ export default function MyLeads() {
             </div>
 
             {/* Alerts */}
-            {error && (
-              <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed min-w-0">
+            {error ? (
+              <div className="mt-4 p-3 rounded-2xl bg-white border border-slate-200 flex items-start justify-between gap-3">
+                <div className="leading-relaxed min-w-0 text-sm">
                   <span className="text-red-500 font-semibold">Error:</span>{" "}
                   <span className="text-slate-900 break-words">{error}</span>
                 </div>
@@ -448,15 +521,15 @@ export default function MyLeads() {
                   dismiss
                 </button>
               </div>
-            )}
+            ) : null}
 
-            {importResult && (
-              <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
-                <div className="leading-relaxed min-w-0">
+            {importResult ? (
+              <div className="mt-3 p-3 rounded-2xl bg-white border border-slate-200 flex items-start justify-between gap-3">
+                <div className="leading-relaxed min-w-0 text-sm">
                   <span className="text-green-600 font-semibold">Import done:</span>{" "}
-                  Added <b>{importResult.added}</b>, Duplicate skipped{" "}
-                  <b>{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
-                  <b>{importResult.skippedInvalid}</b>
+                  Added <b className="text-slate-900">{importResult.added}</b>, Duplicate skipped{" "}
+                  <b className="text-slate-900">{importResult.skippedDuplicate}</b>, Invalid skipped{" "}
+                  <b className="text-slate-900">{importResult.skippedInvalid}</b>
                 </div>
                 <button
                   className="text-xs underline shrink-0 text-slate-600"
@@ -466,7 +539,7 @@ export default function MyLeads() {
                   dismiss
                 </button>
               </div>
-            )}
+            ) : null}
 
             {/* Filters */}
             <form onSubmit={onSearch} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
@@ -505,14 +578,14 @@ export default function MyLeads() {
 
               <div className="md:col-span-2 flex items-end gap-2">
                 <button
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   type="submit"
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
                 <button
                   type="button"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => dispatch(fetchMyLeads({ status, leadType, search }))}
                 >
                   Refresh
@@ -522,31 +595,26 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* List / Table Card */}
+        {/* ===================== List / Table ===================== */}
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div className="text-sm font-semibold text-slate-900">Leads List</div>
+            <div className="text-sm font-extrabold text-slate-900">Leads List</div>
             <div className="text-xs text-slate-600">
               Showing <b className="text-slate-900">{items.length}</b> record(s)
             </div>
           </div>
 
-          {/* Mobile/Tablet cards */}
+          {/* Mobile / Tablet Cards */}
           <div className="block lg:hidden">
             {loading ? (
-              <div className="p-5 text-slate-600">Loading leads...</div>
+              <SkeletonList />
             ) : rows.length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-slate-900 font-semibold">No leads found</div>
-                <div className="text-slate-600 text-sm mt-1">Try changing filters or create a new lead.</div>
-                <button
-                  className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
-                  onClick={startCreate}
-                  type="button"
-                >
-                  + Create Lead
-                </button>
-              </div>
+              <EmptyBlock
+                title="No leads found"
+                desc="Try changing filters or create a new lead."
+                actionLabel="+ Create Lead"
+                onAction={startCreate}
+              />
             ) : (
               <div className="divide-y divide-slate-200">
                 {rows.map(({ lead, desc, shortDesc }) => (
@@ -558,73 +626,58 @@ export default function MyLeads() {
                       </div>
 
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(lead.status)}`}>
+                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
                           {lead.status}
                         </span>
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(lead.leadType || "Buyer")}`}>
+                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
                           {lead.leadType || "Buyer"}
                         </span>
                       </div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Company</div>
-                        <div className="text-slate-900 break-words">{lead.company || "-"}</div>
+                      <InfoCard label="Company" value={lead.company || "-"} />
+                      <InfoCard label="Phone" value={lead.phone || "-"} mono />
+                      <InfoCard label="Email" value={lead.email || "-"} mono />
+                      <InfoCard label="City" value={lead.city || "-"} />
+
+                      <div className="sm:col-span-2">
+                        <InfoCard label="Address" value={lead.address || "-"} />
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Phone</div>
-                        <div className="text-slate-900 break-words">{lead.phone || "-"}</div>
+                      <div className="sm:col-span-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="text-[11px] text-slate-400">Description</div>
+                          {desc ? (
+                            <button
+                              className="mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words"
+                              onClick={() => openDescription(desc)}
+                              type="button"
+                              title={desc}
+                            >
+                              {shortDesc}
+                            </button>
+                          ) : (
+                            <div className="mt-1 text-slate-600">-</div>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Email</div>
-                        <div className="text-slate-900 break-words">{lead.email || "-"}</div>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">City</div>
-                        <div className="text-slate-900 break-words">{lead.city || "-"}</div>
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Address</div>
-                        <div className="text-slate-900 break-words">{lead.address || "-"}</div>
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Description</div>
-                        {desc ? (
-                          <button
-                            className="text-left text-sm font-semibold text-blue-600 hover:underline"
-                            onClick={() => openDescription(desc)}
-                            type="button"
-                            title={desc}
-                          >
-                            {shortDesc}
-                          </button>
-                        ) : (
-                          <div className="text-slate-600">-</div>
-                        )}
-                      </div>
-
-                      <div className="sm:col-span-2 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="text-[11px] text-slate-400">Source</div>
-                        <div className="text-slate-900 break-words">{lead.source || "-"}</div>
+                      <div className="sm:col-span-2">
+                        <InfoCard label="Source" value={lead.source || "-"} />
                       </div>
                     </div>
 
-                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
-                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                         onClick={() => startEdit(lead)}
                         type="button"
                       >
                         Edit
                       </button>
                       <button
-                        className="w-full sm:w-auto px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
+                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
                         onClick={() => onDelete(lead)}
                         type="button"
                       >
@@ -637,7 +690,7 @@ export default function MyLeads() {
             )}
           </div>
 
-          {/* Desktop table */}
+          {/* Desktop Table */}
           <div className="hidden lg:block overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-slate-50">
@@ -666,35 +719,28 @@ export default function MyLeads() {
                 ) : items.length === 0 ? (
                   <tr>
                     <td colSpan={11} className="p-10">
-                      <div className="text-center">
-                        <div className="text-slate-900 font-semibold">No leads found</div>
-                        <div className="text-slate-600 text-sm mt-1">
-                          Try changing filters or create a new lead.
-                        </div>
-                        <button
-                          className="mt-4 px-4 py-2 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
-                          onClick={startCreate}
-                          type="button"
-                        >
-                          + Create Lead
-                        </button>
-                      </div>
+                      <EmptyBlock
+                        title="No leads found"
+                        desc="Try changing filters or create a new lead."
+                        actionLabel="+ Create Lead"
+                        onAction={startCreate}
+                      />
                     </td>
                   </tr>
                 ) : (
                   items.map((lead) => {
                     const desc = lead?.description || "";
-                    const shortDesc = desc.length > 36 ? desc.slice(0, 36).trim() + "..." : desc;
+                    const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
 
                     return (
                       <tr key={lead._id} className="hover:bg-slate-50 align-top">
                         <td className="p-3">
-                          <div className="font-semibold text-slate-900">{lead.name}</div>
-                          <div className="text-xs text-slate-400"> {fmtDate(lead.createdAt)}</div>
+                          <div className="font-extrabold text-slate-900">{lead.name}</div>
+                          <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
                         </td>
 
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${typePill(lead.leadType || "Buyer")}`}>
+                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
                             {lead.leadType || "Buyer"}
                           </span>
                         </td>
@@ -725,7 +771,7 @@ export default function MyLeads() {
                         <td className="p-3 text-slate-900">{lead.source || "-"}</td>
 
                         <td className="p-3">
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusPill(lead.status)}`}>
+                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
                             {lead.status}
                           </span>
                         </td>
@@ -733,14 +779,14 @@ export default function MyLeads() {
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button
-                              className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                               onClick={() => startEdit(lead)}
                               type="button"
                             >
                               Edit
                             </button>
                             <button
-                              className="px-3 py-1.5 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
+                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
                               onClick={() => onDelete(lead)}
                               type="button"
                             >
@@ -757,10 +803,11 @@ export default function MyLeads() {
           </div>
         </div>
 
-        {/* ✅ Create/Edit Modal (RESPONSIVE FORM) */}
+        {/* ===================== Create/Edit Modal ===================== */}
         <Modal
           open={openForm}
           title={editing ? "Edit Lead" : "Create Lead"}
+          subtitle={editing?._id ? `Editing: ${editing.name || ""}` : "Add new lead details"}
           onClose={() => {
             setOpenForm(false);
             resetForm();
@@ -771,11 +818,10 @@ export default function MyLeads() {
                 Fields marked <span className="text-red-500 font-semibold">*</span> are required
               </div>
 
-              {/* ✅ Buttons are responsive + Save is REAL submit via form="leadForm" */}
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
                   onClick={() => {
                     setOpenForm(false);
                     resetForm();
@@ -789,7 +835,7 @@ export default function MyLeads() {
                   type="submit"
                   form="leadForm"
                   disabled={saving}
-                  className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                 >
                   {saving ? "Saving..." : "Save Lead"}
                 </button>
@@ -797,13 +843,8 @@ export default function MyLeads() {
             </div>
           }
         >
-          {/* ✅ Form scrolls inside modal body; sections are responsive on all breakpoints */}
           <form id="leadForm" onSubmit={submitLead} className="space-y-4 sm:space-y-5">
-            {/* Basic Details */}
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Basic Details</div>
-
-              {/* ✅ responsive grid: 1 col on mobile, 2 on md+, 3 on xl */}
+            <Section title="Basic Details">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <Field label="Lead Type" required hint="Buyer / Contractor / Seller / Manufacturer">
                   <select
@@ -856,13 +897,9 @@ export default function MyLeads() {
                   />
                 </Field>
               </div>
-            </div>
+            </Section>
 
-            {/* Location */}
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Location</div>
-
-              {/* ✅ 1 col mobile, 2 col md+ */}
+            <Section title="Location">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="City">
                   <input
@@ -882,12 +919,9 @@ export default function MyLeads() {
                   />
                 </Field>
               </div>
-            </div>
+            </Section>
 
-            {/* Lead Info */}
-            <div className="rounded-2xl border border-slate-200 p-4 bg-white">
-              <div className="text-sm font-semibold text-slate-900 mb-3">Lead Info</div>
-
+            <Section title="Lead Info">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <Field label="Status">
                   <select
@@ -903,7 +937,7 @@ export default function MyLeads() {
                   </select>
                 </Field>
 
-                <Field label="Source" hint="Manual/Import/Referral">
+                <Field label="Source" hint="Manual / Import / Referral">
                   <input
                     className={inputClass}
                     placeholder="Manual"
@@ -917,21 +951,22 @@ export default function MyLeads() {
                     <textarea
                       className={inputClass}
                       placeholder="Requirement / notes..."
-                      rows={5}
+                      rows={6}
                       value={form.description}
                       onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                     />
                   </Field>
                 </div>
               </div>
-            </div>
+            </Section>
           </form>
         </Modal>
 
-        {/* Import Modal */}
+        {/* ===================== Import Modal ===================== */}
         <Modal
           open={openImport}
           title="Import Leads (Excel / JSON)"
+          subtitle="Upload Excel or paste JSON array. We normalize and validate before importing."
           onClose={() => setOpenImport(false)}
           footer={
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -947,7 +982,7 @@ export default function MyLeads() {
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => setOpenImport(false)}
                   disabled={importing}
                   type="button"
@@ -955,7 +990,7 @@ export default function MyLeads() {
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
                   disabled={importing}
                   onClick={runImport}
                   type="button"
@@ -968,8 +1003,8 @@ export default function MyLeads() {
         >
           <div className="space-y-3">
             <div className="rounded-2xl border border-slate-200 p-4 bg-slate-50">
-              <div className="text-sm font-semibold text-slate-900">Upload Excel (.xlsx/.xls)</div>
-              <div className="text-xs text-slate-600 mt-1">
+              <div className="text-sm font-extrabold text-slate-900">Upload Excel (.xlsx/.xls)</div>
+              <div className="text-xs text-slate-600 mt-1 break-words">
                 Headers supported:{" "}
                 <b className="text-slate-900">
                   leadType, name, company, phone, email, city, address, description, status, source
@@ -982,10 +1017,12 @@ export default function MyLeads() {
                 className="mt-3 w-full"
                 disabled={importing}
               />
-              <div className="text-[11px] text-slate-400 mt-2">Tip: Column name “Lead Type” also works.</div>
+              <div className="text-[11px] text-slate-400 mt-2">
+                Tip: Column name “Lead Type” also works.
+              </div>
             </div>
 
-            <div className="text-sm font-semibold text-slate-900">Or paste JSON array</div>
+            <div className="text-sm font-extrabold text-slate-900">Or paste JSON array</div>
             <textarea
               className={inputClass}
               rows={10}
@@ -999,10 +1036,32 @@ export default function MyLeads() {
           </div>
         </Modal>
 
-        {/* Description Viewer */}
+        {/* ===================== Description Viewer ===================== */}
         <Modal open={openDesc} title="Lead Description" onClose={() => setOpenDesc(false)}>
           <div className="whitespace-pre-wrap text-sm text-slate-900 leading-relaxed">{descText || "-"}</div>
         </Modal>
+      </div>
+    </div>
+  );
+}
+
+/* ========================= Extra Components ========================= */
+
+function Section({ title, children }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 p-4 bg-white">
+      <div className="text-sm font-extrabold text-slate-900 mb-3">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function InfoCard({ label, value, mono }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div className="text-[11px] text-slate-400">{label}</div>
+      <div className={cn("mt-1 text-slate-900 break-words", mono ? "font-mono break-all" : "")}>
+        {value}
       </div>
     </div>
   );

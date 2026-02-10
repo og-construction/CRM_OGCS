@@ -1,3 +1,4 @@
+// src/pages/sales/ContactDiscussionPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   FiUser,
@@ -43,7 +44,6 @@ const fmtDate = (d) => {
   }
 };
 
-const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 const cn = (...a) => a.filter(Boolean).join(" ");
 
 export default function ContactDiscussionPage() {
@@ -94,10 +94,11 @@ export default function ContactDiscussionPage() {
   }, [items, search]);
 
   const stats = useMemo(() => {
-    const total = items.length;
-    const shown = filteredItems.length;
-    const hasSelected = Boolean(selected?._id);
-    return { total, shown, hasSelected };
+    return {
+      total: items.length,
+      shown: filteredItems.length,
+      hasSelected: Boolean(selected?._id),
+    };
   }, [items.length, filteredItems.length, selected?._id]);
 
   const fetchAll = async () => {
@@ -193,14 +194,12 @@ export default function ContactDiscussionPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 py-5 sm:py-8">
-        {/* ===== HERO ===== */}
-        <div className="mb-4 sm:mb-6 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          {/* Accent bar */}
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
+        {/* ================= HERO ================= */}
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="h-1 bg-blue-600" />
-
           <div className="p-4 sm:p-5">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
                   <span className="h-2 w-2 rounded-full bg-green-600" />
@@ -215,21 +214,21 @@ export default function ContactDiscussionPage() {
                 </p>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <Pill label="Total" value={stats.total} />
-                  <Pill label="Showing" value={stats.shown} />
+                  <Pill label="Total" value={stats.total} tone="neutral" />
+                  <Pill label="Showing" value={stats.shown} tone="neutral" />
                   <Pill
                     label="Selected"
                     value={stats.hasSelected ? "Yes" : "No"}
-                    tone={stats.hasSelected ? "good" : "neutral"}
+                    tone={stats.hasSelected ? "good" : "warn"}
                   />
                 </div>
               </div>
 
-              <div className="flex w-full md:w-auto flex-col sm:flex-row gap-2">
+              <div className="flex w-full lg:w-auto flex-col sm:flex-row gap-2">
                 <button
                   type="button"
                   onClick={fetchAll}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.99]"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99]"
                 >
                   <FiRefreshCcw />
                   Refresh
@@ -238,7 +237,7 @@ export default function ContactDiscussionPage() {
                 <button
                   type="button"
                   onClick={() => setCompact((p) => !p)}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 active:scale-[0.99]"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99]"
                 >
                   {compact ? "Comfort View" : "Compact View"}
                 </button>
@@ -247,28 +246,26 @@ export default function ContactDiscussionPage() {
           </div>
         </div>
 
-        {/* Alerts */}
-        {(error || success) && (
-          <div className="mb-4 sm:mb-6">
-            <div className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
-              <span className={cn("mt-0.5", error ? "text-red-500" : "text-green-600")}>
-                {error ? <FiAlertTriangle /> : <FiCheckCircle />}
-              </span>
-              <div className="text-slate-900 break-words">{error || success}</div>
-            </div>
+        {/* ================= ALERTS ================= */}
+        {(error || success) ? (
+          <div className="flex items-start gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">
+            <span className={cn("mt-0.5", error ? "text-red-500" : "text-green-600")}>
+              {error ? <FiAlertTriangle /> : <FiCheckCircle />}
+            </span>
+            <div className="text-slate-900 break-words">{error || success}</div>
           </div>
-        )}
+        ) : null}
 
-        {/* Layout */}
-        <div className="grid gap-5 lg:grid-cols-5">
+        {/* ================= LAYOUT ================= */}
+        <div className="grid gap-5 lg:grid-cols-12">
           {/* LIST + NOTE VIEW */}
-          <div className="lg:col-span-3 order-1">
+          <div className="lg:col-span-7 xl:col-span-8 order-1">
             <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
               {/* Toolbar */}
               <div className="border-b border-slate-200 p-4 sm:p-5 bg-white">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0">
-                    <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
                       Latest Entries
                     </h2>
                     <p className="mt-0.5 text-xs sm:text-sm text-slate-600">
@@ -276,7 +273,7 @@ export default function ContactDiscussionPage() {
                     </p>
                   </div>
 
-                  <div className="w-full md:w-96">
+                  <div className="w-full lg:w-96">
                     <div className="relative">
                       <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                         <FiSearch />
@@ -291,7 +288,7 @@ export default function ContactDiscussionPage() {
                         <button
                           type="button"
                           onClick={() => setSearch("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                           aria-label="Clear search"
                         >
                           <FiX />
@@ -303,23 +300,16 @@ export default function ContactDiscussionPage() {
               </div>
 
               {/* Content */}
-              <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-5 bg-white">
+              <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-12 bg-white">
                 {/* List */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-7">
                   {loadingList ? (
-                    <SkeletonTable />
+                    <SkeletonList />
                   ) : filteredItems.length === 0 ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
-                      <div className="text-sm font-semibold text-slate-900">
-                        No data found
-                      </div>
-                      <div className="mt-1 text-sm text-slate-600">
-                        Try a different search or add a new entry.
-                      </div>
-                    </div>
+                    <EmptyState />
                   ) : (
                     <>
-                      {/* Mobile list */}
+                      {/* Mobile / Tablet cards */}
                       <div className="space-y-3 lg:hidden">
                         {filteredItems.map((it) => {
                           const active = activeId === String(it._id);
@@ -351,7 +341,7 @@ export default function ContactDiscussionPage() {
                                 ) : null}
                               </div>
 
-                              <div className={cn("mt-3 grid grid-cols-2 gap-2 text-xs", compact ? "opacity-95" : "")}>
+                              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                                 <MiniStat label="Company" value={it.companyName || "-"} />
                                 <MiniStat label="Role" value={it.role || "-"} />
                                 <MiniStat label="Phone" value={it.phone || "-"} mono />
@@ -382,7 +372,7 @@ export default function ContactDiscussionPage() {
 
                       {/* Desktop table */}
                       <div className="hidden lg:block overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div className="max-h-[440px] overflow-auto">
+                        <div className="max-h-[460px] overflow-auto">
                           <table className="min-w-full text-left text-sm">
                             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                               <tr>
@@ -421,9 +411,7 @@ export default function ContactDiscussionPage() {
                                     <td className="px-3 py-3 text-slate-900 break-words">
                                       {it.companyName}
                                     </td>
-                                    <td className="px-3 py-3 text-slate-900 break-words">
-                                      {it.role}
-                                    </td>
+                                    <td className="px-3 py-3 text-slate-900 break-words">{it.role}</td>
                                     <td className="px-3 py-3 font-semibold text-slate-900 break-all">
                                       {it.phone}
                                     </td>
@@ -452,14 +440,12 @@ export default function ContactDiscussionPage() {
                 </div>
 
                 {/* Note Viewer */}
-                <div className="lg:col-span-2">
-                  <div className="lg:sticky lg:top-5 space-y-3">
+                <div className="lg:col-span-5">
+                  <div className="lg:sticky lg:top-6 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-[11px] font-semibold text-slate-400">
-                            Note Viewer
-                          </div>
+                          <div className="text-[11px] font-semibold text-slate-400">Note Viewer</div>
                           <div className="mt-1 text-base sm:text-lg font-extrabold text-slate-900 break-words">
                             {selected?.name || "Select an entry"}
                           </div>
@@ -468,12 +454,12 @@ export default function ContactDiscussionPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 sm:justify-end">
                           {selected?.discussionNote ? (
                             <button
                               type="button"
                               onClick={copySelectedNote}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                             >
                               <FiCopy />
                               {copied ? "Copied" : "Copy"}
@@ -489,21 +475,25 @@ export default function ContactDiscussionPage() {
                       </div>
 
                       <div className="mt-4 grid gap-2 text-sm">
-                        <InfoRow label="Email" value={selected?.email || "-"} />
-                        <InfoRow label="Role" value={selected?.role || "-"} />
-                        <InfoRow label="Phone" value={selected?.phone || "-"} />
-                        <InfoRow label="Date" value={selected?.createdAt ? fmtDate(selected.createdAt) : "-"} />
+                        <InfoRow icon={<FiMail />} label="Email" value={selected?.email || "-"} />
+                        <InfoRow icon={<FiBriefcase />} label="Role" value={selected?.role || "-"} />
+                        <InfoRow icon={<FiPhone />} label="Phone" value={selected?.phone || "-"} mono />
+                        <InfoRow
+                          icon={<FiClock />}
+                          label="Date"
+                          value={selected?.createdAt ? fmtDate(selected.createdAt) : "-"}
+                        />
                       </div>
 
                       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                          <div className="flex items-center gap-2 text-sm font-extrabold text-slate-900">
                             <FiMessageSquare className="text-slate-400" />
                             Discussion Note
                           </div>
                           {selected?.discussionNote ? (
                             <span className="text-[11px] font-semibold text-slate-400">
-                              {clamp(String(selected.discussionNote).length, 0, 99999)} chars
+                              {String(selected.discussionNote).length} chars
                             </span>
                           ) : null}
                         </div>
@@ -523,9 +513,7 @@ export default function ContactDiscussionPage() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <div className="text-xs font-bold text-slate-900">
-                        Quick Tips
-                      </div>
+                      <div className="text-xs font-extrabold text-slate-900">Quick Tips</div>
                       <ul className="mt-2 space-y-1 text-xs text-slate-600 list-disc pl-4">
                         <li>Search by phone / company for faster lookup.</li>
                         <li>Keep notes clear and actionable.</li>
@@ -540,9 +528,10 @@ export default function ContactDiscussionPage() {
           </div>
 
           {/* FORM */}
-          <div className="lg:col-span-2 order-2">
+          <div className="lg:col-span-5 xl:col-span-4 order-2">
             <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
               <div className="h-1 bg-orange-500" />
+
               <div className="border-b border-slate-200 p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -557,7 +546,7 @@ export default function ContactDiscussionPage() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
                   >
                     <FiX />
                     Clear
@@ -621,11 +610,12 @@ export default function ContactDiscussionPage() {
                     placeholder="10-digit mobile / WhatsApp"
                     required
                     mono
+                    inputMode="tel"
                   />
 
                   <div>
                     <label className="mb-1.5 block text-sm font-semibold text-slate-900">
-                      Discussion Note
+                      Discussion Note <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <div className="pointer-events-none absolute left-3 top-3 text-slate-400">
@@ -635,7 +625,7 @@ export default function ContactDiscussionPage() {
                         name="discussionNote"
                         value={form.discussionNote}
                         onChange={onChange}
-                        rows={6}
+                        rows={7}
                         placeholder="Write requirement, product discussion, follow-up plan..."
                         className="w-full rounded-2xl border border-slate-200 bg-white px-10 py-2.5 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-slate-100"
                       />
@@ -680,7 +670,9 @@ export default function ContactDiscussionPage() {
             </div>
           </div>
         </div>
-        {/* end main grid */}
+
+        {/* Small footer spacing */}
+        <div className="h-1" />
       </div>
     </div>
   );
@@ -692,7 +684,9 @@ function Pill({ label, value, tone = "neutral" }) {
   const cls =
     tone === "good"
       ? "border-slate-200 bg-slate-50 text-green-600"
-      : "border-slate-200 bg-slate-50 text-orange-500";
+      : tone === "warn"
+      ? "border-slate-200 bg-slate-50 text-orange-500"
+      : "border-slate-200 bg-slate-50 text-slate-600";
 
   return (
     <span className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold", cls)}>
@@ -706,12 +700,7 @@ function MiniStat({ label, value, mono }) {
   return (
     <div className="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
       <div className="text-[11px] font-semibold text-slate-600">{label}</div>
-      <div
-        className={cn(
-          "mt-1 text-sm font-semibold text-slate-900 whitespace-normal",
-          mono ? "break-all font-mono" : "break-words"
-        )}
-      >
+      <div className={cn("mt-1 text-sm font-semibold text-slate-900", mono ? "break-all font-mono" : "break-words")}>
         {value}
       </div>
     </div>
@@ -730,6 +719,7 @@ function FancyField({
   hint,
   hintTone = "neutral",
   mono,
+  inputMode,
 }) {
   const hintCls =
     hintTone === "bad"
@@ -753,6 +743,7 @@ function FancyField({
         </div>
         <input
           type={type}
+          inputMode={inputMode}
           name={name}
           value={value}
           onChange={onChange}
@@ -768,45 +759,45 @@ function FancyField({
   );
 }
 
-function InfoRow({ label, value }) {
-  const isEmail = label.toLowerCase() === "email";
-  const isPhone = label.toLowerCase() === "phone";
+function InfoRow({ icon, label, value, mono }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-2xl bg-white border border-slate-200 px-3 py-2">
-      <div className="text-[11px] font-semibold text-slate-600">{label}</div>
-      <div
-        className={cn(
-          "text-right text-sm font-semibold text-slate-900 whitespace-normal",
-          isEmail || isPhone ? "break-all" : "break-words"
-        )}
-      >
+      <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-600">
+        <span className="text-slate-400">{icon}</span>
+        {label}
+      </div>
+      <div className={cn("text-right text-sm font-semibold text-slate-900", mono ? "break-all font-mono" : "break-words")}>
         {value}
       </div>
     </div>
   );
 }
 
-function SkeletonTable() {
+function EmptyState() {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-      <div className="bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-600">
-        Loading entries...
-      </div>
-      <div className="divide-y divide-slate-200">
-        {Array.from({ length: 7 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-3">
-            <div className="h-9 w-9 animate-pulse rounded-full bg-slate-100 border border-slate-200" />
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center">
+      <div className="text-sm font-semibold text-slate-900">No data found</div>
+      <div className="mt-1 text-sm text-slate-600">Try a different search or add a new entry.</div>
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-slate-100 border border-slate-200 animate-pulse" />
             <div className="flex-1">
-              <div className="h-3 w-1/2 animate-pulse rounded bg-slate-100" />
-              <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-slate-50 border border-slate-200" />
+              <div className="h-3 w-1/2 rounded bg-slate-100 animate-pulse" />
+              <div className="mt-2 h-3 w-1/3 rounded bg-slate-100 animate-pulse" />
             </div>
-            <div className="hidden sm:block">
-              <div className="h-3 w-28 animate-pulse rounded bg-slate-100" />
-              <div className="mt-2 h-3 w-20 animate-pulse rounded bg-slate-50 border border-slate-200" />
-            </div>
+            <div className="h-3 w-20 rounded bg-slate-100 animate-pulse" />
           </div>
-        ))}
-      </div>
+          <div className="mt-3 h-10 rounded-2xl bg-slate-100 animate-pulse" />
+        </div>
+      ))}
     </div>
   );
 }

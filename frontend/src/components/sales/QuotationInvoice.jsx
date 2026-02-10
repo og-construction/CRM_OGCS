@@ -1,11 +1,21 @@
 // src/components/sales/QuotationSystem.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axiosClient from "../../api/axiosClient";
 import Card from "./Card";
 
 /* ✅ PDF (client-side) */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+/**
+ * ✅ UI palette (KEEP like your project):
+ * bg-slate-50, bg-white, bg-slate-100
+ * text-slate-900, text-slate-600, text-slate-400
+ * border-slate-200
+ * blue-600, green-600, red-500, orange-500
+ */
+
+const cn = (...a) => a.filter(Boolean).join(" ");
 
 /* ================= helpers ================= */
 const emptyItem = { description: "", quantity: 1, unitPrice: 0 };
@@ -14,10 +24,7 @@ const safe = (v) => String(v ?? "").trim();
 const money = (n) => {
   const v = Number(n || 0);
   try {
-    return v.toLocaleString("en-IN", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   } catch {
     return v.toFixed(2);
   }
@@ -70,26 +77,106 @@ const OGCS = {
 };
 
 /* ================= tiny ui atoms ================= */
+const inputClass =
+  "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 outline-none " +
+  "focus:ring-4 focus:ring-slate-100 transition";
+
+const btnBase =
+  "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold " +
+  "transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed";
+
 const StatusBadge = ({ status }) => {
   const st = String(status || "pending");
   const cls =
     st === "approved"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      ? "bg-green-600 text-white"
       : st === "rejected"
-      ? "bg-red-50 text-red-700 border-red-200"
-      : "bg-amber-50 text-amber-700 border-amber-200";
-  const label =
-    st === "approved" ? "Approved" : st === "rejected" ? "Rejected" : "Pending";
+      ? "bg-red-500 text-white"
+      : "bg-orange-500 text-white";
+  const label = st === "approved" ? "Approved" : st === "rejected" ? "Rejected" : "Pending";
 
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border ${cls}`}
-    >
-      {label}
-    </span>
-  );
+  return <span className={cn("px-2.5 py-1 rounded-full text-[11px] font-semibold", cls)}>{label}</span>;
 };
 
+function Field({ label, required, hint, children }) {
+  return (
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <label className="text-xs font-semibold text-slate-600">
+          {label} {required ? <span className="text-red-500">*</span> : null}
+        </label>
+        {hint ? <span className="text-[11px] text-slate-400">{hint}</span> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Toast({ show, type, msg, onClose }) {
+  if (!show) return null;
+  const tone =
+    type === "success" ? "text-green-600" : type === "error" ? "text-red-500" : "text-slate-600";
+
+  return (
+    <div className="fixed bottom-5 right-5 z-[1000]">
+      <div className={cn("px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white", tone)}>
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 break-words">{msg}</div>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Modal({ open, title, subtitle, onClose, children, footer }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose?.();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[999] bg-black/50 flex items-center justify-center p-2 sm:p-4">
+      <div
+        className={cn(
+          "w-full max-w-5xl bg-white rounded-2xl border border-slate-200 overflow-hidden",
+          "flex flex-col h-[92dvh] sm:h-auto sm:max-h-[92dvh]"
+        )}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-white flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-extrabold text-slate-900 truncate">{title}</div>
+            {subtitle ? <div className="text-xs text-slate-600 mt-0.5 truncate">{subtitle}</div> : null}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(btnBase, "px-3 py-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-50">{children}</div>
+
+        {footer ? (
+          <div className="border-t border-slate-200 bg-white px-4 sm:px-5 py-3 sm:py-4">{footer}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ================= Component ================= */
 export default function QuotationSystem() {
   /* ================= state ================= */
   const [customer, setCustomer] = useState({
@@ -118,33 +205,31 @@ export default function QuotationSystem() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  // toast
+  const [toast, setToast] = useState({ show: false, type: "info", msg: "" });
+
   // PDF viewer modal
   const [pdfViewOpen, setPdfViewOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
 
+  const showToast = useCallback((type, msg) => {
+    setToast({ show: true, type, msg });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast({ show: false, type: "info", msg: "" }), 2200);
+  }, []);
+
   /* ================= calculations ================= */
   const subtotal = useMemo(() => {
-    return items.reduce(
-      (sum, it) =>
-        sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
-      0
-    );
+    return items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
   }, [items]);
 
-  const taxAmount = useMemo(
-    () => (subtotal * (Number(taxPercent) || 0)) / 100,
-    [subtotal, taxPercent]
-  );
+  const taxAmount = useMemo(() => (subtotal * (Number(taxPercent) || 0)) / 100, [subtotal, taxPercent]);
   const totalAmount = subtotal + taxAmount;
 
   const selectedTermsText = useMemo(() => {
-    const fromLibrary = TERMS_LIBRARY.filter((t) =>
-      selectedTermIds.includes(t.id)
-    ).map((t) => t.text);
+    const fromLibrary = TERMS_LIBRARY.filter((t) => selectedTermIds.includes(t.id)).map((t) => t.text);
     const custom = customTerms.map((t) => safe(t)).filter(Boolean);
-    return [...fromLibrary, ...custom]
-      .map((t) => t.replace(/\s+/g, " ").trim())
-      .filter(Boolean);
+    return [...fromLibrary, ...custom].map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
   }, [selectedTermIds, customTerms]);
 
   const finalNotesText = useMemo(() => {
@@ -170,7 +255,7 @@ export default function QuotationSystem() {
     return res.data?.data || [];
   };
 
-  const fetchMyQuotes = async () => {
+  const fetchMyQuotes = useCallback(async () => {
     try {
       setLoadingList(true);
       const list = await fetchMyQuotesRaw();
@@ -180,7 +265,7 @@ export default function QuotationSystem() {
     } finally {
       setLoadingList(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMyQuotes();
@@ -193,8 +278,7 @@ export default function QuotationSystem() {
       clearInterval(t);
       window.removeEventListener("focus", onFocus);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchMyQuotes]);
 
   useEffect(() => {
     return () => {
@@ -204,23 +288,17 @@ export default function QuotationSystem() {
   }, []);
 
   /* ================= handlers ================= */
-  const handleCustomerChange = (e) =>
-    setCustomer((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleCustomerChange = (e) => setCustomer((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
   const handleItemChange = (index, field, value) => {
-    setItems((prev) =>
-      prev.map((it, i) => (i === index ? { ...it, [field]: value } : it))
-    );
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
   };
 
   const addItem = () => setItems((prev) => [...prev, { ...emptyItem }]);
-  const removeItem = (index) =>
-    setItems((prev) => prev.filter((_, i) => i !== index));
+  const removeItem = (index) => setItems((prev) => prev.filter((_, i) => i !== index));
 
   const toggleTerm = (id) =>
-    setSelectedTermIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedTermIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const addCustomTerm = () => {
     const v = safe(customTermInput);
@@ -228,18 +306,32 @@ export default function QuotationSystem() {
 
     setCustomTerms((prev) => {
       const normalized = v.replace(/\s+/g, " ").trim();
-      if (prev.some((x) => safe(x).toLowerCase() === normalized.toLowerCase()))
-        return prev;
+      if (prev.some((x) => safe(x).toLowerCase() === normalized.toLowerCase())) return prev;
       return [...prev, normalized];
     });
 
     setCustomTermInput("");
   };
 
-  const removeCustomTerm = (idx) =>
-    setCustomTerms((prev) => prev.filter((_, i) => i !== idx));
+  const removeCustomTerm = (idx) => setCustomTerms((prev) => prev.filter((_, i) => i !== idx));
 
   const clearTerms = () => {
+    setSelectedTermIds([]);
+    setCustomTerms([]);
+    setCustomTermInput("");
+    setExtraNotes("");
+  };
+
+  const resetFormAll = () => {
+    setCustomer({
+      customerName: "",
+      companyName: "",
+      customerEmail: "",
+      customerPhone: "",
+      projectName: "",
+    });
+    setItems([{ ...emptyItem }]);
+    setTaxPercent(18);
     setSelectedTermIds([]);
     setCustomTerms([]);
     setCustomTermInput("");
@@ -254,14 +346,14 @@ export default function QuotationSystem() {
 
     if (!safe(customer.customerName)) {
       setError("Customer name is required.");
+      showToast("error", "Customer name is required");
       return;
     }
 
-    const hasValidItem = items.some(
-      (it) => safe(it.description) && Number(it.quantity) > 0
-    );
+    const hasValidItem = items.some((it) => safe(it.description) && Number(it.quantity) > 0);
     if (!hasValidItem) {
       setError("Please add at least one valid item (description + qty).");
+      showToast("error", "Add at least one valid item");
       return;
     }
 
@@ -273,18 +365,10 @@ export default function QuotationSystem() {
         .map((it) => {
           const qty = Math.max(1, Number(it.quantity) || 1);
           const rate = Math.max(0, Number(it.unitPrice) || 0);
-          return {
-            description: safe(it.description),
-            quantity: qty,
-            unitPrice: rate,
-            lineTotal: qty * rate,
-          };
+          return { description: safe(it.description), quantity: qty, unitPrice: rate, lineTotal: qty * rate };
         });
 
-      const sub = payloadItems.reduce(
-        (s, it) => s + (Number(it.lineTotal) || 0),
-        0
-      );
+      const sub = payloadItems.reduce((s, it) => s + (Number(it.lineTotal) || 0), 0);
       const taxP = Math.max(0, Number(taxPercent) || 0);
       const taxA = (sub * taxP) / 100;
       const tot = sub + taxA;
@@ -306,31 +390,14 @@ export default function QuotationSystem() {
       const res = await axiosClient.post("/quotes", payload);
       const created = res.data?.data;
 
-      setMessage(
-        `Quotation created successfully (status: ${created?.status || "pending"}).`
-      );
-
-      // reset
-      setCustomer({
-        customerName: "",
-        companyName: "",
-        customerEmail: "",
-        customerPhone: "",
-        projectName: "",
-      });
-      setItems([{ ...emptyItem }]);
-      setTaxPercent(18);
-      setSelectedTermIds([]);
-      setCustomTerms([]);
-      setCustomTermInput("");
-      setExtraNotes("");
-
+      setMessage(`Quotation created successfully (status: ${created?.status || "pending"}).`);
+      showToast("success", "Quotation created");
+      resetFormAll();
       fetchMyQuotes();
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        "Failed to create quotation. Please try again.";
+      const msg = err?.response?.data?.message || "Failed to create quotation. Please try again.";
       setError(msg);
+      showToast("error", msg);
     } finally {
       setSubmitting(false);
     }
@@ -371,10 +438,7 @@ export default function QuotationSystem() {
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(10);
-      const addr = [
-        ...OGCS.addressLines,
-        `Mobile: ${OGCS.mobile}  |  Email: ${OGCS.email}`,
-      ];
+      const addr = [...OGCS.addressLines, `Mobile: ${OGCS.mobile}  |  Email: ${OGCS.email}`];
       pdf.text(addr, margin, 54, { maxWidth: pageW - margin * 2 });
 
       const badgeW = 150;
@@ -387,16 +451,12 @@ export default function QuotationSystem() {
       pdf.setTextColor(255, 255, 255);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(14);
-      pdf.text("QUOTATION", badgeX + badgeW / 2, badgeY + 24, {
-        align: "center",
-      });
+      pdf.text("QUOTATION", badgeX + badgeW / 2, badgeY + 24, { align: "center" });
 
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(255, 255, 255);
-      pdf.text(`Date: ${created.toLocaleDateString("en-IN")}`, pageW - margin, 74, {
-        align: "right",
-      });
+      pdf.text(`Date: ${created.toLocaleDateString("en-IN")}`, pageW - margin, 74, { align: "right" });
       pdf.text(`Status: ${status}`, pageW - margin, 86, { align: "right" });
     };
 
@@ -410,9 +470,7 @@ export default function QuotationSystem() {
       pdf.setFontSize(9);
       pdf.setTextColor(...C.slate);
       pdf.text(`Generated by ${OGCS.name}`, margin, pageH - 26);
-      pdf.text(`Page ${totalPages}`, pageW - margin, pageH - 26, {
-        align: "right",
-      });
+      pdf.text(`Page ${totalPages}`, pageW - margin, pageH - 26, { align: "right" });
 
       pdf.setTextColor(0, 0, 0);
     };
@@ -424,10 +482,7 @@ export default function QuotationSystem() {
       ["Company", pdfWrap(safe(doc?.companyName) || "-", 22)],
       ["Email", pdfWrap(safe(doc?.customerEmail) || "-", 22)],
       ["Phone", pdfWrap(safe(doc?.customerPhone) || "-", 22)],
-      [
-        "Delivery Location / Address",
-        pdfWrap(safe(doc?.projectName) || "-", 22),
-      ],
+      ["Delivery Location / Address", pdfWrap(safe(doc?.projectName) || "-", 22)],
     ];
 
     autoTable(pdf, {
@@ -437,20 +492,11 @@ export default function QuotationSystem() {
       tableWidth: pageW - margin * 2,
       head: [["Customer Details", ""]],
       body: customerRows,
-      styles: {
-        font: "helvetica",
-        fontSize: 10,
-        cellPadding: 7,
-        overflow: "linebreak",
-        valign: "top",
-      },
+      styles: { font: "helvetica", fontSize: 10, cellPadding: 7, overflow: "linebreak", valign: "top" },
       headStyles: { fillColor: C.light, textColor: C.navy, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: 170, fontStyle: "bold", textColor: C.slate },
-        1: {
-          cellWidth: pageW - margin * 2 - 170,
-          textColor: [15, 23, 42],
-        },
+        1: { cellWidth: pageW - margin * 2 - 170, textColor: [15, 23, 42] },
       },
       didDrawPage: () => {
         drawHeader();
@@ -468,13 +514,7 @@ export default function QuotationSystem() {
       const qty = Math.max(0, Number(it.quantity || 0));
       const rate = Math.max(0, Number(it.unitPrice || 0));
       const amt = Number(it.lineTotal ?? qty * rate) || 0;
-      return [
-        String(idx + 1),
-        pdfWrap(safe(it.description) || "-", 14),
-        String(qty),
-        currency(rate),
-        currency(amt),
-      ];
+      return [String(idx + 1), pdfWrap(safe(it.description) || "-", 14), String(qty), currency(rate), currency(amt)];
     });
 
     autoTable(pdf, {
@@ -484,18 +524,8 @@ export default function QuotationSystem() {
       tableWidth: pageW - margin * 2,
       head: [["#", "Description", "Qty", "Unit Price", "Amount"]],
       body: itemRows.length ? itemRows : [["-", "No items", "-", "-", "-"]],
-      styles: {
-        font: "helvetica",
-        fontSize: 9.5,
-        cellPadding: 7,
-        overflow: "linebreak",
-        valign: "top",
-      },
-      headStyles: {
-        fillColor: C.navy,
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
+      styles: { font: "helvetica", fontSize: 9.5, cellPadding: 7, overflow: "linebreak", valign: "top" },
+      headStyles: { fillColor: C.navy, textColor: [255, 255, 255], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [250, 251, 255] },
       columnStyles: {
         0: { cellWidth: snW, halign: "center" },
@@ -510,10 +540,7 @@ export default function QuotationSystem() {
       },
     });
 
-    const computedSubtotal = (doc?.items || []).reduce(
-      (sum, it) => sum + (Number(it.lineTotal) || 0),
-      0
-    );
+    const computedSubtotal = (doc?.items || []).reduce((sum, it) => sum + (Number(it.lineTotal) || 0), 0);
     const _subtotal = Number(doc?.subtotal ?? computedSubtotal) || 0;
     const _taxPercent = Number(doc?.taxPercent ?? 0) || 0;
     const _taxAmount = (_subtotal * _taxPercent) / 100;
@@ -531,17 +558,8 @@ export default function QuotationSystem() {
       ],
       styles: { font: "helvetica", fontSize: 11, cellPadding: 7, valign: "middle" },
       columnStyles: {
-        0: {
-          cellWidth: pageW - margin * 2 - 240,
-          halign: "right",
-          textColor: C.slate,
-        },
-        1: {
-          cellWidth: 240,
-          halign: "right",
-          fontStyle: "bold",
-          textColor: [15, 23, 42],
-        },
+        0: { cellWidth: pageW - margin * 2 - 240, halign: "right", textColor: C.slate },
+        1: { cellWidth: 240, halign: "right", fontStyle: "bold", textColor: [15, 23, 42] },
       },
       didParseCell: (data) => {
         if (data.row.index === 2) {
@@ -566,13 +584,7 @@ export default function QuotationSystem() {
         tableWidth: pageW - margin * 2,
         head: [["Notes / Terms"]],
         body: [[pdfWrap(noteText, 18)]],
-        styles: {
-          font: "helvetica",
-          fontSize: 10,
-          cellPadding: 9,
-          overflow: "linebreak",
-          valign: "top",
-        },
+        styles: { font: "helvetica", fontSize: 10, cellPadding: 9, overflow: "linebreak", valign: "top" },
         headStyles: { fillColor: C.light, textColor: C.navy, fontStyle: "bold" },
         didDrawPage: () => {
           drawHeader();
@@ -602,6 +614,7 @@ export default function QuotationSystem() {
       const latest = await getLatestQuoteFromMyList(doc._id);
       if (!latest) {
         setError("Quotation not found. Please refresh list.");
+        showToast("error", "Quotation not found");
         return;
       }
 
@@ -615,9 +628,11 @@ export default function QuotationSystem() {
         .replace(/\s+/g, "_");
 
       pdf.save(`Quotation_${fileSafeName}_${nowDate.toISOString().slice(0, 10)}.pdf`);
+      showToast("success", "PDF downloaded");
     } catch (e) {
       console.error(e);
       setError("Unable to download quotation PDF. Please try again.");
+      showToast("error", "PDF download failed");
     }
   };
 
@@ -629,6 +644,7 @@ export default function QuotationSystem() {
       const latest = await getLatestQuoteFromMyList(doc._id);
       if (!latest) {
         setError("Quotation not found. Please refresh list.");
+        showToast("error", "Quotation not found");
         return;
       }
 
@@ -646,6 +662,7 @@ export default function QuotationSystem() {
     } catch (e) {
       console.error(e);
       setError("Unable to open quotation PDF. Please try again.");
+      showToast("error", "Unable to open PDF");
     }
   };
 
@@ -659,477 +676,493 @@ export default function QuotationSystem() {
 
   /* ================= UI ================= */
   return (
-    <div
-      className="space-y-4"
-      style={{ background: "#EFF6FF", padding: 12, borderRadius: 16 }}
-    >
-      {/* Header */}
-      <div className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur p-4 sm:p-5 shadow-sm overflow-hidden">
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#8B0000] via-[#F4D03F] to-[#00204E] -mt-5 mb-4" />
+    <div className="bg-slate-50 min-h-[100dvh]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 space-y-5">
+        {/* Header (responsive, clean) */}
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+          <div className="h-1 bg-red-500" />
+          <div className="p-4 sm:p-5">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                  <span className="h-2 w-2 rounded-full bg-green-600" />
+                  Quotation Module
+                </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Quotation Module
-            </div>
+                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">Quotation System</h1>
+                <p className="mt-1 text-sm text-slate-600">
+                  Create quotation, track status, and view/download OGCS PDF.
+                </p>
 
-            <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900 whitespace-normal break-words">
-              Quotation System
-            </h1>
-            <p className="mt-1 text-xs sm:text-sm text-slate-600 whitespace-normal break-words">
-              Create quotation, track admin approval, and view/download colorful OGCS PDF.
-            </p>
+                <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  <div className="font-semibold text-slate-900">{OGCS.name}</div>
+                  <div>{OGCS.addressLines.join(", ")}</div>
+                  <div className="mt-1">
+                    Mobile: <b className="text-slate-900">{OGCS.mobile}</b> • Email:{" "}
+                    <b className="text-slate-900">{OGCS.email}</b>
+                  </div>
+                </div>
 
-            <div className="mt-3 rounded-2xl border border-red-100 bg-red-50/40 px-3 py-2 text-xs text-slate-700">
-              <div className="font-bold text-slate-900">{OGCS.name}</div>
-              <div className="text-slate-700">
-                {OGCS.addressLines.join(", ")}
+                {(error || message) ? (
+                  <div
+                    className={cn(
+                      "mt-3 rounded-2xl border px-4 py-3 text-sm",
+                      error ? "border-slate-200 bg-slate-50 text-slate-900" : "border-slate-200 bg-slate-50 text-slate-900"
+                    )}
+                  >
+                    {error ? <span className="text-red-500 font-semibold">Error: </span> : <span className="text-green-600 font-semibold">Success: </span>}
+                    <span className="break-words">{error || message}</span>
+                  </div>
+                ) : null}
               </div>
-              <div className="mt-1 text-slate-700">
-                Mobile: <b>{OGCS.mobile}</b> • Email: <b>{OGCS.email}</b>
+
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <button
+                  type="button"
+                  onClick={fetchMyQuotes}
+                  className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto")}
+                >
+                  Refresh List
+                </button>
+
+                <button
+                  type="button"
+                  onClick={resetFormAll}
+                  className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}
+                >
+                  Reset Form
+                </button>
               </div>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={fetchMyQuotes}
-            className="shrink-0 px-4 py-2 text-sm font-semibold rounded-2xl border transition active:scale-[0.99] bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-          >
-            Refresh List
-          </button>
         </div>
 
-        {(error || message) && (
-          <div
-            className={`mt-3 rounded-2xl border px-4 py-3 text-sm shadow-sm ${
-              error
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700"
-            }`}
-          >
-            {error || message}
-          </div>
-        )}
-      </div>
-
-      {/* ✅ CREATE QUOTATION FORM */}
-      <Card title="New Quotation Details">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Customer */}
-          <div className="grid gap-3 md:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Customer Name <span className="text-red-600">*</span>
-              </label>
-              <input
-                name="customerName"
-                value={customer.customerName}
-                onChange={handleCustomerChange}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                placeholder="Enter customer name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Company Name
-              </label>
-              <input
-                name="companyName"
-                value={customer.companyName}
-                onChange={handleCustomerChange}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                placeholder="Enter company name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Customer Email
-              </label>
-              <input
-                name="customerEmail"
-                value={customer.customerEmail}
-                onChange={handleCustomerChange}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                placeholder="Enter email"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Customer Phone
-              </label>
-              <input
-                name="customerPhone"
-                value={customer.customerPhone}
-                onChange={handleCustomerChange}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                placeholder="Enter phone number"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Delivery Location / Address
-              </label>
-              <input
-                name="projectName"
-                value={customer.projectName}
-                onChange={handleCustomerChange}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                placeholder="Enter delivery location/address"
-              />
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-sm font-bold text-slate-900">Items</div>
-              <button
-                type="button"
-                onClick={addItem}
-                className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100"
-              >
-                + Add Item
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-3">
-              {items.map((it, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-3xl border border-slate-200 bg-slate-50 p-3"
-                >
-                  <div className="grid gap-2 md:grid-cols-12">
-                    <div className="md:col-span-6">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Description <span className="text-red-600">*</span>
-                      </label>
+        {/* Content grid: form + list */}
+        <div className="grid lg:grid-cols-12 gap-5">
+          {/* Create Quotation */}
+          <div className="lg:col-span-7 space-y-5">
+            <Card title="New Quotation Details">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Customer */}
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="text-sm font-extrabold text-slate-900 mb-3">Customer</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Field label="Customer Name" required hint="required">
                       <input
-                        value={it.description}
-                        onChange={(e) =>
-                          handleItemChange(idx, "description", e.target.value)
-                        }
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                        placeholder="Material / service description"
+                        name="customerName"
+                        value={customer.customerName}
+                        onChange={handleCustomerChange}
+                        className={inputClass}
+                        placeholder="Enter customer name"
                       />
-                    </div>
+                    </Field>
+
+                    <Field label="Company Name" hint="optional">
+                      <input
+                        name="companyName"
+                        value={customer.companyName}
+                        onChange={handleCustomerChange}
+                        className={inputClass}
+                        placeholder="Enter company name"
+                      />
+                    </Field>
+
+                    <Field label="Customer Email" hint="optional">
+                      <input
+                        name="customerEmail"
+                        value={customer.customerEmail}
+                        onChange={handleCustomerChange}
+                        className={inputClass}
+                        placeholder="Enter email"
+                      />
+                    </Field>
+
+                    <Field label="Customer Phone" hint="optional">
+                      <input
+                        name="customerPhone"
+                        value={customer.customerPhone}
+                        onChange={handleCustomerChange}
+                        className={inputClass}
+                        placeholder="Enter phone number"
+                        inputMode="numeric"
+                      />
+                    </Field>
 
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Qty
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={it.quantity}
-                        onChange={(e) =>
-                          handleItemChange(idx, "quantity", e.target.value)
-                        }
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none text-right focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                      />
+                      <Field label="Delivery Location / Address" hint="optional">
+                        <input
+                          name="projectName"
+                          value={customer.projectName}
+                          onChange={handleCustomerChange}
+                          className={inputClass}
+                          placeholder="Enter delivery location/address"
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+                    <div className="text-sm font-extrabold text-slate-900">Items</div>
+                    <button
+                      type="button"
+                      onClick={addItem}
+                      className={cn(btnBase, "px-3 py-2 bg-blue-600 text-white")}
+                    >
+                      + Add Item
+                    </button>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    {items.map((it, idx) => {
+                      const lineTotal = (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0);
+                      return (
+                        <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                            <div className="md:col-span-6">
+                              <Field label="Description" required hint="material/service">
+                                <input
+                                  value={it.description}
+                                  onChange={(e) => handleItemChange(idx, "description", e.target.value)}
+                                  className={inputClass}
+                                  placeholder="Material / service description"
+                                />
+                              </Field>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <Field label="Qty" hint="min 1">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={it.quantity}
+                                  onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                                  className={cn(inputClass, "text-right")}
+                                />
+                              </Field>
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <Field label="Unit Price" hint="INR">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={it.unitPrice}
+                                  onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
+                                  className={cn(inputClass, "text-right")}
+                                />
+                              </Field>
+                            </div>
+
+                            <div className="md:col-span-2 flex flex-col gap-2">
+                              <Field label="Line Total" hint="auto">
+                                <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900 text-right">
+                                  ₹{money(lineTotal)}
+                                </div>
+                              </Field>
+
+                              {items.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(idx)}
+                                  className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-red-500 hover:bg-slate-50")}
+                                >
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Tax + totals */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="text-sm font-extrabold text-slate-900">Tax</div>
+                    <div className="mt-3">
+                      <Field label="Tax Percent (GST)" hint="0+">
+                        <input
+                          type="number"
+                          min="0"
+                          value={taxPercent}
+                          onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value) || 0))}
+                          className={cn(inputClass, "max-w-[180px]")}
+                        />
+                      </Field>
                     </div>
 
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Unit Price
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={it.unitPrice}
-                        onChange={(e) =>
-                          handleItemChange(idx, "unitPrice", e.target.value)
-                        }
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none text-right focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                      />
+                    <div className="mt-3 text-sm text-slate-600 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span>Subtotal</span>
+                        <b className="text-slate-900">₹{money(subtotal)}</b>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Tax</span>
+                        <b className="text-slate-900">₹{money(taxAmount)}</b>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="text-sm font-extrabold text-slate-900">Total Amount</div>
+                    <div className="mt-2 text-3xl font-extrabold text-slate-900">₹{money(totalAmount)}</div>
+                    <div className="mt-1 text-xs text-slate-400">Auto calculated from items + GST.</div>
+                  </div>
+                </div>
+
+                {/* Terms */}
+                <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-900">Notes / Terms</div>
+                      <div className="text-xs text-slate-600">Select from library or add custom terms (saved to PDF).</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearTerms}
+                      className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Library */}
+                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-900">
+                        Terms Library
+                      </div>
+                      <div className="p-3 max-h-[320px] overflow-auto space-y-2">
+                        {TERMS_LIBRARY.map((t) => {
+                          const checked = selectedTermIds.includes(t.id);
+                          return (
+                            <label
+                              key={t.id}
+                              className={cn(
+                                "flex items-start gap-3 rounded-2xl border px-3 py-2 cursor-pointer",
+                                checked ? "border-slate-200 bg-slate-50" : "border-slate-200 bg-white"
+                              )}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleTerm(t.id)}
+                                className="mt-0.5 h-4 w-4 accent-blue-600"
+                              />
+                              <span className="text-sm text-slate-900 leading-snug">{t.text}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="md:col-span-2 flex items-end justify-between gap-2">
-                      <div className="w-full">
-                        <label className="block text-xs font-semibold text-slate-700 mb-1">
-                          Line Total
-                        </label>
-                        <div className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 text-right">
-                          ₹{money((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0))}
+                    {/* Custom */}
+                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                      <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-900">
+                        Custom Terms
+                      </div>
+                      <div className="p-3 space-y-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            value={customTermInput}
+                            onChange={(e) => setCustomTermInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addCustomTerm();
+                              }
+                            }}
+                            className={inputClass}
+                            placeholder="Type custom term..."
+                          />
+                          <button
+                            type="button"
+                            onClick={addCustomTerm}
+                            className={cn(btnBase, "bg-blue-600 text-white w-full sm:w-auto")}
+                          >
+                            Add
+                          </button>
+                        </div>
+
+                        {customTerms.length ? (
+                          <div className="space-y-2">
+                            {customTerms.map((ct, idx) => (
+                              <div
+                                key={`${ct}-${idx}`}
+                                className="flex items-start justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                              >
+                                <div className="text-sm text-slate-900 break-words">{ct}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeCustomTerm(idx)}
+                                  className="text-xs font-semibold text-red-500 hover:underline shrink-0"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400">No custom terms added yet.</div>
+                        )}
+
+                        <Field label="Extra Notes" hint="optional">
+                          <textarea
+                            rows={3}
+                            value={extraNotes}
+                            onChange={(e) => setExtraNotes(e.target.value)}
+                            className={inputClass}
+                            placeholder="Any extra note to print in PDF..."
+                          />
+                        </Field>
+
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <div className="text-[11px] font-semibold text-slate-600 mb-1">Final Notes Text (Saved)</div>
+                          <pre className="whitespace-pre-wrap break-words text-xs text-slate-900">
+                            {finalNotesText || "-"}
+                          </pre>
                         </div>
                       </div>
-
-                      {items.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => removeItem(idx)}
-                          className="shrink-0 rounded-2xl bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-800"
-                        >
-                          Remove
-                        </button>
-                      ) : null}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Tax + Totals */}
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-3xl border border-slate-200 bg-white p-4">
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Tax Percent (GST)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={taxPercent}
-                onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value) || 0))}
-                className="w-40 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-              />
-              <div className="mt-3 text-xs text-slate-600">
-                Subtotal: <b className="text-slate-900">₹{money(subtotal)}</b>{" "}
-                • Tax: <b className="text-slate-900">₹{money(taxAmount)}</b>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-red-100 bg-gradient-to-b from-white to-red-50 p-4 text-right">
-              <div className="text-xs text-slate-500">Total Amount</div>
-              <div className="text-2xl font-extrabold text-slate-900 mt-1">
-                ₹{money(totalAmount)}
-              </div>
-            </div>
-          </div>
-
-          {/* Terms */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <div className="text-sm font-bold text-slate-900">Notes / Terms</div>
-                <div className="text-xs text-slate-600">
-                  Select from library or add custom terms (saved to PDF).
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={clearTerms}
-                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Clear
-              </button>
-            </div>
-
-            <div className="mt-3 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3 max-h-[260px] overflow-auto">
-                <div className="text-xs font-bold text-slate-900 mb-2">Terms Library</div>
-                <div className="space-y-2">
-                  {TERMS_LIBRARY.map((t) => {
-                    const checked = selectedTermIds.includes(t.id);
-                    return (
-                      <label
-                        key={t.id}
-                        className={`flex items-start gap-3 rounded-2xl border px-3 py-2 cursor-pointer ${
-                          checked ? "border-red-200 bg-red-50" : "border-slate-200 bg-white"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleTerm(t.id)}
-                          className="mt-0.5 h-4 w-4 accent-red-600"
-                        />
-                        <span className="text-sm text-slate-800 leading-snug">{t.text}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                <div className="text-xs font-bold text-slate-900 mb-2">Custom Term</div>
-                <div className="flex gap-2">
-                  <input
-                    value={customTermInput}
-                    onChange={(e) => setCustomTermInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addCustomTerm();
-                      }
-                    }}
-                    className="flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                    placeholder="Type custom term..."
-                  />
+                {/* Submit */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button type="submit" disabled={submitting} className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}>
+                    {submitting ? "Creating..." : "Create Quotation"}
+                  </button>
                   <button
                     type="button"
-                    onClick={addCustomTerm}
-                    className="rounded-2xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800"
+                    onClick={() => {
+                      resetFormAll();
+                      showToast("success", "Form reset");
+                      setError("");
+                      setMessage("");
+                    }}
+                    className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto")}
                   >
-                    Add
+                    Clear
                   </button>
                 </div>
+              </form>
+            </Card>
+          </div>
 
-                {customTerms.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {customTerms.map((ct, idx) => (
-                      <div
-                        key={`${ct}-${idx}`}
-                        className="flex items-start justify-between gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2"
-                      >
-                        <div className="text-sm text-slate-800">{ct}</div>
+          {/* List */}
+          <div className="lg:col-span-5 space-y-5">
+            <Card title="Your Quotations">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="text-xs text-slate-600">
+                  {loadingList ? "Loading..." : `Showing ${myQuotes.length} quotation(s)`}
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchMyQuotes}
+                  className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {loadingList ? (
+                <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-600">
+                  Loading quotations...
+                </div>
+              ) : myQuotes.length === 0 ? (
+                <div className="p-6 rounded-2xl border border-slate-200 bg-white text-center">
+                  <div className="text-slate-900 font-semibold">No quotations created yet</div>
+                  <div className="text-sm text-slate-600 mt-1">Create your first quotation using the form.</div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myQuotes.map((doc) => (
+                    <div key={doc._id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="text-sm font-extrabold text-slate-900 break-words">{doc.customerName}</div>
+                          <div className="mt-1 text-xs text-slate-600 break-words">
+                            Delivery: {safe(doc.projectName) || "-"}
+                          </div>
+                          <div className="mt-1 text-[11px] font-semibold text-slate-400">
+                            QUOTATION • {fmtDate(doc.createdAt)}
+                          </div>
+                        </div>
+                        <StatusBadge status={doc.status} />
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => removeCustomTerm(idx)}
-                          className="text-xs font-semibold text-red-700 hover:underline"
+                          onClick={() => viewPDF(doc)}
+                          className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
                         >
-                          Remove
+                          View PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPDF(doc)}
+                          className={cn(btnBase, "bg-blue-600 text-white")}
+                        >
+                          Download PDF
                         </button>
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-3">
-                  <label className="block text-xs font-bold text-slate-900 mb-1">
-                    Extra Notes (optional)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={extraNotes}
-                    onChange={(e) => setExtraNotes(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-red-300 focus:ring-4 focus:ring-red-50"
-                    placeholder="Any extra note to print in PDF..."
-                  />
+                    </div>
+                  ))}
                 </div>
-
-                <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-2">
-                  <div className="text-[11px] font-semibold text-slate-600 mb-1">
-                    Final Notes Text (Saved)
-                  </div>
-                  <pre className="whitespace-pre-wrap break-words text-xs text-slate-800">
-                    {finalNotesText || "-"}
-                  </pre>
-                </div>
-              </div>
-            </div>
+              )}
+            </Card>
           </div>
+        </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full sm:w-auto rounded-2xl bg-red-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-800 disabled:opacity-60"
-          >
-            {submitting ? "Creating..." : "Create Quotation"}
-          </button>
-        </form>
-      </Card>
-
-      {/* List */}
-      <Card title="Your Quotations">
-        {loadingList ? (
-          <p className="text-sm text-slate-600">Loading...</p>
-        ) : myQuotes.length === 0 ? (
-          <p className="text-sm text-slate-600">No quotations created yet.</p>
-        ) : (
-          <div className="grid gap-3">
-            {myQuotes.map((doc) => (
-              <div
-                key={doc._id}
-                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-bold text-slate-900 break-words">
-                      {doc.customerName}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600 break-words">
-                      Delivery: {safe(doc.projectName) || "-"}
-                    </div>
-                    <div className="mt-1 text-[11px] font-semibold text-slate-700">
-                      QUOTATION • {fmtDate(doc.createdAt)}
-                    </div>
-                  </div>
-                  <StatusBadge status={doc.status} />
-                </div>
-
-                <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                  <button
-                    type="button"
-                    onClick={() => viewPDF(doc)}
-                    className="w-full sm:w-auto rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99]"
-                  >
-                    View PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => downloadPDF(doc)}
-                    className="w-full sm:w-auto rounded-2xl bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 active:scale-[0.99]"
-                  >
-                    Download PDF
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* PDF VIEW MODAL */}
-      {pdfViewOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-6">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={closePdfView}
-          />
-          <div className="relative w-full max-w-5xl rounded-3xl border border-slate-200 bg-white shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-100">
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-slate-900 truncate">
-                  Quotation PDF Preview
-                </div>
-                <div className="text-xs text-slate-500 truncate">
-                  OGCS header + colorful layout
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+        {/* PDF VIEW MODAL */}
+        <Modal
+          open={pdfViewOpen}
+          title="Quotation PDF Preview"
+          subtitle="OGCS header + colorful layout"
+          onClose={closePdfView}
+          footer={
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="text-xs text-slate-600">Tip: Open in new tab for full screen view.</div>
+              <div className="flex flex-col sm:flex-row gap-2">
                 {pdfUrl ? (
                   <a
                     href={pdfUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
                   >
                     Open in new tab
                   </a>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={closePdfView}
-                  className="rounded-2xl bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-800"
-                >
+                <button onClick={closePdfView} type="button" className={cn(btnBase, "bg-slate-900 text-white")}>
                   Close
                 </button>
               </div>
             </div>
-
-            <div className="h-[75vh] bg-slate-50">
-              {pdfUrl ? (
-                <iframe
-                  title="Quotation PDF Preview"
-                  src={pdfUrl}
-                  className="w-full h-full"
-                />
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-slate-600">
-                  Preparing PDF...
-                </div>
-              )}
-            </div>
+          }
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden h-[78dvh]">
+            {pdfUrl ? (
+              <iframe title="Quotation PDF Preview" src={pdfUrl} className="w-full h-full" />
+            ) : (
+              <div className="h-full flex items-center justify-center text-sm text-slate-600">Preparing PDF...</div>
+            )}
           </div>
-        </div>
-      )}
+        </Modal>
+
+        <Toast
+          show={toast.show}
+          type={toast.type}
+          msg={toast.msg}
+          onClose={() => setToast({ show: false, type: "info", msg: "" })}
+        />
+      </div>
     </div>
   );
 }

@@ -6,10 +6,22 @@ import {
   fetchMyLeads,
   clearLeadsError,
   patchLeadInList,
-  updateLeadFollowUp, // ✅ NEW thunk in leadsSlice.js
+  updateLeadFollowUp, // ✅ thunk
 } from "../../store/slices/leadsSlice";
 
+/**
+ * ✅ Restricted palette only:
+ * bg-slate-50, bg-white, bg-slate-100
+ * text-slate-900, text-slate-600, text-slate-400
+ * border-slate-200
+ * blue-600, green-600, red-500, orange-500
+ *
+ * NOTE: Removed custom hex backgrounds & non-allowed colors.
+ */
+
 /* ================= helpers ================= */
+const cn = (...a) => a.filter(Boolean).join(" ");
+
 const fmt = (d) => {
   if (!d) return "-";
   const dt = new Date(d);
@@ -57,7 +69,7 @@ const fromNow = (d) => {
 };
 
 const getLeadTemperature = (lead) => {
-  const dt = lead?.followUpDate; // ✅ using followUpDate
+  const dt = lead?.followUpDate; // ✅
   if (!dt) return "Cool";
   const diffDays = Math.ceil((new Date(dt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (diffDays <= 3) return "Hot";
@@ -65,72 +77,69 @@ const getLeadTemperature = (lead) => {
   return "Cool";
 };
 
-const tempTone = { Hot: "red", Warm: "amber", Cool: "sky" };
+/* ================= TINY UI ATOMS (restricted palette) ================= */
 
-/* ================= tiny ui atoms ================= */
 const TonePill = ({ tone = "slate", children }) => {
+  // ✅ only allowed colors
   const map = {
-    slate: "bg-slate-50 text-slate-700 border-slate-200",
-    indigo: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    sky: "bg-sky-50 text-sky-700 border-sky-200",
-    amber: "bg-amber-50 text-amber-700 border-amber-200",
-    red: "bg-red-50 text-red-700 border-red-200",
-    emerald: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    violet: "bg-violet-50 text-violet-700 border-violet-200",
+    slate: "bg-slate-50 text-slate-600 border-slate-200",
+    blue: "bg-slate-50 text-blue-600 border-slate-200",
+    green: "bg-slate-50 text-green-600 border-slate-200",
+    red: "bg-slate-50 text-red-500 border-slate-200",
+    orange: "bg-slate-50 text-orange-500 border-slate-200",
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border ${map[tone] || map.slate}`}>
+    <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border", map[tone] || map.slate)}>
       {children}
     </span>
   );
 };
 
 const ClickStatCard = ({ title, value, hint, tone = "slate", active, onClick }) => {
-  const ring = {
-    slate: "from-slate-50 to-white",
-    sky: "from-sky-50 to-white",
-    amber: "from-amber-50 to-white",
-    red: "from-red-50 to-white",
-    emerald: "from-emerald-50 to-white",
-    violet: "from-violet-50 to-white",
-    indigo: "from-indigo-50 to-white",
+  const toneTop = {
+    slate: "bg-slate-100",
+    blue: "bg-slate-100",
+    green: "bg-slate-100",
+    red: "bg-slate-100",
+    orange: "bg-slate-100",
   }[tone];
+
+  const pillTone = tone;
 
   return (
     <button
       onClick={onClick}
-      className={[
-        "text-left rounded-3xl border p-4 shadow-sm transition active:scale-[0.99]",
-        "bg-gradient-to-b",
-        ring,
-        active ? "border-slate-900 ring-2 ring-slate-200" : "border-slate-200 hover:shadow-md",
-      ].join(" ")}
       type="button"
+      className={cn(
+        "text-left rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 transition active:scale-[0.99]",
+        active ? "ring-4 ring-slate-100" : "hover:bg-slate-50"
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className={cn("h-1 rounded-full", toneTop)} />
+      <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-slate-600">{title}</p>
-          <p className="mt-2 text-3xl font-extrabold text-slate-900">{value}</p>
-          {hint ? <p className="mt-2 text-[11px] text-slate-500 whitespace-normal break-words">{hint}</p> : null}
+          <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-slate-900">{value}</p>
+          {hint ? <p className="mt-2 text-[11px] text-slate-400 whitespace-normal break-words">{hint}</p> : null}
         </div>
-        <TonePill tone={tone}>{title}</TonePill>
+        <TonePill tone={pillTone}>{title}</TonePill>
       </div>
     </button>
   );
 };
 
 const EmptyState = ({ title, desc }) => (
-  <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center">
+  <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center">
     <div className="mx-auto inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200">
-      <span className="text-slate-700 text-lg">✓</span>
+      <span className="text-slate-600 text-lg">✓</span>
     </div>
     <p className="text-sm font-semibold text-slate-900 mt-3">{title}</p>
-    <p className="text-xs text-slate-500 mt-1 whitespace-normal break-words">{desc}</p>
+    <p className="text-xs text-slate-400 mt-1 whitespace-normal break-words">{desc}</p>
   </div>
 );
 
 const SkeletonCard = () => (
-  <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+  <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 flex-1">
         <div className="h-4 w-44 bg-slate-100 rounded" />
@@ -145,6 +154,29 @@ const SkeletonCard = () => (
     <div className="mt-3 h-10 bg-slate-100 rounded-2xl" />
   </div>
 );
+
+const MiniKV = ({ label, value }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="text-[11px] font-semibold text-slate-600">{label}</div>
+    <div className="mt-1 text-sm font-semibold text-slate-900 break-words">{value}</div>
+  </div>
+);
+
+const IconBtn = ({ children, onClick, disabled, title, variant = "ghost" }) => {
+  const base =
+    "inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold transition active:scale-[0.99]";
+  const map = {
+    ghost: "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
+    primary: "border-slate-200 bg-blue-600 text-white disabled:opacity-60",
+    danger: "border-slate-200 bg-white text-red-500 hover:bg-slate-50 disabled:opacity-60",
+    success: "border-slate-200 bg-green-600 text-white disabled:opacity-60",
+  };
+  return (
+    <button type="button" title={title} onClick={onClick} disabled={disabled} className={cn(base, map[variant] || map.ghost)}>
+      {children}
+    </button>
+  );
+};
 
 /* ================= component ================= */
 export default function FollowUpSystem() {
@@ -161,7 +193,7 @@ export default function FollowUpSystem() {
   const [sourceFilter, setSourceFilter] = useState("All");
 
   const [picked, setPicked] = useState(null);
-  const [nextDate, setNextDate] = useState(""); // datetime-local string
+  const [nextDate, setNextDate] = useState(""); // datetime-local
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [btnLoadingId, setBtnLoadingId] = useState(null);
 
@@ -207,8 +239,7 @@ export default function FollowUpSystem() {
     const todayStart = startOfToday();
     const todayEnd = endOfToday();
 
-    // ✅ using followUpDate
-    const base = leads.filter((l) => (l.status === "Follow-Up") && l.followUpDate);
+    const base = leads.filter((l) => l.status === "Follow-Up" && l.followUpDate);
 
     const today = [];
     const upcoming = [];
@@ -286,12 +317,18 @@ export default function FollowUpSystem() {
     return list;
   }, [leads, statusTab, bucketTab, rangeTab, q, sort, followUpBuckets, tempFilter, sourceFilter]);
 
-  const statusTone = (st) => {
-    if (st === "New") return "violet";
-    if (st === "Follow-Up") return "sky";
+  const statusPillTone = (st) => {
+    if (st === "New") return "orange";
+    if (st === "Follow-Up") return "blue";
     if (st === "Closed") return "slate";
-    if (st === "Converted") return "emerald";
+    if (st === "Converted") return "green";
     return "slate";
+  };
+
+  const tempPillTone = (t) => {
+    if (t === "Hot") return "red";
+    if (t === "Warm") return "orange";
+    return "blue";
   };
 
   const bucketMeta = (lead) => {
@@ -299,8 +336,8 @@ export default function FollowUpSystem() {
     const t = new Date(lead.followUpDate).getTime();
     const s = startOfToday();
     const e = endOfToday();
-    if (t >= s && t <= e) return { label: "Today", tone: "amber" };
-    if (t > e) return { label: "Upcoming", tone: "sky" };
+    if (t >= s && t <= e) return { label: "Today", tone: "orange" };
+    if (t > e) return { label: "Upcoming", tone: "blue" };
     return { label: "Overdue", tone: "red" };
   };
 
@@ -318,12 +355,27 @@ export default function FollowUpSystem() {
     if (kind === "CLOSED") setStatusTab("Closed");
     if (kind === "CONVERTED") setStatusTab("Converted");
 
-    if (kind === "HOT") { setStatusTab("All"); setTempFilter("Hot"); }
-    if (kind === "WARM") { setStatusTab("All"); setTempFilter("Warm"); }
-    if (kind === "COOL") { setStatusTab("All"); setTempFilter("Cool"); }
+    if (kind === "HOT") {
+      setStatusTab("All");
+      setTempFilter("Hot");
+    }
+    if (kind === "WARM") {
+      setStatusTab("All");
+      setTempFilter("Warm");
+    }
+    if (kind === "COOL") {
+      setStatusTab("All");
+      setTempFilter("Cool");
+    }
 
-    if (kind === "MANUAL") { setStatusTab("All"); setSourceFilter("Manual"); }
-    if (kind === "IMPORTED") { setStatusTab("All"); setSourceFilter("Import"); }
+    if (kind === "MANUAL") {
+      setStatusTab("All");
+      setSourceFilter("Manual");
+    }
+    if (kind === "IMPORTED") {
+      setStatusTab("All");
+      setSourceFilter("Import");
+    }
   };
 
   // ✅ SET follow-up
@@ -400,49 +452,53 @@ export default function FollowUpSystem() {
   }, [statusTab, bucketTab, rangeTab, tempFilter, sourceFilter]);
 
   return (
-    <div className="space-y-4 sm:space-y-5" style={{ background: "#EFF6FF", padding: 12, borderRadius: 16 }}>
-      {/* Header */}
-      <div className="rounded-3xl border border-slate-200 bg-white/90 backdrop-blur p-4 sm:p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Quotation Follow-Up System
+    <div className="space-y-4 sm:space-y-6 bg-slate-50 p-3 sm:p-4 lg:p-6 rounded-2xl">
+      {/* ================= HEADER ================= */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <div className="h-1 bg-blue-600" />
+        <div className="p-4 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                <span className="h-2 w-2 rounded-full bg-green-600" />
+                Quotation Follow-Up System
+              </div>
+
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2 break-words">
+                Quotation Leads & Follow-Ups
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1 break-words">
+                Tap any card to filter (Total / Follow-Up / Hot / Manual / Imported).
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <TonePill tone="slate">Allocated Leads: {counts.All}</TonePill>
+                <TonePill tone="blue">View: {activeViewLabel}</TonePill>
+              </div>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-2 whitespace-normal break-words">
-              Quotation Leads & Follow-Ups
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 mt-1 whitespace-normal break-words">
-              Click any card to instantly filter (Total / Follow-Up / Hot / Cool / Manual / Imported).
-            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <IconBtn onClick={refresh} title="Refresh" variant="ghost">
+                Refresh
+              </IconBtn>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-            <TonePill tone="slate">Allocated Leads: {counts.All}</TonePill>
-            <button
-              onClick={refresh}
-              className="w-full sm:w-auto text-xs px-4 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] shadow-sm"
-              type="button"
-            >
-              Refresh
-            </button>
-          </div>
+          {error ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-red-500">
+              {error}
+            </div>
+          ) : null}
         </div>
-
-        {error ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
-          </div>
-        ) : null}
       </div>
 
-      {/* Clickable Stats */}
+      {/* ================= STATS ================= */}
       <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ClickStatCard
           title="Total Leads"
           value={counts.All}
-          hint="Click to view all"
-          tone="indigo"
+          hint="Tap to view all"
+          tone="blue"
           active={statusTab === "All" && tempFilter === "All" && sourceFilter === "All"}
           onClick={() => setViewFromCard("TOTAL")}
         />
@@ -450,86 +506,157 @@ export default function FollowUpSystem() {
           title="Follow-Up"
           value={counts["Follow-Up"]}
           hint={`Today ${followUpBuckets.today.length} • Upcoming ${followUpBuckets.upcoming.length} • Overdue ${followUpBuckets.overdue.length}`}
-          tone="sky"
+          tone="orange"
           active={statusTab === "Follow-Up"}
           onClick={() => setViewFromCard("FOLLOWUP")}
         />
         <ClickStatCard
           title="Converted"
           value={counts.Converted}
-          hint="Click to view converted"
-          tone="emerald"
+          hint="Tap to view converted"
+          tone="green"
           active={statusTab === "Converted"}
           onClick={() => setViewFromCard("CONVERTED")}
         />
         <ClickStatCard
           title="Closed"
           value={counts.Closed}
-          hint="Click to view closed"
+          hint="Tap to view closed"
           tone="slate"
           active={statusTab === "Closed"}
           onClick={() => setViewFromCard("CLOSED")}
         />
       </div>
 
-      {/* Clickable Insights */}
+      {/* ================= INSIGHTS ================= */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <ClickStatCard title="Manual" value={analytics.manual} hint="Created manually" tone="sky" active={sourceFilter === "Manual"} onClick={() => setViewFromCard("MANUAL")} />
-        <ClickStatCard title="Imported" value={analytics.imported} hint="From JSON import" tone="violet" active={sourceFilter === "Import"} onClick={() => setViewFromCard("IMPORTED")} />
-        <ClickStatCard title="🔥 Hot" value={analytics.hot} hint="Follow-up ≤ 3 days" tone="red" active={tempFilter === "Hot"} onClick={() => setViewFromCard("HOT")} />
-        <ClickStatCard title="🌤 Warm" value={analytics.warm} hint="Follow-up ≤ 10 days" tone="amber" active={tempFilter === "Warm"} onClick={() => setViewFromCard("WARM")} />
-        <ClickStatCard title="❄ Cool" value={analytics.cool} hint="Not urgent / not set" tone="sky" active={tempFilter === "Cool"} onClick={() => setViewFromCard("COOL")} />
-        <ClickStatCard title="New" value={counts.New} hint="Fresh inquiry" tone="violet" active={statusTab === "New"} onClick={() => setViewFromCard("NEW")} />
+        <ClickStatCard title="Manual" value={analytics.manual} hint="Created manually" tone="blue" active={sourceFilter === "Manual"} onClick={() => setViewFromCard("MANUAL")} />
+        <ClickStatCard title="Imported" value={analytics.imported} hint="From import" tone="orange" active={sourceFilter === "Import"} onClick={() => setViewFromCard("IMPORTED")} />
+        <ClickStatCard title="Hot" value={analytics.hot} hint="Follow-up ≤ 3 days" tone="red" active={tempFilter === "Hot"} onClick={() => setViewFromCard("HOT")} />
+        <ClickStatCard title="Warm" value={analytics.warm} hint="Follow-up ≤ 10 days" tone="orange" active={tempFilter === "Warm"} onClick={() => setViewFromCard("WARM")} />
+        <ClickStatCard title="Cool" value={analytics.cool} hint="Not urgent / not set" tone="blue" active={tempFilter === "Cool"} onClick={() => setViewFromCard("COOL")} />
+        <ClickStatCard title="New" value={counts.New} hint="Fresh inquiry" tone="orange" active={statusTab === "New"} onClick={() => setViewFromCard("NEW")} />
       </div>
 
-      {/* Leads List */}
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-100 bg-white">
+      {/* ================= CONTROLS + LIST ================= */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-900">Leads</p>
-                <p className="text-xs text-slate-500">
-                  Showing <b className="text-slate-700">{filteredList.length}</b> lead(s)
+                <p className="text-sm font-extrabold text-slate-900">Leads</p>
+                <p className="text-xs text-slate-600">
+                  Showing <b className="text-slate-900">{filteredList.length}</b> lead(s)
                 </p>
               </div>
-              <TonePill tone="indigo">{activeViewLabel}</TonePill>
+              <TonePill tone="slate">{activeViewLabel}</TonePill>
             </div>
 
-            {/* Search + dropdowns */}
-            <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
-              <div className="flex-1">
+            <div className="grid gap-2 lg:grid-cols-12">
+              <div className="lg:col-span-5">
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search name, company, phone, email, city, source..."
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white outline-none focus:ring-4 focus:ring-slate-100"
                 />
               </div>
 
-              <select value={tempFilter} onChange={(e) => setTempFilter(e.target.value)} className="w-full lg:w-48 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
-                <option value="All">Temp: All</option>
-                <option value="Hot">Temp: Hot</option>
-                <option value="Warm">Temp: Warm</option>
-                <option value="Cool">Temp: Cool</option>
-              </select>
+              <div className="lg:col-span-2">
+                <select
+                  value={tempFilter}
+                  onChange={(e) => setTempFilter(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                >
+                  <option value="All">Temp: All</option>
+                  <option value="Hot">Temp: Hot</option>
+                  <option value="Warm">Temp: Warm</option>
+                  <option value="Cool">Temp: Cool</option>
+                </select>
+              </div>
 
-              <select value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} className="w-full lg:w-52 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
-                <option value="All">Source: All</option>
-                <option value="Manual">Source: Manual</option>
-                <option value="Import">Source: Import</option>
-              </select>
+              <div className="lg:col-span-2">
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                >
+                  <option value="All">Source: All</option>
+                  <option value="Manual">Source: Manual</option>
+                  <option value="Import">Source: Import</option>
+                </select>
+              </div>
 
-              <select value={sort} onChange={(e) => setSort(e.target.value)} className="w-full lg:w-56 border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white">
-                <option value="created_desc">Newest Created</option>
-                <option value="next_asc">Follow-Up (Earliest)</option>
-                <option value="name_asc">Name (A-Z)</option>
-              </select>
+              <div className="lg:col-span-3">
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                >
+                  <option value="created_desc">Newest Created</option>
+                  <option value="next_asc">Follow-Up (Earliest)</option>
+                  <option value="name_asc">Name (A-Z)</option>
+                </select>
+              </div>
+
+              {/* Only show bucket/range when Follow-Up selected */}
+              {statusTab === "Follow-Up" ? (
+                <>
+                  <div className="lg:col-span-3">
+                    <select
+                      value={bucketTab}
+                      onChange={(e) => setBucketTab(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                    >
+                      <option value="today">Bucket: Today</option>
+                      <option value="upcoming">Bucket: Upcoming</option>
+                      <option value="overdue">Bucket: Overdue</option>
+                    </select>
+                  </div>
+
+                  <div className="lg:col-span-3">
+                    <select
+                      value={rangeTab}
+                      onChange={(e) => setRangeTab(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                    >
+                      <option value="all">Range: All</option>
+                      <option value="15d">Last 15 days</option>
+                      <option value="1m">Last 1 month</option>
+                      <option value="2m">Last 2 months</option>
+                      <option value="3m">Last 3 months</option>
+                    </select>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* Status Tabs (scrollable on mobile) */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {["All", "New", "Follow-Up", "Converted", "Closed"].map((st) => {
+                const active = statusTab === st;
+                const val = st === "All" ? counts.All : counts[st] || 0;
+                return (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setStatusTab(st)}
+                    className={cn(
+                      "whitespace-nowrap rounded-2xl border px-3 py-2 text-sm font-semibold transition",
+                      active
+                        ? "bg-slate-900 text-white border-slate-200"
+                        : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+                    )}
+                  >
+                    {st} <span className={cn("ml-1 text-xs", active ? "text-white" : "text-slate-600")}>({val})</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 bg-slate-50/40">
+        <div className="p-4 sm:p-5 bg-slate-50">
           {loading ? (
             <div className="grid gap-3">
               <SkeletonCard />
@@ -546,63 +673,78 @@ export default function FollowUpSystem() {
                 const temp = getLeadTemperature(l);
 
                 return (
-                  <div key={l._id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={l._id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-extrabold text-slate-900 break-words">{l.name}</div>
-                        <div className="mt-1 text-xs text-slate-600 break-words">{l.company || "-"} {l.city ? `• ${l.city}` : ""}</div>
-                        <div className="mt-1 text-[11px] text-slate-500">
-                          Source: <b className="text-slate-700">{l.source || "Manual"}</b>
+                        <div className="text-sm sm:text-base font-extrabold text-slate-900 break-words">
+                          {l.name}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-600 break-words">
+                          {l.company || "-"} {l.city ? `• ${l.city}` : ""}
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          Source: <span className="font-semibold text-slate-600">{l.source || "Manual"}</span>
                         </div>
                       </div>
 
-                      <div className="shrink-0 flex flex-col items-end gap-1">
-                        <TonePill tone={statusTone(st)}>{st}</TonePill>
+                      <div className="shrink-0 flex flex-row sm:flex-col items-start sm:items-end gap-2 flex-wrap">
+                        <TonePill tone={statusPillTone(st)}>{st}</TonePill>
                         {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
-                        <TonePill tone={tempTone[temp]}>{temp}</TonePill>
+                        <TonePill tone={tempPillTone(temp)}>{temp}</TonePill>
                       </div>
                     </div>
 
-                    <div className="mt-3 rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-[11px] font-semibold text-slate-600">Follow-Up Date</div>
-                        {l.followUpDate ? <span className="text-[11px] text-slate-500">{fromNow(l.followUpDate)}</span> : null}
-                      </div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900 break-words">
-                        {l.followUpDate ? fmt(l.followUpDate) : "-"}
-                      </div>
-                      {l.followUpNotes ? (
-                        <div className="mt-2 text-xs text-slate-600 whitespace-pre-wrap">{l.followUpNotes}</div>
-                      ) : null}
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <MiniKV
+                        label="Follow-Up Date"
+                        value={l.followUpDate ? fmt(l.followUpDate) : "-"}
+                      />
+                      <MiniKV
+                        label="Relative"
+                        value={l.followUpDate ? fromNow(l.followUpDate) : "-"}
+                      />
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => { setPicked(l); setNextDate(""); setFollowUpNotes(l.followUpNotes || ""); }}
+                    {l.followUpNotes ? (
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="text-[11px] font-semibold text-slate-600">Notes</div>
+                        <div className="mt-1 text-sm text-slate-900 whitespace-pre-wrap break-words">
+                          {l.followUpNotes}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <IconBtn
+                        onClick={() => {
+                          setPicked(l);
+                          setNextDate("");
+                          setFollowUpNotes(l.followUpNotes || "");
+                        }}
                         disabled={btnLoadingId === l._id}
-                        className="text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                        type="button"
+                        title="Set follow-up"
+                        variant="ghost"
                       >
-                        {btnLoadingId === l._id ? "..." : "Set"}
-                      </button>
+                        {btnLoadingId === l._id ? "..." : "Set Follow-Up"}
+                      </IconBtn>
 
-                      <button
+                      <IconBtn
                         onClick={() => onMarkClosed(l._id)}
                         disabled={btnLoadingId === l._id}
-                        className="text-xs px-3 py-2 rounded-2xl bg-slate-900 text-white hover:bg-black disabled:opacity-60"
-                        type="button"
+                        title="Mark closed"
+                        variant="ghost"
                       >
                         {btnLoadingId === l._id ? "Closing..." : "Closed"}
-                      </button>
+                      </IconBtn>
 
-                      <button
+                      <IconBtn
                         onClick={() => onMarkConverted(l._id)}
                         disabled={btnLoadingId === l._id}
-                        className="text-xs px-3 py-2 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                        type="button"
+                        title="Mark converted"
+                        variant="success"
                       >
                         {btnLoadingId === l._id ? "Converting..." : "Won"}
-                      </button>
+                      </IconBtn>
                     </div>
                   </div>
                 );
@@ -612,87 +754,108 @@ export default function FollowUpSystem() {
         </div>
       </div>
 
-      {/* Follow-Up Modal */}
+      {/* ================= FOLLOW-UP MODAL (RESPONSIVE) ================= */}
       {picked ? (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-3 sm:p-4 z-50">
-          <div className="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-extrabold text-slate-900">Set / Reschedule Follow-Up</h3>
-                  <p className="text-xs text-slate-600 mt-1 break-words">
-                    Lead: <span className="font-semibold text-slate-800">{picked.name}</span>
-                    {picked.company ? ` • ${picked.company}` : ""}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setPicked(null)}
-                  disabled={btnLoadingId === picked._id}
-                  className="shrink-0 text-xs px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                  type="button"
-                >
-                  Close
-                </button>
+        <Modal
+          title="Set / Reschedule Follow-Up"
+          subtitle={
+            <>
+              Lead: <span className="font-semibold text-slate-900">{picked.name}</span>
+              {picked.company ? <span className="text-slate-600"> • {picked.company}</span> : null}
+            </>
+          }
+          onClose={() => setPicked(null)}
+        >
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Follow-Up Date & Time</label>
+              <input
+                type="datetime-local"
+                value={nextDate}
+                onChange={(e) => setNextDate(e.target.value)}
+                className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm outline-none focus:ring-4 focus:ring-slate-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">Follow-Up Notes (optional)</label>
+              <textarea
+                rows={4}
+                value={followUpNotes}
+                onChange={(e) => setFollowUpNotes(e.target.value)}
+                className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm outline-none focus:ring-4 focus:ring-slate-100"
+                placeholder="What discussed / next steps..."
+              />
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+              Current: <span className="font-semibold text-slate-900">{fmt(picked.followUpDate)}</span>
+              <div className="mt-1">
+                Saving follow-up will set status to <b>Follow-Up</b>.
               </div>
             </div>
 
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Follow-Up Date & Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={nextDate}
-                  onChange={(e) => setNextDate(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-                />
-              </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+              <IconBtn
+                onClick={() => setPicked(null)}
+                disabled={btnLoadingId === picked._id}
+                variant="ghost"
+              >
+                Cancel
+              </IconBtn>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">
-                  Follow-Up Notes (optional)
-                </label>
-                <textarea
-                  rows={3}
-                  value={followUpNotes}
-                  onChange={(e) => setFollowUpNotes(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-slate-100 focus:border-slate-400"
-                  placeholder="What discussed / next steps..."
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="text-xs text-slate-500">
-                  Current: <span className="font-semibold">{fmt(picked.followUpDate)}</span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPicked(null)}
-                    disabled={btnLoadingId === picked._id}
-                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={onSetFollowUp}
-                    disabled={!nextDate || btnLoadingId === picked._id}
-                    className="w-full sm:w-auto text-xs px-4 py-2 rounded-2xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
-                    type="button"
-                  >
-                    {btnLoadingId === picked._id ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                Note: Saving a follow-up will automatically move the lead to <b>Follow-Up</b> status.
-              </div>
+              <IconBtn
+                onClick={onSetFollowUp}
+                disabled={!nextDate || btnLoadingId === picked._id}
+                variant="primary"
+              >
+                {btnLoadingId === picked._id ? "Saving..." : "Save"}
+              </IconBtn>
             </div>
           </div>
-        </div>
+        </Modal>
       ) : null}
+    </div>
+  );
+}
+
+/* ================= Modal ================= */
+/**
+ * ✅ Responsive modal:
+ * - Mobile: bottom-sheet feel
+ * - Desktop: centered
+ * Restricted palette only.
+ */
+function Modal({ title, subtitle, children, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/20"
+      />
+      <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
+        <div className="w-full sm:max-w-lg rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="h-1 bg-blue-600" />
+          <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-base sm:text-lg font-extrabold text-slate-900 truncate">{title}</div>
+                <div className="mt-1 text-xs sm:text-sm text-slate-600 break-words">{subtitle}</div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="p-4 sm:p-5">{children}</div>
+        </div>
+      </div>
     </div>
   );
 }

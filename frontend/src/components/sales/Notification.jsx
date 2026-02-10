@@ -1,5 +1,5 @@
 // src/components/sales/Notification.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axiosClient from "../../api/axiosClient";
 import {
   FiBell,
@@ -33,6 +33,7 @@ import {
 
 const cn = (...a) => a.filter(Boolean).join(" ");
 
+// ✅ consistent inputs (mobile-safe height + focus ring)
 const inputClass =
   "w-full px-4 py-2.5 rounded-2xl border border-slate-200 bg-white outline-none " +
   "text-slate-900 placeholder:text-slate-400 focus:ring-4 focus:ring-slate-100 transition";
@@ -67,6 +68,29 @@ const prettyDT = (dateVal) => {
 };
 
 /* ---------------- UI atoms ---------------- */
+
+function Section({ title, subtitle, icon, right, tone = "blue", children }) {
+  const bar = tone === "orange" ? "bg-orange-500" : tone === "blue" ? "bg-blue-600" : "bg-slate-900";
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className={cn("h-1", bar)} />
+      <div className="p-4 sm:p-5 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            {icon ? <IconBadge tone={tone} title={title}>{icon}</IconBadge> : null}
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900">{title}</h2>
+              {subtitle ? <p className="text-sm text-slate-600 mt-1">{subtitle}</p> : null}
+            </div>
+          </div>
+          {right ? <div className="w-full md:w-auto">{right}</div> : null}
+        </div>
+
+        {children ? <div className="mt-4">{children}</div> : null}
+      </div>
+    </section>
+  );
+}
 
 function Field({ label, hint, children }) {
   return (
@@ -206,10 +230,42 @@ function Toast({ show, type, msg, onClose }) {
   );
 }
 
+function AlertBox({ type = "error", title, msg, onClose }) {
+  if (!msg) return null;
+  const tone =
+    type === "success" ? "text-green-600" : type === "error" ? "text-red-500" : "text-slate-600";
+
+  return (
+    <div className="mt-4 p-3 rounded-2xl bg-slate-50 text-slate-900 text-sm border border-slate-200 flex items-start justify-between gap-3">
+      <div className="leading-relaxed min-w-0">
+        {title ? <span className={cn("font-semibold", tone)}>{title}</span> : null}{" "}
+        <span className="text-slate-900 break-words">{msg}</span>
+      </div>
+      {onClose ? (
+        <button className="text-xs underline shrink-0 text-slate-600" onClick={onClose} type="button">
+          dismiss
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, desc }) {
+  return (
+    <div className="p-8 text-center bg-white">
+      <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
+        {icon}
+      </div>
+      <p className="mt-3 font-semibold text-slate-900">{title}</p>
+      <p className="text-sm text-slate-600 mt-1">{desc}</p>
+    </div>
+  );
+}
+
 /* ---------------- Component ---------------- */
 
 export default function Notification() {
-  /* Notifications state (UNCHANGED) */
+  /* Notifications state */
   const [form, setForm] = useState(empty);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -221,32 +277,30 @@ export default function Notification() {
 
   const day = useMemo(() => getDayName(form.notifyDate), [form.notifyDate]);
 
-  const showToast = (type, msg) => {
+  const showToast = useCallback((type, msg) => {
     setToast({ show: true, type, msg });
     window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(
-      () => setToast({ show: false, type: "info", msg: "" }),
-      2200
-    );
-  };
+    showToast._t = window.setTimeout(() => setToast({ show: false, type: "info", msg: "" }), 2200);
+  }, []);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
       setError("");
       setLoading(true);
       const res = await axiosClient.get("/notifications");
       setItems(res.data?.items || []);
     } catch (e) {
-      setError(e.response?.data?.message || "Failed to load notifications");
-      showToast("error", e.response?.data?.message || "Failed to load notifications");
+      const msg = e.response?.data?.message || "Failed to load notifications";
+      setError(msg);
+      showToast("error", msg);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   const onChange = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
 
@@ -332,28 +386,20 @@ export default function Notification() {
   /* ✅ Follow-up Reminder Dashboard (REDUX) */
   const dispatch = useDispatch();
 
-  // ✅ safe fallbacks (prevents crash if state not ready)
-  const fuSummary = useSelector((s) => s.followups?.summary) || {
-    today: 0,
-    upcoming: 0,
-    overdue: 0,
-  };
+  const fuSummary = useSelector((s) => s.followups?.summary) || { today: 0, upcoming: 0, overdue: 0 };
   const fuBucket = useSelector((s) => s.followups?.bucket) || "today";
   const fuItems = useSelector((s) => s.followups?.items) || [];
-  const fuLoading = useSelector(
-    (s) => (s.followups?.loadingSummary || s.followups?.loadingItems) ?? false
-  );
+  const fuLoading = useSelector((s) => (s.followups?.loadingSummary || s.followups?.loadingItems) ?? false);
   const fuError = useSelector((s) => s.followups?.error) || "";
 
-  const refreshFollowUps = async () => {
+  const refreshFollowUps = useCallback(async () => {
     await dispatch(fetchFollowUpSummary());
     await dispatch(fetchFollowUpsByBucket({ bucket: fuBucket, page: 1, limit: 50 }));
-  };
+  }, [dispatch, fuBucket]);
 
   useEffect(() => {
     refreshFollowUps();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshFollowUps]);
 
   const onPickBucket = async (b) => {
     dispatch(setBucket(b));
@@ -364,28 +410,17 @@ export default function Notification() {
     <div className="bg-slate-50 min-h-[100dvh]">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 space-y-5">
         {/* ===================== Follow-up Reminder Dashboard ===================== */}
-        <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="h-1 bg-orange-500" />
-          <div className="p-4 sm:p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <IconBadge tone="slate" title="Follow-up Reminder">
-                <FiClock />
-              </IconBadge>
-              <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900">
-                  Follow-up Reminder
-                </h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  Today / Upcoming / Overdue follow-ups for your leads.
-                </p>
-              </div>
-            </div>
-
+        <Section
+          tone="orange"
+          title="Follow-up Reminder"
+          subtitle="Today / Upcoming / Overdue follow-ups for your leads."
+          icon={<FiClock />}
+          right={
             <button
               onClick={refreshFollowUps}
               disabled={fuLoading}
               className={cn(
-                "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border border-slate-200",
+                "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200",
                 "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full md:w-auto"
               )}
               type="button"
@@ -393,139 +428,116 @@ export default function Notification() {
               <FiRefreshCw className={fuLoading ? "animate-spin" : ""} />
               {fuLoading ? "Refreshing..." : "Refresh"}
             </button>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <FollowCard
+              title="Today"
+              value={fuSummary.today}
+              hint="Follow-ups due today"
+              tone="orange"
+              active={fuBucket === "today"}
+              onClick={() => onPickBucket("today")}
+              icon={<FiClock />}
+            />
+            <FollowCard
+              title="Upcoming"
+              value={fuSummary.upcoming}
+              hint="Future scheduled follow-ups"
+              tone="blue"
+              active={fuBucket === "upcoming"}
+              onClick={() => onPickBucket("upcoming")}
+              icon={<FiChevronRight />}
+            />
+            <FollowCard
+              title="Overdue"
+              value={fuSummary.overdue}
+              hint="Need action immediately"
+              tone="red"
+              active={fuBucket === "overdue"}
+              onClick={() => onPickBucket("overdue")}
+              icon={<FiAlertTriangle />}
+            />
           </div>
 
-          <div className="px-4 sm:px-5 md:px-6 pb-4 sm:pb-5 md:pb-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FollowCard
-                title="Today"
-                value={fuSummary.today}
-                hint="Follow-ups due today"
-                tone="orange"
-                active={fuBucket === "today"}
-                onClick={() => onPickBucket("today")}
-                icon={<FiClock />}
-              />
-              <FollowCard
-                title="Upcoming"
-                value={fuSummary.upcoming}
-                hint="Future scheduled follow-ups"
-                tone="blue"
-                active={fuBucket === "upcoming"}
-                onClick={() => onPickBucket("upcoming")}
-                icon={<FiChevronRight />}
-              />
-              <FollowCard
-                title="Overdue"
-                value={fuSummary.overdue}
-                hint="Need action immediately"
-                tone="red"
-                active={fuBucket === "overdue"}
-                onClick={() => onPickBucket("overdue")}
-                icon={<FiAlertTriangle />}
-              />
+          {fuError ? (
+            <AlertBox type="error" title="Follow-up error:" msg={fuError} />
+          ) : null}
+
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+              <div className="text-sm font-extrabold text-slate-900">
+                {fuBucket === "today"
+                  ? "Today Follow-ups"
+                  : fuBucket === "upcoming"
+                  ? "Upcoming Follow-ups"
+                  : "Overdue Follow-ups"}
+              </div>
+              <div className="text-xs text-slate-600">
+                Showing <b className="text-slate-900">{fuItems.length}</b>
+              </div>
             </div>
 
-            {fuError ? (
-              <div className="mt-4 text-sm bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
-                <span className="text-red-500 font-semibold">Follow-up error:</span>{" "}
-                <span className="text-slate-900">{fuError}</span>
-              </div>
-            ) : null}
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                <div className="text-sm font-extrabold text-slate-900">
-                  {fuBucket === "today"
-                    ? "Today Follow-ups"
-                    : fuBucket === "upcoming"
-                    ? "Upcoming Follow-ups"
-                    : "Overdue Follow-ups"}
-                </div>
-                <div className="text-xs text-slate-600">
-                  Showing <b className="text-slate-900">{fuItems.length}</b>
-                </div>
-              </div>
-
-              {fuLoading ? (
-                <div className="p-4 text-slate-600">Loading follow-ups...</div>
-              ) : fuItems.length === 0 ? (
-                <div className="p-6 text-center">
-                  <div className="text-slate-900 font-semibold">No follow-ups in this bucket</div>
-                  <div className="text-sm text-slate-600 mt-1">
-                    Set follow-up date from Follow-Up System.
-                  </div>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-200">
-                  {fuItems.map((l) => (
-                    <div key={l._id} className="p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-extrabold text-slate-900 truncate">
-                            {l.name}{" "}
-                            <span className="text-xs font-semibold text-slate-400">
-                              ({l.leadType || "Lead"})
-                            </span>
-                          </div>
-
-                          <div className="text-sm text-slate-600 mt-1 truncate">
-                            {l.company || "-"} {l.city ? `• ${l.city}` : ""}
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <StatPill label="Date" value={prettyDT(l.followUpDate)} accent="slate" />
-                            <StatPill label="Status" value={l.status || "-"} accent="blue" />
-                          </div>
-
-                          {l.followUpNotes ? (
-                            <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
-                              {l.followUpNotes}
-                            </div>
-                          ) : null}
+            {fuLoading ? (
+              <div className="p-4 text-slate-600">Loading follow-ups...</div>
+            ) : fuItems.length === 0 ? (
+              <EmptyState
+                icon={<FiClock />}
+                title="No follow-ups in this bucket"
+                desc="Set follow-up date from Follow-Up System."
+              />
+            ) : (
+              <div className="divide-y divide-slate-200">
+                {fuItems.map((l) => (
+                  <div key={l._id} className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-extrabold text-slate-900 truncate">
+                          {l.name}{" "}
+                          <span className="text-xs font-semibold text-slate-400">
+                            ({l.leadType || "Lead"})
+                          </span>
                         </div>
+
+                        <div className="text-sm text-slate-600 mt-1 truncate">
+                          {l.company || "-"} {l.city ? `• ${l.city}` : ""}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <StatPill label="Date" value={prettyDT(l.followUpDate)} accent="slate" />
+                          <StatPill label="Status" value={l.status || "-"} accent="blue" />
+                        </div>
+
+                        {l.followUpNotes ? (
+                          <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
+                            {l.followUpNotes}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-2 text-xs text-slate-400">
-              Tip: Use Follow-Up System to set dates and notes. This panel shows reminders.
-            </div>
-          </div>
-        </section>
-
-        {/* ===================== Notifications (UNCHANGED) ===================== */}
-        <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="h-1 bg-blue-600" />
-          <div className="p-4 sm:p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="flex items-start gap-3 min-w-0">
-              <IconBadge tone="blue" title="Notifications">
-                <FiBell />
-              </IconBadge>
-              <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900">
-                  Notifications
-                </h2>
-                <p className="text-sm text-slate-600 mt-1">
-                  Create, manage and track updates for your CRM users.
-                </p>
-
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <StatPill label="Total" value={stats.total} accent="slate" />
-                  <StatPill label="Unread" value={stats.unread} accent="blue" />
-                  <StatPill label="Read" value={stats.read} accent="green" />
-                </div>
+                  </div>
+                ))}
               </div>
-            </div>
+            )}
+          </div>
 
+          <div className="mt-2 text-xs text-slate-400">
+            Tip: Use Follow-Up System to set dates and notes. This panel shows reminders.
+          </div>
+        </Section>
+
+        {/* ===================== Notifications Header ===================== */}
+        <Section
+          tone="blue"
+          title="Notifications"
+          subtitle="Create, manage and track updates for your CRM users."
+          icon={<FiBell />}
+          right={
             <button
               onClick={loadNotifications}
               disabled={loading}
               className={cn(
-                "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border border-slate-200",
+                "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200",
                 "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full md:w-auto"
               )}
               type="button"
@@ -533,19 +545,24 @@ export default function Notification() {
               <FiRefreshCw className={loading ? "animate-spin" : ""} />
               {loading ? "Refreshing..." : "Refresh"}
             </button>
+          }
+        >
+          <div className="flex flex-wrap gap-2">
+            <StatPill label="Total" value={stats.total} accent="slate" />
+            <StatPill label="Unread" value={stats.unread} accent="blue" />
+            <StatPill label="Read" value={stats.read} accent="green" />
           </div>
-        </section>
+        </Section>
 
-        {/* Content grid */}
+        {/* ===================== Notifications Content Grid ===================== */}
         <div className="grid lg:grid-cols-12 gap-5">
           {/* Left: Create */}
           <div className="lg:col-span-5">
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div className="h-1 bg-blue-600" />
               <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white">
                 <h3 className="font-extrabold text-slate-900">Create Notification</h3>
-                <p className="text-sm text-slate-600 mt-1">
-                  Fill details and publish to your list.
-                </p>
+                <p className="text-sm text-slate-600 mt-1">Fill details and publish to your list.</p>
               </div>
 
               <form onSubmit={createNotification} className="p-4 sm:p-5 space-y-4">
@@ -561,12 +578,7 @@ export default function Notification() {
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="Date" hint="required">
-                    <input
-                      type="date"
-                      value={form.notifyDate}
-                      onChange={onChange("notifyDate")}
-                      className={inputClass}
-                    />
+                    <input type="date" value={form.notifyDate} onChange={onChange("notifyDate")} className={inputClass} />
                   </Field>
 
                   <Field label="Day" hint="auto">
@@ -581,7 +593,7 @@ export default function Notification() {
                   <textarea
                     value={form.description}
                     onChange={onChange("description")}
-                    rows={5}
+                    rows={6}
                     className={cn(inputClass, "py-3")}
                     placeholder="Write details…"
                     maxLength={2000}
@@ -592,12 +604,12 @@ export default function Notification() {
                   </div>
                 </Field>
 
-                {error ? (
-                  <div className="text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3">
-                    <span className="text-red-500 font-semibold">Error:</span>{" "}
-                    <span className="text-slate-900">{error}</span>
-                  </div>
-                ) : null}
+                <AlertBox
+                  type="error"
+                  title="Error:"
+                  msg={error}
+                  onClose={() => setError("")}
+                />
 
                 <button
                   type="submit"
@@ -611,9 +623,7 @@ export default function Notification() {
                   {saving ? "Publishing..." : "Publish Notification"}
                 </button>
 
-                <div className="text-xs text-slate-400">
-                  Tip: Use short title + clear description.
-                </div>
+                <div className="text-xs text-slate-400">Tip: Use short title + clear description.</div>
               </form>
             </div>
           </div>
@@ -622,19 +632,17 @@ export default function Notification() {
           <div className="lg:col-span-7">
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
               {/* Toolbar */}
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white sticky top-[72px] md:top-0 z-10">
+              <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white">
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="font-extrabold text-slate-900">All Notifications</h3>
                       <p className="text-sm text-slate-600 mt-1">
-                        Showing{" "}
-                        <span className="font-semibold text-slate-900">{filtered.length}</span>{" "}
-                        items
+                        Showing <span className="font-semibold text-slate-900">{filtered.length}</span> items
                       </p>
                     </div>
 
-                    <div className="inline-flex rounded-2xl border border-slate-200 p-1 bg-slate-50 shrink-0">
+                    <div className="inline-flex rounded-2xl border border-slate-200 p-1 bg-slate-50 w-full sm:w-auto overflow-x-auto">
                       <TabButton active={tab === "all"} onClick={() => setTab("all")}>
                         All
                       </TabButton>
@@ -672,7 +680,7 @@ export default function Notification() {
                       onClick={loadNotifications}
                       disabled={loading}
                       className={cn(
-                        "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border border-slate-200",
+                        "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200",
                         "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full sm:w-auto"
                       )}
                       type="button"
@@ -686,24 +694,17 @@ export default function Notification() {
 
               {/* List */}
               {filtered.length === 0 ? (
-                <div className="p-8 text-center bg-white">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600">
-                    <FiBell />
-                  </div>
-                  <p className="mt-3 font-semibold text-slate-900">No notifications found</p>
-                  <p className="text-sm text-slate-600 mt-1">
-                    Create a notification from the left panel.
-                  </p>
-                </div>
+                <EmptyState
+                  icon={<FiBell />}
+                  title="No notifications found"
+                  desc="Create a notification from the left panel."
+                />
               ) : (
                 <div className="divide-y divide-slate-200">
                   {filtered.map((n) => (
                     <div
                       key={n._id}
-                      className={cn(
-                        "p-4 sm:p-5 group transition",
-                        !n.isRead ? "bg-slate-50" : "bg-white"
-                      )}
+                      className={cn("p-4 sm:p-5 group transition", !n.isRead ? "bg-slate-50" : "bg-white")}
                     >
                       <div className="flex gap-3">
                         <div className="mt-0.5">
@@ -721,7 +722,7 @@ export default function Notification() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-extrabold text-slate-900 truncate max-w-[520px]">
@@ -743,16 +744,21 @@ export default function Notification() {
                                 </span>
                               </div>
 
-                              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed">
+                              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed break-words">
                                 {n.description}
                               </p>
+
+                              <div className="mt-2 text-xs text-slate-400">
+                                Created: {prettyDT(n.createdAt)}
+                              </div>
                             </div>
 
-                            <div className="hidden md:flex items-center gap-2 opacity-80 group-hover:opacity-100 transition shrink-0">
+                            {/* Desktop actions */}
+                            <div className="hidden md:flex items-center gap-2 opacity-90 group-hover:opacity-100 transition shrink-0">
                               <button
                                 onClick={() => toggleRead(n._id, n.isRead)}
                                 className={cn(
-                                  "px-3 py-2 rounded-2xl text-sm font-semibold border border-slate-200",
+                                  "px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
                                   "bg-white text-slate-600 hover:bg-slate-50"
                                 )}
                                 title={n.isRead ? "Mark unread" : "Mark read"}
@@ -764,7 +770,7 @@ export default function Notification() {
                               <button
                                 onClick={() => deleteOne(n._id)}
                                 className={cn(
-                                  "px-3 py-2 rounded-2xl text-sm font-semibold border border-slate-200",
+                                  "px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
                                   "bg-white text-red-500 hover:bg-slate-50"
                                 )}
                                 title="Delete"
@@ -775,21 +781,22 @@ export default function Notification() {
                             </div>
                           </div>
 
-                          <div className="mt-3 flex md:hidden gap-2">
+                          {/* Mobile actions */}
+                          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:hidden gap-2">
                             <button
                               onClick={() => toggleRead(n._id, n.isRead)}
-                              className="flex-1 px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
+                              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
                               type="button"
                             >
                               {n.isRead ? "Mark Unread" : "Mark Read"}
                             </button>
                             <button
                               onClick={() => deleteOne(n._id)}
-                              className="px-3 py-2 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-red-500"
+                              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-red-500"
                               type="button"
                               title="Delete"
                             >
-                              <FiTrash2 />
+                              Delete
                             </button>
                           </div>
                         </div>
@@ -800,9 +807,7 @@ export default function Notification() {
               )}
             </div>
 
-            <div className="text-xs text-slate-400 mt-3">
-              Tip: Unread tab helps you quickly find fresh updates.
-            </div>
+            <div className="text-xs text-slate-400 mt-3">Tip: Unread tab helps you quickly find fresh updates.</div>
           </div>
         </div>
 
