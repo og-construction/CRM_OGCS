@@ -6,14 +6,24 @@ import {
   MapContainer,
   TileLayer,
   Marker,
-  Circle,
   Polyline,
   Popup,
   CircleMarker,
   useMap,
 } from "react-leaflet";
 
-import { FiSearch, FiMapPin, FiExternalLink, FiX, FiCalendar, FiRefreshCw } from "react-icons/fi";
+import {
+  FiSearch,
+  FiMapPin,
+  FiExternalLink,
+  FiX,
+  FiCalendar,
+  FiRefreshCw,
+  FiUsers,
+  FiAlertTriangle,
+  FiChevronLeft,
+  FiChevronRight,
+} from "react-icons/fi";
 
 // ✅ Leaflet marker icon fix
 import L from "leaflet";
@@ -29,7 +39,9 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-// ---- helpers ----
+// ---------------- helpers ----------------
+const cn = (...a) => a.filter(Boolean).join(" ");
+
 const isAdminUser = (u) => {
   const role = String(u?.role || u?.userRole || u?.type || "").toLowerCase();
   return role === "admin" || role === "super admin" || role === "superadmin";
@@ -74,7 +86,6 @@ const computeDistanceKm = (points) => {
   return Math.round((meters / 1000) * 100) / 100;
 };
 
-// ✅ Debounce
 const useDebouncedValue = (value, delay = 400) => {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -84,7 +95,6 @@ const useDebouncedValue = (value, delay = 400) => {
   return debounced;
 };
 
-// ✅ Extract employee safely (works with your backend "employee" projection)
 const getEmployeeInfo = (row) => {
   const emp =
     row?.employee ||
@@ -100,7 +110,6 @@ const getEmployeeInfo = (row) => {
   return { name, email };
 };
 
-// ✅ Convert row to a real userId
 const getRowUserId = (row) => {
   if (row?.userId?._id) return row.userId._id;
   if (typeof row?.userId === "string") return row.userId;
@@ -114,27 +123,28 @@ const getRowUserId = (row) => {
   return null;
 };
 
-// ✅ Fit map to bounds of all points
 function FitBounds({ positions }) {
   const map = useMap();
-
   useEffect(() => {
     if (!positions || positions.length === 0) return;
     const bounds = L.latLngBounds(positions);
     map.fitBounds(bounds, { padding: [40, 40] });
   }, [map, positions]);
-
   return null;
 }
 
+// ---------------- component ----------------
 export default function LatestLocationsSection() {
   const user = useSelector((s) => s.auth.user);
 
+  // ✅ Access control
   if (!isAdminUser(user)) {
     return (
-      <div className="bg-white border rounded-2xl p-5">
+      <div className="bg-white border border-slate-100 rounded-2xl p-5">
         <div className="text-lg font-semibold text-slate-800">Access Denied</div>
-        <div className="text-sm text-slate-500 mt-1">Only Admin can view this section.</div>
+        <div className="text-sm text-slate-500 mt-1">
+          Only Admin can view this section.
+        </div>
       </div>
     );
   }
@@ -147,8 +157,15 @@ export default function LatestLocationsSection() {
   const [limit, setLimit] = useState(20);
 
   const [items, setItems] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
+
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // modal state
   const [open, setOpen] = useState(false);
@@ -159,8 +176,6 @@ export default function LatestLocationsSection() {
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeMsg, setRouteMsg] = useState("");
 
-  // ✅ Important: this assumes VITE_API_BASE_URL ends with "/api"
-  // endpoints become: /api/admin/...
   const endpoints = useMemo(
     () => ({
       latest: "/admin/locations/latest",
@@ -175,12 +190,13 @@ export default function LatestLocationsSection() {
     return p;
   }, [page, limit, debouncedQ]);
 
-  // prevent race conditions
+  // Prevent race conditions
   const latestReqId = useRef(0);
 
   const fetchLatest = useCallback(async () => {
     const reqId = ++latestReqId.current;
     setLoading(true);
+    setError("");
 
     try {
       const res = await axiosClient.get(endpoints.latest, { params });
@@ -194,6 +210,7 @@ export default function LatestLocationsSection() {
       console.error("Latest locations fetch error:", e);
       setItems([]);
       setPagination({ page: 1, limit, total: 0, totalPages: 1 });
+      setError(e?.response?.data?.message || "Failed to load latest locations.");
     } finally {
       if (reqId === latestReqId.current) setLoading(false);
     }
@@ -203,12 +220,10 @@ export default function LatestLocationsSection() {
     fetchLatest();
   }, [fetchLatest]);
 
-  // reset to page 1 when searching
+  // Reset to page 1 when searching changes
   useEffect(() => {
     setPage(1);
   }, [debouncedQ]);
-
-  const searchNow = () => setPage(1);
 
   const loadRoute = useCallback(
     async (userId, d) => {
@@ -223,7 +238,7 @@ export default function LatestLocationsSection() {
           params: { userId, date: d },
         });
 
-        // ✅ backend fallback support (if you implemented usedDate)
+        // backend fallback support (if usedDate returned)
         const usedDate = res.data?.usedDate;
         if (usedDate && usedDate !== d) setDate(usedDate);
 
@@ -232,7 +247,6 @@ export default function LatestLocationsSection() {
 
         const list = res.data?.data || [];
 
-        // ✅ ensure lat/lng are numbers (prevents filtering out)
         const cleaned = list
           .map((p) => ({
             ...p,
@@ -255,27 +269,38 @@ export default function LatestLocationsSection() {
     [endpoints.dayRoute]
   );
 
-  const openPreview = (row) => {
-    setActiveRow(row);
+  const openPreview = useCallback(
+    (row) => {
+      setActiveRow(row);
 
-    const d = isoToYMD(row?.capturedAt) || isoToYMD(new Date().toISOString());
-    setDate(d);
-    setPoints([]);
-    setRouteMsg("");
-    setOpen(true);
+      const d = isoToYMD(row?.capturedAt) || isoToYMD(new Date().toISOString());
+      setDate(d);
+      setPoints([]);
+      setRouteMsg("");
+      setOpen(true);
 
-    const userId = getRowUserId(row);
-    loadRoute(userId, d);
-  };
+      const userId = getRowUserId(row);
+      loadRoute(userId, d);
+    },
+    [loadRoute]
+  );
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setOpen(false);
     setActiveRow(null);
     setDate("");
     setPoints([]);
     setRouteLoading(false);
     setRouteMsg("");
-  };
+  }, []);
+
+  // Close on ESC
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && closeModal();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, closeModal]);
 
   const distanceKm = useMemo(() => computeDistanceKm(points), [points]);
   const polyline = useMemo(() => points.map((p) => [p.lat, p.lng]), [points]);
@@ -284,250 +309,431 @@ export default function LatestLocationsSection() {
 
   const mapCenter = useMemo(() => {
     if (points?.length) return [points[0].lat, points[0].lng];
-    if (Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng)) return [activeRow.lat, activeRow.lng];
-    return [19.076, 72.8777];
+    if (Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng))
+      return [activeRow.lat, activeRow.lng];
+    return [19.076, 72.8777]; // default: Mumbai
   }, [points, activeRow]);
 
   const activeEmp = useMemo(() => getEmployeeInfo(activeRow), [activeRow]);
 
+  const stats = useMemo(() => {
+    return {
+      total: pagination?.total || 0,
+      showing: items?.length || 0,
+    };
+  }, [pagination, items]);
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-lg font-semibold text-slate-800">Latest Locations (All Employees)</div>
-          <div className="text-xs text-slate-500">
-            Search by name → click Preview → see full day route + total travel.
+      {/* ✅ Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center">
+              <FiMapPin className="text-slate-700" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-lg sm:text-xl font-semibold text-slate-800 truncate">
+                Latest Locations (All Employees)
+              </div>
+              <div className="text-xs text-slate-500">
+                Search employee → Preview → view full day route + total travel.
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchNow()}
-            placeholder="Search employee name/email..."
-            className="text-sm border rounded-xl px-3 py-2 w-[280px]"
-          />
-          <button
-            onClick={searchNow}
-            disabled={loading}
-            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
-          >
-            <FiSearch /> Search
-          </button>
-
-          <button
-            onClick={fetchLatest}
-            disabled={loading}
-            className="inline-flex items-center gap-2 text-xs px-4 py-2 rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-60"
-          >
-            <FiRefreshCw /> Refresh
-          </button>
+        {/* Stats pills */}
+        <div className="flex flex-wrap gap-2 sm:justify-end">
+          <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+            <FiUsers />
+            Total: <span className="font-semibold text-slate-800">{stats.total}</span>
+          </span>
+          <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+            <FiMapPin />
+            Showing: <span className="font-semibold text-slate-800">{stats.showing}</span>
+          </span>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto bg-white border rounded-2xl shadow-sm">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 border-b">
-            <tr className="text-slate-600">
-              <th className="px-4 py-3 text-left">Employee Name</th>
-              <th className="px-4 py-3 text-left">Captured At</th>
-              <th className="px-4 py-3 text-left">Preview</th>
-            </tr>
-          </thead>
+      {/* ✅ Search / Controls */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:items-end">
+          <div className="lg:col-span-6">
+            <label className="text-xs text-slate-500 flex items-center gap-2">
+              <FiSearch /> Search
+            </label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && setPage(1)}
+              placeholder="Search employee name/email..."
+              className="mt-1 w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
+            />
+            <div className="mt-1 text-[11px] text-slate-400">
+              Tip: typing will auto-search after a short delay.
+            </div>
+          </div>
 
-          <tbody>
-            {loading ? (
-              <tr>
-                <td className="px-4 py-4 text-slate-500" colSpan={3}>
-                  Loading...
-                </td>
-              </tr>
-            ) : items.length ? (
-              items.map((r) => {
-                const emp = getEmployeeInfo(r);
-                return (
-                  <tr key={r._id} className="border-b last:border-b-0 hover:bg-slate-50/60">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{emp.name}</div>
-                      <div className="text-xs text-slate-500">{emp.email}</div>
-                    </td>
-                    <td className="px-4 py-3">{isoToLocal(r.capturedAt)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => openPreview(r)}
-                        className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border bg-white hover:bg-slate-50"
-                      >
-                        <FiMapPin /> Preview
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td className="px-4 py-4 text-slate-500" colSpan={3}>
-                  No employees found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+          <div className="lg:col-span-6 flex flex-wrap gap-2 lg:justify-end">
+            <button
+              onClick={fetchLatest}
+              disabled={loading}
+              className={cn(
+                "inline-flex items-center justify-center gap-2",
+                "text-xs sm:text-sm px-4 py-2 rounded-xl border transition",
+                loading
+                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                  : "border-slate-200 bg-white hover:bg-slate-50"
+              )}
+            >
+              <FiRefreshCw /> Refresh
+            </button>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between text-sm">
-        <div className="text-xs text-slate-500">
-          Total: {pagination.total || 0} | Page {pagination.page || 1} of {totalPages}
-        </div>
-
-        <div className="flex gap-2 items-center">
-          <select
-            value={limit}
-            onChange={(e) => {
-              setLimit(parseInt(e.target.value, 10));
-              setPage(1);
-            }}
-            className="text-xs border rounded-xl px-2 py-2 bg-white"
-          >
-            {[10, 20, 50, 100].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-
-          <button
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="text-xs px-3 py-2 rounded-xl border bg-white disabled:opacity-50"
-          >
-            Prev
-          </button>
-          <button
-            disabled={page >= totalPages || loading}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            className="text-xs px-3 py-2 rounded-xl border bg-white disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
-
-      {/* Modal */}
-      {open && activeRow ? (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-
-          <div className="absolute left-1/2 top-1/2 w-[95%] max-w-5xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border overflow-hidden">
-            <div className="px-4 py-3 border-b flex items-center justify-between">
-              <div>
-                <div className="text-sm font-semibold text-slate-800">{activeEmp.name}</div>
-                <div className="text-xs text-slate-500">
-                  {activeEmp.email} • Total Travel: <b>{routeLoading ? "..." : `${distanceKm} km`}</b>
-                </div>
-                {routeMsg ? <div className="text-[11px] text-amber-600 mt-1">{routeMsg}</div> : null}
-              </div>
-
-              <button
-                onClick={closeModal}
-                className="text-xs px-3 py-2 rounded-xl border hover:bg-slate-50 inline-flex items-center gap-2"
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Rows</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(parseInt(e.target.value, 10));
+                  setPage(1);
+                }}
+                className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
               >
-                <FiX /> Close
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <div className="text-xs text-slate-500 flex items-center gap-2">
-                    <FiCalendar /> Date
-                  </div>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="mt-1 text-sm border rounded-xl px-3 py-2"
-                  />
-                </div>
-
-                <button
-                  onClick={() => loadRoute(getRowUserId(activeRow), date)}
-                  disabled={!date || routeLoading}
-                  className="text-xs px-4 py-2 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60"
-                >
-                  Load Day Route
-                </button>
-
-                {Number.isFinite(activeRow.lat) && Number.isFinite(activeRow.lng) ? (
-                  <a
-                    href={openStreetMapLink(activeRow.lat, activeRow.lng)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-blue-600 hover:underline inline-flex items-center gap-2 ml-auto"
-                  >
-                    <FiExternalLink /> Open in Map
-                  </a>
-                ) : null}
-              </div>
-
-              <div className="rounded-xl overflow-hidden border bg-slate-50">
-                {routeLoading ? (
-                  <div className="p-6 text-sm text-slate-500">Loading route...</div>
-                ) : points.length ? (
-                  <MapContainer center={mapCenter} zoom={14} style={{ height: 520, width: "100%" }}>
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-                    {/* ✅ fit to all points */}
-                    <FitBounds positions={polyline} />
-
-                    {/* ✅ ALL points as pins */}
-                    {points.map((p, idx) => (
-                      <CircleMarker
-                        key={p._id || idx}
-                        center={[p.lat, p.lng]}
-                        radius={5}
-                      >
-                        <Popup>
-                          <div className="text-xs">
-                            <div><b>Point:</b> {idx + 1}</div>
-                            <div><b>Time:</b> {isoToLocal(p.capturedAt)}</div>
-                            {Number.isFinite(p.accuracy) ? <div><b>Accuracy:</b> {Math.round(p.accuracy)} m</div> : null}
-                          </div>
-                        </Popup>
-                      </CircleMarker>
-                    ))}
-
-                    {/* Start + End */}
-                    {points.length > 0 ? (
-                      <>
-                        <Marker position={[points[0].lat, points[0].lng]}>
-                          <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
-                        </Marker>
-                        <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
-                          <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
-                        </Marker>
-                      </>
-                    ) : null}
-
-                    {/* Route line */}
-                    {polyline.length >= 2 ? <Polyline positions={polyline} /> : null}
-                  </MapContainer>
-
-                ) : (
-                  <div className="p-6 text-sm text-slate-500">No route points found for this day.</div>
-                )}
-              </div>
-
-              <div className="text-[11px] text-slate-400">
-                Map uses OpenStreetMap (no API key). Distance is calculated from captured points.
-              </div>
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
+
+        {error ? (
+          <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 inline-flex items-center gap-2">
+            <FiAlertTriangle />
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      {/* ✅ Desktop table (md+) + Mobile cards (<md) */}
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+        {/* Desktop */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr className="text-slate-600">
+                <th className="px-4 py-3 text-left font-semibold">Employee</th>
+                <th className="px-4 py-3 text-left font-semibold">Captured At</th>
+                <th className="px-4 py-3 text-left font-semibold w-[140px]">Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td className="px-4 py-4 text-slate-500" colSpan={3}>
+                    Loading...
+                  </td>
+                </tr>
+              ) : items.length ? (
+                items.map((r) => {
+                  const emp = getEmployeeInfo(r);
+                  return (
+                    <tr
+                      key={r._id}
+                      className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-800">{emp.name}</div>
+                        <div className="text-xs text-slate-500">{emp.email}</div>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{isoToLocal(r.capturedAt)}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openPreview(r)}
+                          className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+                        >
+                          <FiMapPin /> Preview
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td className="px-4 py-4 text-slate-500" colSpan={3}>
+                    No employees found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="p-4 text-sm text-slate-500">Loading...</div>
+          ) : items.length ? (
+            items.map((r) => {
+              const emp = getEmployeeInfo(r);
+              return (
+                <div key={r._id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-slate-800 truncate">
+                        {emp.name}
+                      </div>
+                      <div className="text-xs text-slate-500 truncate">{emp.email}</div>
+                      <div className="mt-2 text-xs text-slate-500">
+                        Captured:{" "}
+                        <span className="text-slate-800 font-semibold">
+                          {isoToLocal(r.capturedAt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => openPreview(r)}
+                      className="shrink-0 inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+                    >
+                      <FiMapPin /> Preview
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-4 text-sm text-slate-500">No employees found.</div>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ Pagination */}
+      <div className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs sm:text-sm text-slate-500">
+            Total: <span className="text-slate-800 font-semibold">{pagination.total || 0}</span>{" "}
+            <span className="mx-1">•</span>
+            Page{" "}
+            <span className="text-slate-800 font-semibold">{pagination.page || page}</span> of{" "}
+            <span className="text-slate-800 font-semibold">{totalPages}</span>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              disabled={page <= 1 || loading}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition"
+            >
+              <FiChevronLeft />
+              Prev
+            </button>
+
+            <button
+              disabled={page >= totalPages || loading}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="inline-flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition"
+            >
+              Next
+              <FiChevronRight />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ Modal */}
+      {open && activeRow ? (
+        <RouteModal
+          activeRow={activeRow}
+          activeEmp={activeEmp}
+          date={date}
+          setDate={setDate}
+          points={points}
+          polyline={polyline}
+          mapCenter={mapCenter}
+          distanceKm={distanceKm}
+          routeLoading={routeLoading}
+          routeMsg={routeMsg}
+          loadRoute={loadRoute}
+          onClose={closeModal}
+        />
       ) : null}
+    </div>
+  );
+}
+
+/* ---------------- Modal (extracted for clarity) ---------------- */
+
+function RouteModal({
+  activeRow,
+  activeEmp,
+  date,
+  setDate,
+  points,
+  polyline,
+  mapCenter,
+  distanceKm,
+  routeLoading,
+  routeMsg,
+  loadRoute,
+  onClose,
+}) {
+  const userId = useMemo(() => getRowUserId(activeRow), [activeRow]);
+
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <button
+        type="button"
+        aria-label="Close modal"
+        onClick={onClose}
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+      />
+
+      {/* Modal shell */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+          "w-[94vw] sm:w-[92vw] max-w-6xl",
+          "bg-white border border-slate-100 shadow-2xl rounded-2xl overflow-hidden"
+        )}
+      >
+        {/* Header */}
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-base sm:text-lg font-semibold text-slate-800 truncate">
+              {activeEmp.name}
+            </div>
+            <div className="text-xs text-slate-500 truncate">
+              {activeEmp.email || "—"} • Total Travel:{" "}
+              <span className="font-semibold text-slate-800">
+                {routeLoading ? "..." : `${distanceKm} km`}
+              </span>
+            </div>
+            {routeMsg ? (
+              <div className="text-[11px] text-amber-600 mt-1">{routeMsg}</div>
+            ) : null}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="shrink-0 inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+          >
+            <FiX /> Close
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-4 sm:p-6 space-y-3">
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+            <div className="min-w-0">
+              <div className="text-xs text-slate-500 flex items-center gap-2">
+                <FiCalendar /> Date
+              </div>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="mt-1 w-full sm:w-[220px] text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
+              />
+            </div>
+
+            <button
+              onClick={() => loadRoute(userId, date)}
+              disabled={!date || routeLoading}
+              className={cn(
+                "inline-flex items-center justify-center gap-2",
+                "text-xs sm:text-sm px-4 py-2 rounded-xl transition",
+                !date || routeLoading
+                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                  : "bg-sky-600 text-white hover:bg-sky-700"
+              )}
+            >
+              <FiRefreshCw />
+              {routeLoading ? "Loading..." : "Load Day Route"}
+            </button>
+
+            {Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng) ? (
+              <a
+                href={openStreetMapLink(activeRow.lat, activeRow.lng)}
+                target="_blank"
+                rel="noreferrer"
+                className="sm:ml-auto text-xs sm:text-sm text-sky-700 hover:underline inline-flex items-center gap-2"
+              >
+                <FiExternalLink /> Open in Map
+              </a>
+            ) : null}
+          </div>
+
+          {/* Map */}
+          <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50">
+            {routeLoading ? (
+              <div className="p-6 text-sm text-slate-500">Loading route...</div>
+            ) : points.length ? (
+              <MapContainer
+                center={mapCenter}
+                zoom={14}
+                style={{ width: "100%" }}
+                className="h-[55vh] sm:h-[520px]"
+              >
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+                {/* Fit to all points */}
+                <FitBounds positions={polyline} />
+
+                {/* All points */}
+                {points.map((p, idx) => (
+                  <CircleMarker key={p._id || idx} center={[p.lat, p.lng]} radius={5}>
+                    <Popup>
+                      <div className="text-xs">
+                        <div>
+                          <b>Point:</b> {idx + 1}
+                        </div>
+                        <div>
+                          <b>Time:</b> {isoToLocal(p.capturedAt)}
+                        </div>
+                        {Number.isFinite(p.accuracy) ? (
+                          <div>
+                            <b>Accuracy:</b> {Math.round(p.accuracy)} m
+                          </div>
+                        ) : null}
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ))}
+
+                {/* Start + End */}
+                {points.length > 0 ? (
+                  <>
+                    <Marker position={[points[0].lat, points[0].lng]}>
+                      <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
+                    </Marker>
+                    <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
+                      <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
+                    </Marker>
+                  </>
+                ) : null}
+
+                {/* Route line */}
+                {polyline.length >= 2 ? <Polyline positions={polyline} /> : null}
+              </MapContainer>
+            ) : (
+              <div className="p-6 text-sm text-slate-500">No route points found for this day.</div>
+            )}
+          </div>
+
+          <div className="text-[11px] text-slate-400">
+            Map uses OpenStreetMap (no API key). Distance is calculated from captured points.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
