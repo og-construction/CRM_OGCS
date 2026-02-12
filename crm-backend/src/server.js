@@ -17,8 +17,6 @@ import adminRoutes from "./routes/adminRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import visitingPlaceRoutes from "./routes/visitingPlaceRoutes.js";
- 
-
 
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
@@ -28,21 +26,15 @@ const __dirname = path.dirname(__filename);
 
 /* =========================================================
    ✅ Load correct ENV file (dev vs prod)
-   IMPORTANT:
-   - dotenv must load BEFORE using connectDB()
 ========================================================= */
 const DEFAULT_ENV = "development";
-
-// prefer OS env, else fallback
 const BOOT_ENV = process.env.NODE_ENV || DEFAULT_ENV;
 
-// choose env filename
 const envFile = BOOT_ENV === "production" ? ".env.production" : ".env.development";
 
 // absolute path: crm-backend/.env.development
 dotenv.config({ path: path.resolve(__dirname, "..", envFile) });
 
-// runtime env (after dotenv loads)
 const RUNTIME_ENV = process.env.NODE_ENV || BOOT_ENV;
 
 console.log(`🟢 Using env file: ${envFile}`);
@@ -51,7 +43,7 @@ console.log(`🌍 NODE_ENV: ${RUNTIME_ENV}`);
 /* =========================================================
    ✅ Connect DB (AFTER dotenv)
 ========================================================= */
-await connectDB(); // if your connectDB is async. If not, remove await.
+await connectDB(); // if connectDB is async
 
 /* =========================================================
    ✅ App init
@@ -60,34 +52,49 @@ const app = express();
 app.use(express.json());
 
 /* =========================================================
-   ✅ CORS (Secure + Postman safe)
+   ✅ CORS (Fix preflight + allow cache-control)
+   - Solves: "Request header field cache-control is not allowed..."
 ========================================================= */
 const allowedOrigins = [
-  process.env.CLIENT_URL,
+  process.env.CLIENT_URL, // https://crm.ogcs.co.in
+  "https://crm.ogcs.co.in",
   "http://localhost:1813",
   "http://localhost:5173",
-  "https://crm.ogcs.co.in",
+  "http://127.0.0.1:5173",
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: (origin, cb) => {
-      // Allow Postman/curl/server-to-server (no origin)
-      if (!origin) return cb(null, true);
+const corsOptions = {
+  origin: (origin, cb) => {
+    // Allow Postman/curl/server-to-server (no origin)
+    if (!origin) return cb(null, true);
 
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
 
-      return cb(new Error(`CORS blocked for origin: ${origin}`), false);
-    },
-    credentials: true,
-  })
-);
+    return cb(new Error(`CORS blocked for origin: ${origin}`), false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+    "Origin",
+    "cache-control", // ✅ IMPORTANT for your error
+    "pragma",
+    "expires",
+  ],
+  exposedHeaders: ["set-cookie"],
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+
+// ✅ MUST: handle preflight properly for all routes
+app.options("*", cors(corsOptions));
 
 /* =========================================================
    ✅ Static Uploads
-   Keep BOTH patterns:
-   1) /uploads
-   2) /{UPLOAD_DIR} (custom)
 ========================================================= */
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
 
@@ -118,7 +125,6 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/visiting-places", visitingPlaceRoutes);
 app.use("/api/visits", visitingPlaceRoutes);
-
 
 // Admin
 app.use("/api/admin", adminRoutes);
