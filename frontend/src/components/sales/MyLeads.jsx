@@ -1,4 +1,4 @@
-// ✅ MyLeads.jsx — FULL CODE (Clean + Fully Responsive + Create/Edit + Excel Import + PROFESSIONAL Pagination)
+// ✅ MyLeads.jsx — FULL CODE (UI polish + fully responsive, logic unchanged)
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -109,10 +109,12 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
   return (
     <div className="fixed inset-0 z-50">
       <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Close modal" />
+
+      {/* Mobile bottom-sheet + Desktop centered */}
       <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
         <div
           className={cn(
-            "w-full max-w-3xl bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col",
+            "w-full max-w-3xl bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col shadow-sm",
             "h-[92dvh] sm:h-auto sm:max-h-[92dvh]"
           )}
           role="dialog"
@@ -280,11 +282,11 @@ function PaginationBar({ page, pages, total, limit, countOnPage, loading, onPage
   const btnBase =
     "px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60";
   const pageBtn =
-    "min-w-[42px] px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60";
+    "min-w-[40px] px-3 py-2 rounded-2xl border border-slate-200 text-sm font-semibold hover:bg-slate-50 disabled:opacity-60";
   const activePageBtn = "bg-slate-900 text-white border-slate-900 hover:bg-slate-900";
 
   return (
-    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+    <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
       <div className="text-xs text-slate-600">
         {total ? (
           <>
@@ -423,6 +425,7 @@ export default function MyLeads() {
   const [openDesc, setOpenDesc] = useState(false);
   const [descText, setDescText] = useState("");
 
+  // UI: slightly tighter + consistent focus + responsive text
   const inputClass =
     "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
@@ -634,19 +637,28 @@ export default function MyLeads() {
 
   return (
     <div className="min-h-[100dvh] bg-slate-50">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
+      {/* Professional CRM container + consistent spacing */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
         {/* ===================== Header Card ===================== */}
-        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm">
           <div className="h-1 bg-blue-600" />
+
           <div className="p-4 sm:p-5">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+            <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
               <div className="min-w-0">
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
                   <span className="h-2 w-2 rounded-full bg-green-600" />
                   Sales • Leads
                 </div>
 
-                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">My Leads</h1>
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                  <h1 className="text-lg sm:text-xl lg:text-2xl font-extrabold text-slate-900">My Leads</h1>
+
+                  {/* Right-side micro info (desktop friendly) */}
+                  <div className="hidden sm:block text-[11px] text-slate-400">
+                    Updated list with filters, import and pagination
+                  </div>
+                </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <StatPill label="Total" value={summary.total} tone="blue" />
@@ -667,7 +679,8 @@ export default function MyLeads() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              {/* Actions: stacked on mobile, aligned on desktop */}
+              <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto">
                 <button
                   className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={() => setOpenImport(true)}
@@ -720,7 +733,7 @@ export default function MyLeads() {
               </div>
             ) : null}
 
-            {/* Filters */}
+            {/* Filters: responsive grid, professional spacing */}
             <form onSubmit={onSearchSubmit} className="mt-5 grid grid-cols-1 md:grid-cols-12 gap-2">
               <div className="md:col-span-3">
                 <div className="text-xs font-semibold text-slate-600 mb-1">Status</div>
@@ -791,7 +804,7 @@ export default function MyLeads() {
         </div>
 
         {/* ===================== List / Table Card ===================== */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="text-sm font-extrabold text-slate-900">Leads List</div>
             <div className="text-xs text-slate-600">
@@ -799,185 +812,221 @@ export default function MyLeads() {
             </div>
           </div>
 
-          {/* Mobile / Tablet */}
+          {/* Mobile / Tablet cards (more CRM-like) */}
           <div className="block lg:hidden">
             {loading ? (
               <div className="p-5 text-slate-600">Loading leads...</div>
             ) : rows.length === 0 ? (
               <EmptyBlock onCreate={startCreate} />
             ) : (
-              <div className="divide-y divide-slate-200">
-                {rows.map(({ lead, desc, shortDesc }) => (
-                  <div key={lead._id} className="p-4 sm:p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-base font-extrabold text-slate-900 truncate">{lead.name}</div>
-                        <div className="text-xs text-slate-400 mt-1">Created: {fmtDate(lead.createdAt)}</div>
-                      </div>
+              <div className="p-3 sm:p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {rows.map(({ lead, desc, shortDesc }) => (
+                    <div key={lead._id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-base font-extrabold text-slate-900 truncate">{lead.name}</div>
+                            <div className="text-xs text-slate-400 mt-1">Created: {fmtDate(lead.createdAt)}</div>
+                          </div>
 
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
-                          {lead.status}
-                        </span>
-                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
-                          {lead.leadType || "Buyer"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                      <InfoCard label="Company" value={lead.company || "-"} />
-                      <InfoCard label="Phone" value={lead.phone || "-"} mono />
-                      <InfoCard label="Email" value={lead.email || "-"} mono />
-                      <InfoCard label="City" value={lead.city || "-"} />
-                      <div className="sm:col-span-2">
-                        <InfoCard label="Address" value={lead.address || "-"} />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
-                          <div className="text-[11px] text-slate-400">Description</div>
-                          {desc ? (
-                            <button
-                              className="mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words"
-                              onClick={() => openDescription(desc)}
-                              type="button"
-                              title={desc}
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                statusPill(lead.status)
+                              )}
                             >
-                              {shortDesc}
-                            </button>
-                          ) : (
-                            <div className="mt-1 text-slate-600">-</div>
-                          )}
+                              {lead.status}
+                            </span>
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                typePill(lead.leadType || "Buyer")
+                              )}
+                            >
+                              {lead.leadType || "Buyer"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                          <InfoCard label="Company" value={lead.company || "-"} />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <InfoCard label="Phone" value={lead.phone || "-"} mono />
+                            <InfoCard label="City" value={lead.city || "-"} />
+                          </div>
+                          <InfoCard label="Email" value={lead.email || "-"} mono />
+                          <InfoCard label="Address" value={lead.address || "-"} />
+
+                          <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                            <div className="text-[11px] text-slate-400">Description</div>
+                            {desc ? (
+                              <button
+                                className="mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words"
+                                onClick={() => openDescription(desc)}
+                                type="button"
+                                title={desc}
+                              >
+                                {shortDesc}
+                              </button>
+                            ) : (
+                              <div className="mt-1 text-slate-600">-</div>
+                            )}
+                          </div>
+
+                          <InfoCard label="Source" value={lead.source || "-"} />
                         </div>
                       </div>
 
-                      <div className="sm:col-span-2">
-                        <InfoCard label="Source" value={lead.source || "-"} />
+                      <div className="border-t border-slate-200 bg-slate-50 p-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 bg-white"
+                            onClick={() => startEdit(lead)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50 bg-white"
+                            onClick={() => onDelete(lead)}
+                            type="button"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-                        onClick={() => startEdit(lead)}
-                        type="button"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
-                        onClick={() => onDelete(lead)}
-                        type="button"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Company</th>
-                  <th className="p-3">Phone</th>
-                  <th className="p-3">Email</th>
-                  <th className="p-3">City</th>
-                  <th className="p-3">Address</th>
-                  <th className="p-3">Description</th>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 w-44">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-200">
-                {loading ? (
-                  <SkeletonRow cols={11} />
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={11}>
-                      <EmptyBlock onCreate={startCreate} />
-                    </td>
+          {/* Desktop Table (sticky header + professional spacing) */}
+          <div className="hidden lg:block">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
+                    <th className="p-3 whitespace-nowrap">Name</th>
+                    <th className="p-3 whitespace-nowrap">Type</th>
+                    <th className="p-3 whitespace-nowrap">Company</th>
+                    <th className="p-3 whitespace-nowrap">Phone</th>
+                    <th className="p-3 whitespace-nowrap">Email</th>
+                    <th className="p-3 whitespace-nowrap">City</th>
+                    <th className="p-3 whitespace-nowrap">Address</th>
+                    <th className="p-3 whitespace-nowrap">Description</th>
+                    <th className="p-3 whitespace-nowrap">Source</th>
+                    <th className="p-3 whitespace-nowrap">Status</th>
+                    <th className="p-3 w-44 whitespace-nowrap">Actions</th>
                   </tr>
-                ) : (
-                  items.map((lead) => {
-                    const desc = lead?.description || "";
-                    const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
+                </thead>
 
-                    return (
-                      <tr key={lead._id} className="hover:bg-slate-50 align-top">
-                        <td className="p-3">
-                          <div className="font-extrabold text-slate-900">{lead.name}</div>
-                          <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
-                        </td>
+                <tbody className="divide-y divide-slate-200">
+                  {loading ? (
+                    <SkeletonRow cols={11} />
+                  ) : items.length === 0 ? (
+                    <tr>
+                      <td colSpan={11}>
+                        <EmptyBlock onCreate={startCreate} />
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((lead) => {
+                      const desc = lead?.description || "";
+                      const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
 
-                        <td className="p-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
-                            {lead.leadType || "Buyer"}
-                          </span>
-                        </td>
+                      return (
+                        <tr key={lead._id} className="hover:bg-slate-50 align-top">
+                          <td className="p-3">
+                            <div className="font-extrabold text-slate-900">{lead.name}</div>
+                            <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
+                          </td>
 
-                        <td className="p-3 text-slate-900">{lead.company || "-"}</td>
-                        <td className="p-3 text-slate-900">{lead.phone || "-"}</td>
-
-                        <td className="p-3">
-                          <div className="max-w-[220px] break-words text-slate-900">{lead.email || "-"}</div>
-                        </td>
-
-                        <td className="p-3 text-slate-900">{lead.city || "-"}</td>
-
-                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">{lead.address || "-"}</td>
-
-                        <td className="p-3">
-                          {desc ? (
-                            <button className="text-sm font-semibold text-blue-600 hover:underline" onClick={() => openDescription(desc)} title={desc} type="button">
-                              {shortDesc}
-                            </button>
-                          ) : (
-                            <span className="text-slate-600">-</span>
-                          )}
-                        </td>
-
-                        <td className="p-3 text-slate-900">{lead.source || "-"}</td>
-
-                        <td className="p-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
-                            {lead.status}
-                          </span>
-                        </td>
-
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <button
-                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 hover:bg-slate-50"
-                              onClick={() => startEdit(lead)}
-                              type="button"
+                          <td className="p-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                typePill(lead.leadType || "Buyer")
+                              )}
                             >
-                              Edit
-                            </button>
-                            <button
-                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
-                              onClick={() => onDelete(lead)}
-                              type="button"
+                              {lead.leadType || "Buyer"}
+                            </span>
+                          </td>
+
+                          <td className="p-3 text-slate-900 whitespace-normal">{lead.company || "-"}</td>
+                          <td className="p-3 text-slate-900 whitespace-nowrap">{lead.phone || "-"}</td>
+
+                          <td className="p-3">
+                            <div className="max-w-[240px] break-words text-slate-900">{lead.email || "-"}</div>
+                          </td>
+
+                          <td className="p-3 text-slate-900 whitespace-nowrap">{lead.city || "-"}</td>
+
+                          <td className="p-3 whitespace-normal break-words max-w-[280px] text-slate-900">
+                            {lead.address || "-"}
+                          </td>
+
+                          <td className="p-3">
+                            {desc ? (
+                              <button
+                                className="text-sm font-semibold text-blue-600 hover:underline"
+                                onClick={() => openDescription(desc)}
+                                title={desc}
+                                type="button"
+                              >
+                                {shortDesc}
+                              </button>
+                            ) : (
+                              <span className="text-slate-600">-</span>
+                            )}
+                          </td>
+
+                          <td className="p-3 text-slate-900 whitespace-nowrap">{lead.source || "-"}</td>
+
+                          <td className="p-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                statusPill(lead.status)
+                              )}
                             >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                              {lead.status}
+                            </span>
+                          </td>
+
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              <button
+                                className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 hover:bg-slate-50 bg-white"
+                                onClick={() => startEdit(lead)}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50 bg-white"
+                                onClick={() => onDelete(lead)}
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* small helper note for wide tables */}
+            <div className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+              Tip: If table is wide, scroll horizontally.
+            </div>
           </div>
 
           {/* Pagination (bottom) */}
@@ -1012,7 +1061,7 @@ export default function MyLeads() {
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60 bg-white"
                   onClick={() => {
                     setOpenForm(false);
                     resetForm();
@@ -1121,7 +1170,7 @@ export default function MyLeads() {
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 bg-white"
                   onClick={() => setOpenImport(false)}
                   disabled={importing}
                   type="button"
@@ -1145,7 +1194,9 @@ export default function MyLeads() {
               <div className="text-sm font-extrabold text-slate-900">Upload Excel (.xlsx/.xls)</div>
               <div className="text-xs text-slate-600 mt-1 break-words">
                 Headers supported:{" "}
-                <b className="text-slate-900">leadType, name, company, phone, email, city, address, description, status, source</b>
+                <b className="text-slate-900">
+                  leadType, name, company, phone, email, city, address, description, status, source
+                </b>
               </div>
               <input type="file" accept=".xlsx,.xls" onChange={onExcelPick} className="mt-3 w-full" disabled={importing} />
               <div className="text-[11px] text-slate-400 mt-2">Tip: Column name “Lead Type” also works.</div>

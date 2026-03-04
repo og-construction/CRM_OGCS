@@ -1,5 +1,5 @@
 // src/components/admin/SettingsSection.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector, shallowEqual } from "react-redux";
 import Card from "./Card";
 import {
@@ -58,6 +58,7 @@ const CheckboxRow = ({ checked, onChange, title, desc, disabled }) => (
   <label
     className={cn(
       "flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3",
+      "transition",
       disabled ? "opacity-60" : "hover:bg-slate-50/70"
     )}
   >
@@ -66,7 +67,10 @@ const CheckboxRow = ({ checked, onChange, title, desc, disabled }) => (
       checked={!!checked}
       onChange={onChange}
       disabled={disabled}
-      className="mt-1 h-4 w-4 rounded border-slate-300"
+      className={cn(
+        "mt-1 h-4 w-4 rounded border-slate-300",
+        "accent-slate-900"
+      )}
     />
     <div className="min-w-0">
       <div className="text-sm font-semibold text-slate-800">{title}</div>
@@ -84,15 +88,41 @@ const Banner = ({ type = "success", children }) => {
       : "border-amber-200 bg-amber-50 text-amber-800";
 
   const Icon =
-    type === "success" ? FiCheckCircle : type === "error" ? FiAlertTriangle : FiAlertTriangle;
+    type === "success"
+      ? FiCheckCircle
+      : type === "error"
+      ? FiAlertTriangle
+      : FiAlertTriangle;
 
   return (
-    <div className={cn("mb-3 flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs", styles)}>
-      <Icon className="mt-0.5" />
+    <div
+      className={cn(
+        "mb-3 flex items-start gap-2 rounded-2xl border px-3 py-2",
+        "text-xs sm:text-sm",
+        styles
+      )}
+    >
+      <Icon className="mt-0.5 shrink-0" />
       <div className="font-semibold">{children}</div>
     </div>
   );
 };
+
+const SectionHeader = ({ icon: Icon, title, subtitle }) => (
+  <div className="flex items-start gap-3">
+    <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shrink-0">
+      <Icon />
+    </span>
+    <div className="min-w-0">
+      <div className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
+        {title}
+      </div>
+      {subtitle ? (
+        <div className="text-xs text-slate-500 mt-0.5">{subtitle}</div>
+      ) : null}
+    </div>
+  </div>
+);
 
 export default function SettingsSection() {
   const dispatch = useDispatch();
@@ -123,23 +153,29 @@ export default function SettingsSection() {
 
   const disabled = loading || saving || !form;
 
-  const onChange = (e) => {
+  const onChange = useCallback((e) => {
     const { name, type, value, checked } = e.target;
     setForm((p) => ({ ...p, [name]: type === "checkbox" ? checked : value }));
-  };
+  }, []);
 
-  const onListChange = (name, val) => {
+  const onListChange = useCallback((name, val) => {
     const arr = String(val || "")
       .split(",")
       .map((x) => x.trim())
       .filter(Boolean);
     setForm((p) => ({ ...p, [name]: arr }));
-  };
+  }, []);
 
-  const leadSourcesText = useMemo(() => (form?.leadSources || []).join(", "), [form?.leadSources]);
-  const leadStatusesText = useMemo(() => (form?.leadStatuses || []).join(", "), [form?.leadStatuses]);
+  const leadSourcesText = useMemo(
+    () => (form?.leadSources || []).join(", "),
+    [form?.leadSources]
+  );
+  const leadStatusesText = useMemo(
+    () => (form?.leadStatuses || []).join(", "),
+    [form?.leadStatuses]
+  );
 
-  const save = () => {
+  const save = useCallback(() => {
     if (!form) return;
     const payload = {
       ...form,
@@ -147,7 +183,7 @@ export default function SettingsSection() {
       maxQuotesPerDay: Number(form.maxQuotesPerDay || 0),
     };
     dispatch(saveAdminSettings(payload));
-  };
+  }, [dispatch, form]);
 
   return (
     <div className="space-y-4">
@@ -155,11 +191,13 @@ export default function SettingsSection() {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700">
               <FiSettings />
             </span>
-            <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900">System Settings</h1>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 truncate">
+                System Settings
+              </h1>
               <p className="text-xs sm:text-sm text-slate-500">
                 Configure leads, documents, approvals, and notifications.
               </p>
@@ -172,7 +210,11 @@ export default function SettingsSection() {
             type="button"
             onClick={() => dispatch(fetchAdminSettings())}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white",
+              "px-4 py-2 text-xs sm:text-sm font-bold text-slate-800",
+              "hover:bg-slate-50 disabled:opacity-50 transition"
+            )}
           >
             <FiRefreshCw />
             Reload
@@ -182,7 +224,11 @@ export default function SettingsSection() {
             type="button"
             onClick={save}
             disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+            className={cn(
+              "inline-flex items-center gap-2 rounded-xl bg-slate-900",
+              "px-4 py-2 text-xs sm:text-sm font-bold text-white",
+              "hover:bg-slate-800 disabled:opacity-50 transition"
+            )}
           >
             <FiSave />
             {saving ? "Saving..." : "Save"}
@@ -209,64 +255,92 @@ export default function SettingsSection() {
           {/* Content grid */}
           <div className="grid gap-4 lg:grid-cols-2">
             {/* Leads */}
-            <Card title="Leads Settings">
+            <Card
+              title="Leads Settings"
+              subtitle="Manage source/status lists and defaults"
+              className="p-4 sm:p-5"
+              bodyClassName="mt-4"
+            >
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
-                    <FiSliders />
-                  </span>
-                  <div className="text-sm font-extrabold text-slate-900">Leads</div>
-                </div>
+                <SectionHeader
+                  icon={FiSliders}
+                  title="Leads"
+                  subtitle="Keep naming consistent across the team"
+                />
 
-                <div>
-                  <FieldLabel>Lead Sources</FieldLabel>
-                  <Input
-                    value={leadSourcesText}
-                    onChange={(e) => onListChange("leadSources", e.target.value)}
-                    placeholder="Manual, Website, Referral, WhatsApp, ..."
-                    disabled={saving}
-                  />
-                  <HelpText>Comma-separated. Example: Manual, Referral, Website</HelpText>
-                </div>
+                <div className="grid gap-3">
+                  <div>
+                    <FieldLabel>Lead Sources</FieldLabel>
+                    <Input
+                      value={leadSourcesText}
+                      onChange={(e) => onListChange("leadSources", e.target.value)}
+                      placeholder="Manual, Website, Referral, WhatsApp, ..."
+                      disabled={saving}
+                    />
+                    <HelpText>Comma-separated. Example: Manual, Referral, Website</HelpText>
+                  </div>
 
-                <div>
-                  <FieldLabel>Lead Statuses</FieldLabel>
-                  <Input
-                    value={leadStatusesText}
-                    onChange={(e) => onListChange("leadStatuses", e.target.value)}
-                    placeholder="New, Follow-Up, Closed, Converted"
-                    disabled={saving}
-                  />
-                  <HelpText>Comma-separated. Keep values consistent across team.</HelpText>
-                </div>
+                  <div>
+                    <FieldLabel>Lead Statuses</FieldLabel>
+                    <Input
+                      value={leadStatusesText}
+                      onChange={(e) => onListChange("leadStatuses", e.target.value)}
+                      placeholder="New, Follow-Up, Closed, Converted"
+                      disabled={saving}
+                    />
+                    <HelpText>Comma-separated. Keep values consistent across team.</HelpText>
+                  </div>
 
-                <div>
-                  <FieldLabel>Default Lead Status</FieldLabel>
-                  <Select
-                    name="defaultLeadStatus"
-                    value={form.defaultLeadStatus || "New"}
-                    onChange={onChange}
-                    disabled={saving || !(form.leadStatuses || []).length}
-                  >
-                    {(form.leadStatuses || []).map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <FieldLabel>Default Lead Status</FieldLabel>
+                      <Select
+                        name="defaultLeadStatus"
+                        value={form.defaultLeadStatus || "New"}
+                        onChange={onChange}
+                        disabled={saving || !(form.leadStatuses || []).length}
+                      >
+                        {(form.leadStatuses || []).map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </Select>
+                      <HelpText>Used when creating a new lead.</HelpText>
+                    </div>
+
+                    <div>
+                      <FieldLabel>Require Quote Approval</FieldLabel>
+                      <div className="mt-1">
+                        <CheckboxRow
+                          checked={!!form.requireQuoteApproval}
+                          onChange={(e) =>
+                            setForm((p) => ({ ...p, requireQuoteApproval: e.target.checked }))
+                          }
+                          title="Approval required"
+                          desc="Sales cannot finalize without admin action."
+                          disabled={saving}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>
 
             {/* Quote/Invoice */}
-            <Card title="Quotation & Invoice Settings">
+            <Card
+              title="Quotation & Invoice Settings"
+              subtitle="Prefixes, tax and currency defaults"
+              className="p-4 sm:p-5"
+              bodyClassName="mt-4"
+            >
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
-                    <FiFileText />
-                  </span>
-                  <div className="text-sm font-extrabold text-slate-900">Documents</div>
-                </div>
+                <SectionHeader
+                  icon={FiFileText}
+                  title="Documents"
+                  subtitle="Standardize document numbering and tax defaults"
+                />
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
@@ -304,6 +378,7 @@ export default function SettingsSection() {
                       step="0.01"
                       disabled={saving}
                     />
+                    <HelpText>Used as default tax for new documents.</HelpText>
                   </div>
 
                   <div>
@@ -318,58 +393,60 @@ export default function SettingsSection() {
                       <option value="USD">USD ($)</option>
                       <option value="AED">AED</option>
                     </Select>
+                    <HelpText>Shown in documents & totals.</HelpText>
                   </div>
                 </div>
               </div>
             </Card>
 
             {/* Approval & Limits */}
-            <Card title="Approval & Limits">
+            <Card
+              title="Approval & Limits"
+              subtitle="Control usage and security rules"
+              className="p-4 sm:p-5"
+              bodyClassName="mt-4"
+            >
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
-                    <FiShield />
-                  </span>
-                  <div className="text-sm font-extrabold text-slate-900">Controls</div>
-                </div>
-
-                <CheckboxRow
-                  checked={!!form.requireQuoteApproval}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, requireQuoteApproval: e.target.checked }))
-                  }
-                  title="Require admin approval for quotations/invoices"
-                  desc="If enabled, sales team cannot finalize without admin action."
-                  disabled={saving}
+                <SectionHeader
+                  icon={FiShield}
+                  title="Controls"
+                  subtitle="Prevent misuse and keep operations predictable"
                 />
 
-                <div>
-                  <FieldLabel>Max Quotes per Day (per Sales Executive)</FieldLabel>
-                  <Input
-                    type="number"
-                    name="maxQuotesPerDay"
-                    value={form.maxQuotesPerDay ?? 0}
-                    onChange={onChange}
-                    min={0}
-                    step="1"
-                    disabled={saving}
-                  />
-                  <HelpText>Use 0 for unlimited.</HelpText>
+                <div className="grid gap-3">
+                  <div>
+                    <FieldLabel>Max Quotes per Day (per Sales Executive)</FieldLabel>
+                    <Input
+                      type="number"
+                      name="maxQuotesPerDay"
+                      value={form.maxQuotesPerDay ?? 0}
+                      onChange={onChange}
+                      min={0}
+                      step="1"
+                      disabled={saving}
+                    />
+                    <HelpText>Use 0 for unlimited.</HelpText>
+                  </div>
                 </div>
               </div>
             </Card>
 
             {/* Notifications */}
-            <Card title="Notifications">
+            <Card
+              title="Notifications"
+              subtitle="Email alerts and workflow messages"
+              className="p-4 sm:p-5"
+              bodyClassName="mt-4"
+            >
               <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700">
-                    <FiBell />
-                  </span>
-                  <div className="text-sm font-extrabold text-slate-900">Alerts</div>
-                </div>
+                <SectionHeader
+                  icon={FiBell}
+                  title="Alerts"
+                  subtitle="Keep admin/sales informed automatically"
+                />
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                {/* ✅ Better responsive layout: 1 col on mobile, 2 cols on md+ */}
+                <div className="grid gap-3 md:grid-cols-2">
                   <CheckboxRow
                     checked={!!form.emailNotifications}
                     onChange={(e) =>
@@ -399,6 +476,10 @@ export default function SettingsSection() {
                     desc="Sales gets alert when admin approves/rejects."
                     disabled={saving}
                   />
+                </div>
+
+                <div className="text-[11px] text-slate-500">
+                  Tip: Keep “Enable email notifications” ON, otherwise individual toggles won’t matter.
                 </div>
               </div>
             </Card>

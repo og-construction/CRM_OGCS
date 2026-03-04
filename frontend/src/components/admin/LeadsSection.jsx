@@ -19,10 +19,12 @@ const cn = (...a) => a.filter(Boolean).join(" ");
 
 const statusBadge = (status = "") => {
   const s = String(status).toLowerCase();
-  const base = "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold";
+  const base =
+    "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold";
   if (s === "converted") return `${base} bg-green-100 text-green-800`;
   if (s === "closed") return `${base} bg-slate-200 text-slate-800`;
-  if (s === "follow-up" || s === "followup") return `${base} bg-amber-100 text-amber-800`;
+  if (s === "follow-up" || s === "followup")
+    return `${base} bg-amber-100 text-amber-800`;
   if (s === "new") return `${base} bg-blue-100 text-blue-800`;
   return `${base} bg-slate-100 text-slate-700`;
 };
@@ -155,12 +157,20 @@ export default function LeadsSection() {
 
         return hay.includes(query);
       })
-      .sort((a, b) => new Date(b?.updatedAt || 0) - new Date(a?.updatedAt || 0));
+      .sort(
+        (a, b) => new Date(b?.updatedAt || 0) - new Date(a?.updatedAt || 0)
+      );
   }, [leads, q, status, source]);
 
   // pagination
-  const pages = useMemo(() => Math.max(1, Math.ceil(filtered.length / limit)), [filtered.length, limit]);
-  const safePage = useMemo(() => Math.min(Math.max(page, 1), pages), [page, pages]);
+  const pages = useMemo(
+    () => Math.max(1, Math.ceil(filtered.length / limit)),
+    [filtered.length, limit]
+  );
+  const safePage = useMemo(
+    () => Math.min(Math.max(page, 1), pages),
+    [page, pages]
+  );
 
   useEffect(() => {
     setPage(1);
@@ -189,34 +199,68 @@ export default function LeadsSection() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  return (
-    <div className="min-h-[70vh] bg-slate-50 p-4 md:p-6 space-y-4">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">Leads Management</h2>
-          <p className="text-xs sm:text-sm text-slate-600">
-            Search, filter, and review leads quickly.
-          </p>
+  // ✅ small derived stats (UI only)
+  const stats = useMemo(
+    () => ({
+      total: filtered.length,
+      showing: displayed.length,
+      updated: fmtDate(leads?.[0]?.updatedAt),
+    }),
+    [filtered.length, displayed.length, leads]
+  );
 
-          <div className="mt-2 flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
-              <FiFilter />
-              Status: <span className="font-semibold text-slate-900">{status}</span>
-            </span>
-            <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
-              Source: <span className="font-semibold text-slate-900">{source}</span>
-            </span>
-            <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
-              Total: <span className="font-semibold text-slate-900">{filtered.length}</span>
-            </span>
+  return (
+    <div className="min-h-[70vh] bg-slate-50 p-3 sm:p-4 md:p-6 space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center shrink-0">
+              <FiFilter className="text-slate-700" />
+            </div>
+
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 truncate">
+                Leads Management
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600">
+                Search, filter, and review leads quickly.
+              </p>
+
+              {/* Pills */}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+                  <FiFilter />
+                  Status:{" "}
+                  <span className="font-semibold text-slate-900">{status}</span>
+                </span>
+
+                <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+                  Source:{" "}
+                  <span className="font-semibold text-slate-900">{source}</span>
+                </span>
+
+                <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+                  Total:{" "}
+                  <span className="font-semibold text-slate-900">
+                    {stats.total}
+                  </span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 sm:justify-end">
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:justify-end">
           <button
             onClick={fetchLeads}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 transition inline-flex items-center gap-2"
+            className={cn(
+              "rounded-xl border border-slate-200 bg-white",
+              "px-4 py-2 text-xs sm:text-sm font-bold text-slate-800",
+              "hover:bg-slate-50 transition inline-flex items-center justify-center gap-2",
+              "w-full sm:w-auto"
+            )}
           >
             <FiRefreshCw />
             Refresh
@@ -224,7 +268,12 @@ export default function LeadsSection() {
 
           <button
             onClick={() => alert("Connect this to your Create Lead form/page")}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-slate-800 transition inline-flex items-center gap-2"
+            className={cn(
+              "rounded-xl bg-slate-900 px-4 py-2",
+              "text-xs sm:text-sm font-bold text-white hover:bg-slate-800 transition",
+              "inline-flex items-center justify-center gap-2",
+              "w-full sm:w-auto"
+            )}
           >
             <FiPlus />
             New Lead
@@ -232,42 +281,75 @@ export default function LeadsSection() {
 
           <button
             onClick={() => setFiltersOpen((v) => !v)}
-            className="sm:hidden rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition inline-flex items-center gap-2"
+            className={cn(
+              "lg:hidden rounded-xl border border-slate-200 bg-white",
+              "px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition",
+              "inline-flex items-center justify-center gap-2",
+              "w-full sm:w-auto"
+            )}
           >
             <FiFilter />
-            Filters
+            {filtersOpen ? "Hide Filters" : "Filters"}
           </button>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters (Responsive) */}
       <div
         className={cn(
-          "rounded-2xl bg-white p-4 border border-slate-100 shadow-sm",
+          "rounded-2xl bg-white border border-slate-200/70 shadow-sm ring-1 ring-black/5",
+          "p-4 sm:p-5",
           "grid gap-3",
-          "md:grid-cols-4",
-          filtersOpen ? "block" : "hidden sm:grid"
+          "lg:grid-cols-12 lg:items-end",
+          filtersOpen ? "block" : "hidden lg:grid"
         )}
       >
-        <div className="md:col-span-2">
+        {/* Search */}
+        <div className="lg:col-span-6">
           <label className="text-xs font-bold text-slate-600 flex items-center gap-2">
             <FiSearch /> Search
           </label>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Name / Company / Phone / City / Description…"
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
-          />
-          <div className="mt-1 text-[11px] text-slate-400">Auto-search (350ms).</div>
+
+          <div className="mt-1 relative">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Name / Company / Phone / City / Description…"
+              className={cn(
+                "w-full rounded-xl border border-slate-200 bg-white",
+                "pl-10 pr-10 py-2 text-sm outline-none",
+                "focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+              )}
+            />
+
+            {q ? (
+              <button
+                type="button"
+                onClick={() => setQ("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg hover:bg-slate-100"
+                aria-label="Clear search"
+              >
+                <FiX className="text-slate-500" />
+              </button>
+            ) : null}
+          </div>
+
+          <div className="mt-1 text-[11px] text-slate-400">
+            Auto-search (350ms).
+          </div>
         </div>
 
-        <div>
+        {/* Status */}
+        <div className="lg:col-span-3">
           <label className="text-xs font-bold text-slate-600">Status</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+            className={cn(
+              "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none",
+              "focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            )}
           >
             {uniqueStatuses.map((s) => (
               <option key={s} value={s}>
@@ -277,12 +359,16 @@ export default function LeadsSection() {
           </select>
         </div>
 
-        <div>
+        {/* Source */}
+        <div className="lg:col-span-3">
           <label className="text-xs font-bold text-slate-600">Source</label>
           <select
             value={source}
             onChange={(e) => setSource(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+            className={cn(
+              "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none",
+              "focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+            )}
           >
             {uniqueSources.map((s) => (
               <option key={s} value={s}>
@@ -292,51 +378,65 @@ export default function LeadsSection() {
           </select>
         </div>
 
-        <div className="md:col-span-4 flex flex-wrap items-center justify-between gap-2 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-600">Rows</span>
-            <select
-              value={limit}
-              onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+        {/* Bottom controls */}
+        <div className="lg:col-span-12 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">Rows</span>
+              <select
+                value={limit}
+                onChange={(e) => setLimit(parseInt(e.target.value, 10))}
+                className={cn(
+                  "rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none",
+                  "focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                )}
+              >
+                {[10, 20, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => {
+                setQ("");
+                setStatus("All");
+                setSource("All");
+              }}
+              className={cn(
+                "rounded-xl border border-slate-200 bg-white px-4 py-2",
+                "text-xs font-bold text-slate-800 hover:bg-slate-50 transition",
+                "inline-flex items-center justify-center gap-2"
+              )}
             >
-              {[10, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+              <FiX />
+              Reset
+            </button>
           </div>
 
-          <button
-            onClick={() => {
-              setQ("");
-              setStatus("All");
-              setSource("All");
-            }}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 transition inline-flex items-center gap-2"
-          >
-            <FiX />
-            Reset
-          </button>
+          {/* Mobile hint */}
+          <div className="text-[11px] text-slate-400">
+            Tip: Use filters to narrow results faster.
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+      <div className="rounded-2xl bg-white border border-slate-200/70 shadow-sm ring-1 ring-black/5 overflow-hidden">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 p-4">
           <p className="text-sm text-slate-600">
             Showing{" "}
-            <span className="font-semibold text-slate-900">{displayed.length}</span>{" "}
-            of <span className="font-semibold text-slate-900">{filtered.length}</span>
+            <span className="font-semibold text-slate-900">{stats.showing}</span>{" "}
+            of{" "}
+            <span className="font-semibold text-slate-900">{stats.total}</span>
           </p>
 
           {error ? (
             <span className="text-sm font-semibold text-red-600">{error}</span>
           ) : (
-            <span className="text-xs text-slate-500">
-              Updated: {fmtDate(leads?.[0]?.updatedAt)}
-            </span>
+            <span className="text-xs text-slate-500">Updated: {stats.updated}</span>
           )}
         </div>
 
@@ -348,7 +448,7 @@ export default function LeadsSection() {
             <div className="p-6 text-sm text-slate-600">No leads found.</div>
           ) : (
             <table className="min-w-[980px] w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-bold text-slate-600">
+              <thead className="bg-slate-50 text-xs font-bold text-slate-600 sticky top-0">
                 <tr>
                   <th className="px-4 py-3">Lead</th>
                   <th className="px-4 py-3">Phone</th>
@@ -358,25 +458,31 @@ export default function LeadsSection() {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Assigned</th>
                   <th className="px-4 py-3">Updated</th>
-                  <th className="px-4 py-3">Action</th>
+                  <th className="px-4 py-3 w-[120px]">Action</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
                 {displayed.map((l) => (
                   <tr key={l._id} className="hover:bg-slate-50/70">
-                    <td className="px-4 py-3">
-                      <div className="font-bold text-slate-900">{l?.name || "—"}</div>
-                      <div className="text-xs text-slate-600">{l?.company || "—"}</div>
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-bold text-slate-900">
+                        {l?.name || "—"}
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        {l?.company || "—"}
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {pill(l?.email)}
                         {pill(l?.leadType)}
                       </div>
                     </td>
 
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{l?.phone || "—"}</div>
-                      <div className="mt-2 flex gap-2">
+                    <td className="px-4 py-3 align-top">
+                      <div className="font-semibold text-slate-900">
+                        {l?.phone || "—"}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <a
                           className="rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 inline-flex items-center gap-2"
                           href={l?.phone ? `tel:${l.phone}` : undefined}
@@ -396,28 +502,39 @@ export default function LeadsSection() {
                       </div>
                     </td>
 
-                    <td className="px-4 py-3">{l?.city || "—"}</td>
+                    <td className="px-4 py-3 align-top">{l?.city || "—"}</td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <div className="max-w-[280px] text-slate-800 line-clamp-2">
-                        {l?.descriptionText || l?.description || l?.requirement || "—"}
+                        {l?.descriptionText ||
+                          l?.description ||
+                          l?.requirement ||
+                          "—"}
                       </div>
                     </td>
 
-                    <td className="px-4 py-3">{pill(l?.source)}</td>
+                    <td className="px-4 py-3 align-top">{pill(l?.source)}</td>
 
-                    <td className="px-4 py-3">
-                      <span className={statusBadge(l?.status)}>{l?.status || "—"}</span>
+                    <td className="px-4 py-3 align-top">
+                      <span className={statusBadge(l?.status)}>
+                        {l?.status || "—"}
+                      </span>
                     </td>
 
-                    <td className="px-4 py-3">{pickName(l?.assignedTo)}</td>
+                    <td className="px-4 py-3 align-top">
+                      {pickName(l?.assignedTo)}
+                    </td>
 
-                    <td className="px-4 py-3">{fmtDate(l?.updatedAt)}</td>
+                    <td className="px-4 py-3 align-top">{fmtDate(l?.updatedAt)}</td>
 
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-top">
                       <button
                         onClick={() => openDrawer(l)}
-                        className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 transition inline-flex items-center gap-2"
+                        className={cn(
+                          "rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white",
+                          "hover:bg-slate-800 transition inline-flex items-center gap-2",
+                          "focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        )}
                       >
                         <FiEye />
                         View
@@ -442,11 +559,17 @@ export default function LeadsSection() {
                 <div key={l._id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-sm font-bold text-slate-900 truncate">{l?.name || "—"}</div>
-                      <div className="text-xs text-slate-600 truncate">{l?.company || "—"}</div>
+                      <div className="text-sm font-bold text-slate-900 truncate">
+                        {l?.name || "—"}
+                      </div>
+                      <div className="text-xs text-slate-600 truncate">
+                        {l?.company || "—"}
+                      </div>
 
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <span className={statusBadge(l?.status)}>{l?.status || "—"}</span>
+                        <span className={statusBadge(l?.status)}>
+                          {l?.status || "—"}
+                        </span>
                         {pill(l?.source)}
                         {pill(l?.leadType)}
                       </div>
@@ -454,39 +577,60 @@ export default function LeadsSection() {
 
                     <button
                       onClick={() => openDrawer(l)}
-                      className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 transition inline-flex items-center gap-2"
+                      className={cn(
+                        "shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white",
+                        "hover:bg-slate-800 transition inline-flex items-center gap-2",
+                        "focus:outline-none focus:ring-2 focus:ring-slate-300"
+                      )}
                     >
                       <FiEye />
                       View
                     </button>
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                       <div className="text-slate-500">Phone</div>
-                      <div className="font-semibold text-slate-900">{l?.phone || "—"}</div>
+                      <div className="font-semibold text-slate-900">
+                        {l?.phone || "—"}
+                      </div>
                     </div>
                     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
                       <div className="text-slate-500">City</div>
-                      <div className="font-semibold text-slate-900">{l?.city || "—"}</div>
+                      <div className="font-semibold text-slate-900">
+                        {l?.city || "—"}
+                      </div>
                     </div>
                   </div>
 
                   <div className="mt-3 text-xs text-slate-500">
                     <span className="font-semibold text-slate-700">Note:</span>{" "}
-                    {l?.descriptionText || l?.description || l?.requirement || "—"}
+                    <span className="text-slate-700">
+                      {l?.descriptionText ||
+                        l?.description ||
+                        l?.requirement ||
+                        "—"}
+                    </span>
                   </div>
 
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-3 flex flex-col sm:flex-row gap-2">
                     <a
-                      className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 inline-flex items-center justify-center gap-2"
+                      className={cn(
+                        "flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2",
+                        "text-xs font-bold text-slate-800 hover:bg-slate-50",
+                        "inline-flex items-center justify-center gap-2"
+                      )}
                       href={l?.phone ? `tel:${l.phone}` : undefined}
                       onClick={(e) => !l?.phone && e.preventDefault()}
                     >
                       <FiPhoneCall /> Call
                     </a>
                     <a
-                      className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50 inline-flex items-center justify-center gap-2"
+                      className={cn(
+                        "flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2",
+                        "text-xs font-bold text-slate-800 hover:bg-slate-50",
+                        "inline-flex items-center justify-center gap-2"
+                      )}
                       href={l?.phone ? `https://wa.me/91${l.phone}` : undefined}
                       target="_blank"
                       rel="noreferrer"
@@ -496,8 +640,9 @@ export default function LeadsSection() {
                     </a>
                   </div>
 
-                  <div className="mt-3 text-[11px] text-slate-400">
-                    Updated: {fmtDate(l?.updatedAt)} • Assigned: {pickName(l?.assignedTo)}
+                  <div className="mt-3 text-[11px] text-slate-400 flex flex-wrap gap-2 justify-between">
+                    <span>Updated: {fmtDate(l?.updatedAt)}</span>
+                    <span>Assigned: {pickName(l?.assignedTo)}</span>
                   </div>
                 </div>
               ))}
@@ -509,7 +654,8 @@ export default function LeadsSection() {
         <div className="border-t border-slate-100 p-3 sm:p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs sm:text-sm text-slate-600">
-              Page <span className="font-semibold text-slate-900">{safePage}</span> /{" "}
+              Page{" "}
+              <span className="font-semibold text-slate-900">{safePage}</span> /{" "}
               <span className="font-semibold text-slate-900">{pages}</span>
             </div>
 
@@ -517,14 +663,24 @@ export default function LeadsSection() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={safePage <= 1}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 transition inline-flex items-center gap-2"
+                className={cn(
+                  "rounded-xl border border-slate-200 bg-white px-3 py-2",
+                  "text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50",
+                  "disabled:opacity-50 transition inline-flex items-center gap-2",
+                  "focus:outline-none focus:ring-2 focus:ring-slate-200"
+                )}
               >
                 <FiChevronLeft /> Prev
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(pages, p + 1))}
                 disabled={safePage >= pages}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 transition inline-flex items-center gap-2"
+                className={cn(
+                  "rounded-xl border border-slate-200 bg-white px-3 py-2",
+                  "text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50",
+                  "disabled:opacity-50 transition inline-flex items-center gap-2",
+                  "focus:outline-none focus:ring-2 focus:ring-slate-200"
+                )}
               >
                 Next <FiChevronRight />
               </button>
@@ -534,7 +690,9 @@ export default function LeadsSection() {
       </div>
 
       {/* Drawer */}
-      {open && selected ? <LeadDrawer lead={selected} onClose={closeDrawer} /> : null}
+      {open && selected ? (
+        <LeadDrawer lead={selected} onClose={closeDrawer} />
+      ) : null}
     </div>
   );
 }
@@ -551,13 +709,29 @@ function LeadDrawer({ lead, onClose }) {
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
       />
 
-      <div className="absolute right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-2xl border-l border-slate-100 flex flex-col">
-        <div className="p-4 border-b border-slate-100 flex items-start justify-between gap-3">
+      {/* ✅ responsive drawer: bottom sheet on mobile, side drawer on sm+ */}
+      <div
+        className={cn(
+          "absolute bg-white shadow-2xl border-slate-100 flex flex-col",
+          // mobile bottom sheet
+          "left-0 right-0 bottom-0 max-h-[88vh] rounded-t-3xl border-t",
+          // sm+ right drawer
+          "sm:top-0 sm:bottom-0 sm:left-auto sm:right-0 sm:h-full sm:max-h-none",
+          "sm:w-full sm:max-w-[520px] sm:rounded-none sm:border-l sm:border-t-0"
+        )}
+      >
+        <div className="p-4 sm:p-5 border-b border-slate-100 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-base sm:text-lg font-bold text-slate-900 truncate">{lead?.name || "Lead Details"}</div>
-            <div className="text-xs sm:text-sm text-slate-600 truncate">{lead?.company || "—"}</div>
+            <div className="text-base sm:text-lg font-bold text-slate-900 truncate">
+              {lead?.name || "Lead Details"}
+            </div>
+            <div className="text-xs sm:text-sm text-slate-600 truncate">
+              {lead?.company || "—"}
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className={statusBadge(lead?.status)}>{lead?.status || "—"}</span>
+              <span className={statusBadge(lead?.status)}>
+                {lead?.status || "—"}
+              </span>
               {pill(lead?.source)}
               {pill(lead?.leadType)}
             </div>
@@ -565,14 +739,19 @@ function LeadDrawer({ lead, onClose }) {
 
           <button
             onClick={onClose}
-            className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 transition inline-flex items-center gap-2"
+            className={cn(
+              "shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2",
+              "text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 transition",
+              "inline-flex items-center gap-2",
+              "focus:outline-none focus:ring-2 focus:ring-slate-200"
+            )}
           >
             <FiX />
             Close
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           <Section title="Basic Information">
             <GridRow label="Phone" value={lead?.phone} />
             <GridRow label="Email" value={lead?.email} />
@@ -581,7 +760,7 @@ function LeadDrawer({ lead, onClose }) {
           </Section>
 
           <Section title="Description / Requirement">
-            <div className="text-sm text-slate-800 whitespace-pre-wrap">
+            <div className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
               {lead?.descriptionText || lead?.description || lead?.requirement || "—"}
             </div>
           </Section>
@@ -592,10 +771,14 @@ function LeadDrawer({ lead, onClose }) {
           </Section>
         </div>
 
-        <div className="p-4 border-t border-slate-100">
-          <div className="flex gap-2">
+        <div className="p-4 sm:p-5 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row gap-2">
             <a
-              className="flex-1 rounded-xl bg-slate-900 px-4 py-3 text-center text-xs sm:text-sm font-bold text-white hover:bg-slate-800 transition inline-flex items-center justify-center gap-2"
+              className={cn(
+                "flex-1 rounded-xl bg-slate-900 px-4 py-3 text-center",
+                "text-xs sm:text-sm font-bold text-white hover:bg-slate-800 transition",
+                "inline-flex items-center justify-center gap-2"
+              )}
               href={lead?.phone ? `tel:${lead.phone}` : undefined}
               onClick={(e) => !lead?.phone && e.preventDefault()}
             >
@@ -603,7 +786,11 @@ function LeadDrawer({ lead, onClose }) {
               Call
             </a>
             <a
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 transition inline-flex items-center justify-center gap-2"
+              className={cn(
+                "flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-center",
+                "text-xs sm:text-sm font-bold text-slate-800 hover:bg-slate-50 transition",
+                "inline-flex items-center justify-center gap-2"
+              )}
               href={lead?.phone ? `https://wa.me/91${lead.phone}` : undefined}
               target="_blank"
               rel="noreferrer"
@@ -612,6 +799,10 @@ function LeadDrawer({ lead, onClose }) {
               <FiMessageCircle />
               WhatsApp
             </a>
+          </div>
+
+          <div className="mt-3 text-[11px] text-slate-400">
+            Tip: On mobile, this opens as a bottom sheet for better usability.
           </div>
         </div>
       </div>
@@ -623,7 +814,7 @@ function LeadDrawer({ lead, onClose }) {
 
 function Section({ title, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
       <h4 className="mb-3 text-sm font-bold text-slate-900">{title}</h4>
       {children}
     </div>
@@ -633,9 +824,11 @@ function Section({ title, children }) {
 function GridRow({ label, value }) {
   const show = value === 0 ? "0" : value;
   return (
-    <div className="grid grid-cols-3 gap-3 py-2 text-sm">
-      <div className="col-span-1 font-bold text-slate-600">{label}</div>
-      <div className="col-span-2 text-slate-800">{show ? String(show) : "—"}</div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 py-2 text-sm">
+      <div className="font-bold text-slate-600">{label}</div>
+      <div className="sm:col-span-2 text-slate-800 break-words">
+        {show ? String(show) : "—"}
+      </div>
     </div>
   );
 }

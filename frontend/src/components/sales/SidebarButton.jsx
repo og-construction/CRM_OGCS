@@ -1,11 +1,11 @@
-// src/components/sales/SidebarButton.jsx
+// ✅ src/components/sales/SidebarButton.jsx
 import React from "react";
 
 /**
  * SidebarButton (UI-only update)
  * ✅ Uses ONLY allowed colors
  * ✅ Fully responsive (mobile/tablet/desktop)
- * ✅ Touch-friendly for all phones (Samsung/iPhone etc.)
+ * ✅ Touch-friendly (44px+ targets) for all phones
  * ❌ No logic changes
  */
 
@@ -16,62 +16,77 @@ const SidebarButton = ({ label, active, onClick }) => {
     <button
       type="button"
       onClick={onClick}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "group relative w-full text-left",
-        // spacing + tap target
-        "px-3 py-2.5 sm:px-4 sm:py-3",
-        // container
-        "rounded-2xl border border-slate-200",
-        // base transitions
+        "group relative w-full text-left select-none",
+        // ✅ Touch target (mobile first)
+        "min-h-[48px] px-3 py-3 sm:px-4 sm:py-3.5",
+        // ✅ Container + safe layout
+        "rounded-2xl border border-slate-200 overflow-hidden",
+        // ✅ Professional transitions
         "transition-all duration-200",
-        // accessibility
+        // ✅ Focus ring (accessibility)
         "focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-600/20",
-        // active press on touch devices
+        // ✅ Press feedback (touch)
         "active:scale-[0.99]",
-        // responsive text safety (no overflow on small screens)
-        "whitespace-normal break-words",
-        // states
+        // ✅ State colors
         active ? "bg-blue-600 text-white" : "bg-white text-slate-900 hover:bg-slate-50"
       )}
-      aria-current={active ? "page" : undefined}
     >
-      {/* Subtle background layer (no new colors) */}
+      {/* Subtle background layer (allowed palette only) */}
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300",
+          "pointer-events-none absolute inset-0",
+          "opacity-0 transition-opacity duration-200",
           active ? "opacity-100" : "group-hover:opacity-100"
         )}
       >
-        {/* keep within allowed palette using slate/blue only via opacity */}
-        <span className="absolute inset-0 rounded-2xl bg-slate-50 opacity-0 group-hover:opacity-100" />
-        <span className={cn("absolute inset-0 rounded-2xl", active ? "bg-slate-100 opacity-10" : "opacity-0")} />
+        {/* very light hover tint */}
+        <span className={cn("absolute inset-0", active ? "bg-slate-100/10" : "bg-slate-50")} />
       </span>
 
+      {/* Left accent bar (CRM feel) */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "absolute left-0 top-0 h-full w-1.5",
+          "transition-all duration-200",
+          active ? "bg-green-600" : "bg-slate-100 group-hover:bg-orange-500"
+        )}
+      />
+
       <span className="relative flex items-center gap-3">
-        {/* Left indicator */}
+        {/* Status dot */}
         <span
           aria-hidden="true"
           className={cn(
-            "relative h-3 w-3 shrink-0 rounded-full",
+            "relative shrink-0 rounded-full",
+            // responsive dot size
+            "h-3 w-3 sm:h-3.5 sm:w-3.5",
+            // ring + transitions
             "ring-4 ring-transparent transition-all duration-200",
             active
               ? "bg-green-600 ring-green-600/20"
               : "bg-slate-400 group-hover:bg-orange-500 group-hover:ring-orange-500/20"
           )}
         >
-          {active ? <span className="absolute inset-0 rounded-full animate-ping bg-green-600/50" /> : null}
+          {active ? (
+            <span className="absolute inset-0 rounded-full animate-ping bg-green-600/50" />
+          ) : null}
         </span>
 
-        {/* Label area */}
+        {/* Text */}
         <span className="min-w-0 flex-1">
           <span
             className={cn(
-              "block font-extrabold tracking-tight",
-              // responsive font sizing
+              "block font-extrabold tracking-tight leading-tight",
+              // ✅ responsive sizing
               "text-[13px] sm:text-[14px] md:text-[15px]",
-              // prevent overflow on tiny phones
-              "truncate sm:whitespace-normal sm:break-words",
+              // ✅ safe wrapping on tiny phones
+              "break-words",
+              // ✅ nicer truncation only on larger screens
+              "sm:line-clamp-2",
               active ? "text-white" : "text-slate-900"
             )}
             title={typeof label === "string" ? label : undefined}
@@ -79,30 +94,25 @@ const SidebarButton = ({ label, active, onClick }) => {
             {label}
           </span>
 
-          {/* helper text (hidden on very tiny screens) */}
+          {/* Helper text: hide on very small, show from sm */}
           <span
             className={cn(
-              "mt-0.5 block",
-              "text-[11px] sm:text-[12px]",
-              "text-slate-600",
-              "group-hover:text-slate-900",
-              // compact on xs devices
-              "hidden xs:block",
-              active ? "text-white/80" : "text-slate-600"
+              "mt-0.5 hidden sm:block text-[12px] leading-snug",
+              active ? "text-white/80" : "text-slate-600 group-hover:text-slate-900"
             )}
           >
             Tap to open
           </span>
         </span>
 
-        {/* Right action (touch-safe, never overflow) */}
+        {/* Right chevron (44px touch safe, never overflow) */}
         <span
           aria-hidden="true"
           className={cn(
             "shrink-0 inline-flex items-center justify-center",
-            // responsive size: slightly bigger on desktop
-            "h-9 w-9 sm:h-9 sm:w-9 md:h-10 md:w-10",
-            "rounded-xl border border-slate-200",
+            // ✅ touch target
+            "h-11 w-11 sm:h-10 sm:w-10",
+            "rounded-2xl border border-slate-200",
             "transition-all duration-200",
             active
               ? "bg-white text-blue-600"

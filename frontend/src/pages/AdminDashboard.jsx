@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../store/slices/authSlice";
 
@@ -136,49 +136,62 @@ export default function AdminDashboard() {
     }
   }, [activeTab, reportsTab]);
 
+  // ✅ Close sidebar on ESC (mobile UX)
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* ✅ TOP BAR (mobile + desktop) */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-100">
-        <div className="px-4 md:px-6 py-3 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 bg-white border-b border-slate-200">
+        <div className="px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           {/* Left */}
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+              className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition"
               aria-label="Open menu"
             >
-              <FiMenu className="text-lg text-slate-700" />
+              <FiMenu className="text-lg text-slate-600" />
             </button>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <h1 className="text-base md:text-lg font-bold text-slate-800 truncate">
+                <h1 className="text-base md:text-lg font-extrabold text-slate-900 truncate">
                   OGCS CRM
                 </h1>
-                <span className="hidden sm:inline-flex text-[10px] md:text-xs px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600">
+                <span className="hidden sm:inline-flex text-[10px] md:text-xs px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 font-semibold">
                   Admin
                 </span>
               </div>
-              <p className="text-xs text-slate-500 truncate">
-                {pageTitle}
-              </p>
+              <p className="text-xs text-slate-400 truncate">{pageTitle}</p>
             </div>
           </div>
 
           {/* Right */}
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden sm:block text-right leading-tight">
-              <p className="text-xs text-slate-500">Logged in as</p>
-              <p className="text-sm font-semibold text-slate-800 truncate max-w-[220px] md:max-w-[320px]">
-                {user?.name || "Admin"}
-              </p>
+            <div className="hidden sm:flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-900 font-extrabold">
+                {(user?.name?.[0] || "A").toUpperCase()}
+              </div>
+              <div className="text-right leading-tight min-w-0">
+                <p className="text-xs text-slate-400">Logged in as</p>
+                <p className="text-sm font-semibold text-slate-900 truncate max-w-[220px] md:max-w-[320px]">
+                  {user?.name || "Admin"}
+                </p>
+              </div>
             </div>
 
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl border border-red-200 text-red-600 bg-white hover:bg-red-50 transition text-xs md:text-sm"
+              className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-2xl border border-red-500/30 text-red-500 bg-white hover:bg-slate-50 transition text-xs md:text-sm font-semibold"
             >
               <FiLogOut />
               <span className="hidden sm:inline">Logout</span>
@@ -190,7 +203,7 @@ export default function AdminDashboard() {
       {/* ✅ LAYOUT */}
       <div className="flex">
         {/* ✅ Desktop sidebar */}
-        <aside className="hidden md:flex w-72 lg:w-80 shrink-0 h-[calc(100vh-57px)] sticky top-[57px] border-r border-slate-100 bg-white">
+        <aside className="hidden md:flex w-72 lg:w-80 shrink-0 h-[calc(100vh-60px)] sticky top-[60px] border-r border-slate-200 bg-white">
           <Sidebar
             user={user}
             menu={menu}
@@ -205,9 +218,9 @@ export default function AdminDashboard() {
 
         {/* ✅ Main */}
         <main className="flex-1 min-w-0">
-          {/* ✅ Content wrapper (better spacing on all devices) */}
           <div className="p-3 sm:p-4 md:p-6">
-            <div className="bg-white border border-slate-100 rounded-2xl shadow-sm">
+            {/* ✅ Better content container for all devices */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
               <div className="p-3 sm:p-4 md:p-6">{content}</div>
             </div>
           </div>
@@ -224,18 +237,20 @@ export default function AdminDashboard() {
           />
 
           {/* Drawer */}
-          <div className="fixed inset-y-0 left-0 z-50 w-[86%] max-w-sm bg-white border-r border-slate-100 shadow-xl md:hidden">
-            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-slate-800">OGCS CRM</h2>
-                <p className="text-xs text-slate-500">Admin Dashboard</p>
+          <div className="fixed inset-y-0 left-0 z-50 w-[88%] max-w-sm bg-white border-r border-slate-200 shadow-xl md:hidden">
+            <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="min-w-0">
+                <h2 className="text-base font-extrabold text-slate-900 truncate">
+                  OGCS CRM
+                </h2>
+                <p className="text-xs text-slate-400 truncate">Admin Dashboard</p>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition"
                 aria-label="Close menu"
               >
-                <FiX className="text-lg text-slate-700" />
+                <FiX className="text-lg text-slate-600" />
               </button>
             </div>
 
@@ -258,7 +273,7 @@ export default function AdminDashboard() {
 }
 
 /* -------------------------------------------
-   Sidebar Component
+   Sidebar Component (Professional + Responsive)
 ------------------------------------------- */
 function Sidebar({
   user,
@@ -273,6 +288,24 @@ function Sidebar({
 }) {
   return (
     <div className="flex flex-col w-full h-full">
+      {/* ✅ Mobile profile section */}
+      {isMobile ? (
+        <div className="px-4 py-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-900 font-extrabold">
+              {(user?.name?.[0] || "A").toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-slate-400">Logged in as</div>
+              <div className="text-sm font-semibold text-slate-900 truncate">
+                {user?.name || "Admin"}
+              </div>
+              <div className="text-xs text-slate-400 truncate">{user?.email || ""}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Nav */}
       <nav className={cn("flex-1 px-3 py-4 space-y-1", isMobile && "overflow-auto")}>
         {menu.map((item) => {
@@ -289,7 +322,6 @@ function Sidebar({
                   active={isActive}
                   rightIcon={reportsOpen ? FiChevronDown : FiChevronRight}
                   onClick={() => {
-                    // toggle open but keep active
                     if (activeTab !== "reports") onNavigate("reports");
                     else setReportsOpen((v) => !v);
                   }}
@@ -327,34 +359,37 @@ function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-4 border-t border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold">
+      <div className="px-4 py-4 border-t border-slate-200">
+        <div className="hidden md:flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-900 font-extrabold">
             {(user?.name?.[0] || "A").toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="text-xs text-slate-500">Logged in as</p>
-            <p className="text-sm font-semibold text-slate-800 truncate">
+            <p className="text-xs text-slate-400">Logged in as</p>
+            <p className="text-sm font-semibold text-slate-900 truncate">
               {user?.name || "Admin"}
             </p>
-            <p className="text-xs text-slate-500 truncate">{user?.email || ""}</p>
+            <p className="text-xs text-slate-400 truncate">{user?.email || ""}</p>
           </div>
         </div>
 
         <button
           onClick={onLogout}
-          className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 bg-white hover:bg-red-50 transition text-sm"
+          className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-red-500/30 text-red-500 bg-white hover:bg-slate-50 transition text-sm font-semibold"
         >
           <FiLogOut />
           Logout
         </button>
+
+        {/* ✅ Mobile bottom spacing */}
+        {isMobile ? <div className="h-3" /> : null}
       </div>
     </div>
   );
 }
 
 /* -------------------------------------------
-   Reusable Button
+   Reusable Button (Professional + Allowed palette)
 ------------------------------------------- */
 function SidebarButton({
   label,
@@ -366,18 +401,24 @@ function SidebarButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "w-full text-left rounded-xl transition flex items-center justify-between gap-2 border",
+        "w-full text-left rounded-2xl transition flex items-center justify-between gap-2 border",
         compact ? "px-3 py-2 text-xs" : "px-3 py-2.5 text-sm",
         active
-          ? "bg-sky-600 text-white border-sky-600 font-semibold shadow-sm"
-          : "bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200"
+          ? "bg-blue-600 text-white border-slate-200 font-semibold"
+          : "bg-white text-slate-600 border-transparent hover:bg-slate-50 hover:border-slate-200"
       )}
     >
       <span className="inline-flex items-center gap-2 min-w-0">
         {Icon ? (
-          <Icon className={cn(compact ? "text-base" : "text-lg", active ? "text-white" : "text-slate-600")} />
+          <Icon
+            className={cn(
+              compact ? "text-base" : "text-lg",
+              active ? "text-white" : "text-slate-600"
+            )}
+          />
         ) : null}
         <span className="truncate">{label}</span>
       </span>

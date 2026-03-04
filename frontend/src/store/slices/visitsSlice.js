@@ -1,89 +1,60 @@
-// src/store/slices/visitsSlice.js
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import axiosClient from "../../api/axiosClient";
+import { createVisitApi, fetchVisitsApi, updateVisitApi, deleteVisitApi } from "../../api/visitsApi";
 
-/**
- * axiosClient.baseURL already has "/api"
- * so endpoints MUST NOT start with "/api"
- */
-
-/** ✅ Normalize backend responses */
-const normalizeVisitsResponse = (data) => {
-  if (Array.isArray(data)) {
-    return { items: data, page: 1, pages: 1, total: data.length, limit: data.length || 10 };
-  }
-
-  const items =
-    Array.isArray(data?.items) ? data.items :
-    Array.isArray(data?.data) ? data.data :
-    [];
-
-  const total = Number.isFinite(Number(data?.total)) ? Number(data.total) : items.length;
-  const limit = Number.isFinite(Number(data?.limit)) ? Number(data.limit) : 10;
-
-  // ✅ support pages OR totalPages
-  const pagesRaw =
-    Number.isFinite(Number(data?.pages)) ? Number(data.pages) :
-    Number.isFinite(Number(data?.totalPages)) ? Number(data.totalPages) :
-    Math.ceil((total || 0) / (limit || 1));
-
-  const pages = Math.max(1, pagesRaw || 1);
-  const page = Math.max(1, Number(data?.page) || 1);
-
-  return { items, page, pages, total, limit };
+const normalize = (data) => {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  return {
+    items,
+    page: Number(data?.page || 1),
+    pages: Number(data?.pages || 1),
+    total: Number(data?.total || items.length),
+    limit: Number(data?.limit || 10),
+  };
 };
 
-/** ✅ POST /visits (create) */
-export const createMyVisit = createAsyncThunk("visits/createMyVisit", async (payload, thunkAPI) => {
+export const fetchVisits = createAsyncThunk("visits/fetch", async (params, thunkAPI) => {
   try {
-    const isFormData = payload instanceof FormData;
-
-    const { data } = await axiosClient.post("/visits", payload, {
-      headers: isFormData ? { "Content-Type": "multipart/form-data" } : undefined,
-    });
-
-    return data?.data || data;
+    const data = await fetchVisitsApi(params);
+    return normalize(data);
   } catch (e) {
     return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
   }
 });
 
-/** ✅ GET /visits (list) */
-export const fetchMyVisits = createAsyncThunk(
-  "visits/fetchMyVisits",
-  async (
-    {
-      q = "",
-      status = "",
-      partyType = "",
-      from = "",
-      to = "",
-      onlyMine = "1",
-      page = 1,
-      limit = 10,
-    } = {},
-    thunkAPI
-  ) => {
-    try {
-      const { data } = await axiosClient.get("/visits", {
-        params: { q, status, partyType, from, to, onlyMine, page, limit },
-      });
-      return normalizeVisitsResponse(data);
-    } catch (e) {
-      return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
-    }
+export const createVisit = createAsyncThunk("visits/create", async (formData, thunkAPI) => {
+  try {
+    const data = await createVisitApi(formData);
+    return data?.data;
+  } catch (e) {
+    return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
   }
-);
+});
+
+export const updateVisit = createAsyncThunk("visits/update", async ({ id, formData }, thunkAPI) => {
+  try {
+    const data = await updateVisitApi(id, formData);
+    return data?.data;
+  } catch (e) {
+    return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
+  }
+});
+
+export const deleteVisit = createAsyncThunk("visits/delete", async (id, thunkAPI) => {
+  try {
+    await deleteVisitApi(id);
+    return id;
+  } catch (e) {
+    return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message);
+  }
+});
 
 const visitsSlice = createSlice({
   name: "visits",
   initialState: {
     items: [],
     loading: false,
-    error: null,
     saving: false,
-    lastActionMsg: null,
-
+    error: null,
     page: 1,
     pages: 1,
     total: 0,
@@ -93,48 +64,52 @@ const visitsSlice = createSlice({
     clearVisitsError(s) {
       s.error = null;
     },
-    clearVisitsMsg(s) {
-      s.lastActionMsg = null;
-    },
   },
   extraReducers: (b) => {
-    b.addCase(fetchMyVisits.pending, (s) => {
+    b.addCase(fetchVisits.pending, (s) => {
       s.loading = true;
       s.error = null;
     });
-    b.addCase(fetchMyVisits.fulfilled, (s, a) => {
+    b.addCase(fetchVisits.fulfilled, (s, a) => {
       s.loading = false;
-      s.items = a.payload.items || [];
-      s.page = a.payload.page || 1;
-      s.pages = a.payload.pages || 1;
-      s.total = a.payload.total ?? s.items.length;
-      s.limit = a.payload.limit || s.limit;
+      s.items = a.payload.items;
+      s.page = a.payload.page;
+      s.pages = a.payload.pages;
+      s.total = a.payload.total;
+      s.limit = a.payload.limit;
     });
-    b.addCase(fetchMyVisits.rejected, (s, a) => {
+    b.addCase(fetchVisits.rejected, (s, a) => {
       s.loading = false;
       s.error = a.payload || "Failed to load visits";
-      s.items = [];
     });
 
-    b.addCase(createMyVisit.pending, (s) => {
+    b.addCase(createVisit.pending, (s) => {
       s.saving = true;
       s.error = null;
-      s.lastActionMsg = null;
     });
-    b.addCase(createMyVisit.fulfilled, (s, a) => {
+    b.addCase(createVisit.fulfilled, (s, a) => {
       s.saving = false;
       if (a.payload?._id) {
         s.items = [a.payload, ...s.items];
-        s.total = (s.total || 0) + 1;
+        s.total += 1;
       }
-      s.lastActionMsg = "Visit saved";
     });
-    b.addCase(createMyVisit.rejected, (s, a) => {
+    b.addCase(createVisit.rejected, (s, a) => {
       s.saving = false;
       s.error = a.payload || "Failed to save visit";
+    });
+
+    b.addCase(updateVisit.fulfilled, (s, a) => {
+      const idx = s.items.findIndex((x) => x._id === a.payload?._id);
+      if (idx >= 0) s.items[idx] = a.payload;
+    });
+
+    b.addCase(deleteVisit.fulfilled, (s, a) => {
+      s.items = s.items.filter((x) => x._id !== a.payload);
+      s.total = Math.max(0, s.total - 1);
     });
   },
 });
 
-export const { clearVisitsError, clearVisitsMsg } = visitsSlice.actions;
+export const { clearVisitsError } = visitsSlice.actions;
 export default visitsSlice.reducer;

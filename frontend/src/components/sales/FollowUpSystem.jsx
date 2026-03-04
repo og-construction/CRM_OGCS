@@ -16,7 +16,13 @@ import {
  * border-slate-200
  * blue-600, green-600, red-500, orange-500
  *
- * NOTE: Removed custom hex backgrounds & non-allowed colors.
+ * ✅ UI-only changes:
+ * - Fully responsive layout (mobile/tablet/desktop)
+ * - Sticky toolbars on desktop
+ * - Better spacing/typography, consistent focus rings
+ * - Mobile bottom-sheet modal (already), improved buttons sizing
+ * - Scrollable chips/tabs for small screens
+ * - “Selected lead” drawer-like panel on desktop (same data/actions, UI only)
  */
 
 /* ================= helpers ================= */
@@ -60,18 +66,26 @@ const fromNow = (d) => {
   const abs = Math.abs(mins);
 
   if (abs < 60)
-    return `${mins >= 0 ? "in " : ""}${abs} min${abs > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
+    return `${mins >= 0 ? "in " : ""}${abs} min${abs > 1 ? "s" : ""}${
+      mins < 0 ? " ago" : ""
+    }`;
   const hrs = Math.round(abs / 60);
   if (hrs < 24)
-    return `${mins >= 0 ? "in " : ""}${hrs} hr${hrs > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
+    return `${mins >= 0 ? "in " : ""}${hrs} hr${hrs > 1 ? "s" : ""}${
+      mins < 0 ? " ago" : ""
+    }`;
   const days = Math.round(hrs / 24);
-  return `${mins >= 0 ? "in " : ""}${days} day${days > 1 ? "s" : ""}${mins < 0 ? " ago" : ""}`;
+  return `${mins >= 0 ? "in " : ""}${days} day${days > 1 ? "s" : ""}${
+    mins < 0 ? " ago" : ""
+  }`;
 };
 
 const getLeadTemperature = (lead) => {
   const dt = lead?.followUpDate; // ✅
   if (!dt) return "Cool";
-  const diffDays = Math.ceil((new Date(dt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil(
+    (new Date(dt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
   if (diffDays <= 3) return "Hot";
   if (diffDays <= 10) return "Warm";
   return "Cool";
@@ -80,7 +94,6 @@ const getLeadTemperature = (lead) => {
 /* ================= TINY UI ATOMS (restricted palette) ================= */
 
 const TonePill = ({ tone = "slate", children }) => {
-  // ✅ only allowed colors
   const map = {
     slate: "bg-slate-50 text-slate-600 border-slate-200",
     blue: "bg-slate-50 text-blue-600 border-slate-200",
@@ -89,7 +102,12 @@ const TonePill = ({ tone = "slate", children }) => {
     orange: "bg-slate-50 text-orange-500 border-slate-200",
   };
   return (
-    <span className={cn("inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border", map[tone] || map.slate)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border whitespace-nowrap",
+        map[tone] || map.slate
+      )}
+    >
       {children}
     </span>
   );
@@ -104,14 +122,13 @@ const ClickStatCard = ({ title, value, hint, tone = "slate", active, onClick }) 
     orange: "bg-slate-100",
   }[tone];
 
-  const pillTone = tone;
-
   return (
     <button
       onClick={onClick}
       type="button"
       className={cn(
         "text-left rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 transition active:scale-[0.99]",
+        "focus:outline-none focus:ring-4 focus:ring-slate-100",
         active ? "ring-4 ring-slate-100" : "hover:bg-slate-50"
       )}
     >
@@ -119,10 +136,16 @@ const ClickStatCard = ({ title, value, hint, tone = "slate", active, onClick }) 
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold text-slate-600">{title}</p>
-          <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-slate-900">{value}</p>
-          {hint ? <p className="mt-2 text-[11px] text-slate-400 whitespace-normal break-words">{hint}</p> : null}
+          <p className="mt-2 text-3xl sm:text-4xl font-extrabold text-slate-900">
+            {value}
+          </p>
+          {hint ? (
+            <p className="mt-2 text-[11px] text-slate-400 whitespace-normal break-words">
+              {hint}
+            </p>
+          ) : null}
         </div>
-        <TonePill tone={pillTone}>{title}</TonePill>
+        <TonePill tone={tone}>{title}</TonePill>
       </div>
     </button>
   );
@@ -134,7 +157,9 @@ const EmptyState = ({ title, desc }) => (
       <span className="text-slate-600 text-lg">✓</span>
     </div>
     <p className="text-sm font-semibold text-slate-900 mt-3">{title}</p>
-    <p className="text-xs text-slate-400 mt-1 whitespace-normal break-words">{desc}</p>
+    <p className="text-xs text-slate-400 mt-1 whitespace-normal break-words">
+      {desc}
+    </p>
   </div>
 );
 
@@ -158,25 +183,103 @@ const SkeletonCard = () => (
 const MiniKV = ({ label, value }) => (
   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
     <div className="text-[11px] font-semibold text-slate-600">{label}</div>
-    <div className="mt-1 text-sm font-semibold text-slate-900 break-words">{value}</div>
+    <div className="mt-1 text-sm font-semibold text-slate-900 break-words">
+      {value}
+    </div>
   </div>
 );
 
-const IconBtn = ({ children, onClick, disabled, title, variant = "ghost" }) => {
+const IconBtn = ({
+  children,
+  onClick,
+  disabled,
+  title,
+  variant = "ghost",
+  className,
+  as = "button",
+}) => {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs font-semibold transition active:scale-[0.99]";
+    "inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-xs sm:text-sm font-semibold transition active:scale-[0.99]";
   const map = {
-    ghost: "border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
-    primary: "border-slate-200 bg-blue-600 text-white disabled:opacity-60",
-    danger: "border-slate-200 bg-white text-red-500 hover:bg-slate-50 disabled:opacity-60",
-    success: "border-slate-200 bg-green-600 text-white disabled:opacity-60",
+    ghost:
+      "border-slate-200 bg-white text-slate-900 hover:bg-slate-50 disabled:opacity-60",
+    primary:
+      "border-slate-200 bg-blue-600 text-white disabled:opacity-60 disabled:cursor-not-allowed",
+    danger:
+      "border-slate-200 bg-white text-red-500 hover:bg-slate-50 disabled:opacity-60",
+    success:
+      "border-slate-200 bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed",
   };
+
+  const commonProps = {
+    title,
+    onClick,
+    disabled,
+    className: cn(
+      base,
+      map[variant] || map.ghost,
+      "focus:outline-none focus:ring-4 focus:ring-slate-100",
+      className
+    ),
+  };
+
+  // Accessibility: handle keyboard events for non-button elements
+  const handleKeyDown = (e) => {
+    if ((e.key === "Enter" || e.key === " ") && !disabled) {
+      e.preventDefault();
+      onClick?.(e);
+    }
+  };
+
+  if (as === "span") {
+    return (
+      <span
+        {...commonProps}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        onKeyDown={handleKeyDown}
+        aria-disabled={disabled}
+      >
+        {children}
+      </span>
+    );
+  }
+
   return (
-    <button type="button" title={title} onClick={onClick} disabled={disabled} className={cn(base, map[variant] || map.ghost)}>
+    <button
+      {...commonProps}
+      type="button"
+    >
       {children}
     </button>
   );
 };
+
+function SegmentedTabs({ value, onChange, options }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1">
+      {options.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              "whitespace-nowrap rounded-2xl border px-3 py-2 text-sm font-semibold transition",
+              "focus:outline-none focus:ring-4 focus:ring-slate-100",
+              active
+                ? "bg-slate-900 text-white border-slate-200"
+                : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 /* ================= component ================= */
 export default function FollowUpSystem() {
@@ -197,13 +300,18 @@ export default function FollowUpSystem() {
   const [followUpNotes, setFollowUpNotes] = useState("");
   const [btnLoadingId, setBtnLoadingId] = useState(null);
 
+  // ✅ UI only: remember a “focused” lead for desktop side panel
+  const [focused, setFocused] = useState(null);
+
   useEffect(() => {
-    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 200 }));
+    dispatch(
+      fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 100 })
+    );
     return () => dispatch(clearLeadsError());
   }, [dispatch]);
 
   const refresh = () =>
-    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 200 }));
+    dispatch(fetchMyLeads({ status: "All", leadType: "All", search: "", page: 1, limit: 100 }));
 
   const counts = useMemo(() => {
     const c = { All: leads.length, New: 0, "Follow-Up": 0, Closed: 0, Converted: 0 };
@@ -263,9 +371,7 @@ export default function FollowUpSystem() {
     const query = String(q || "").trim().toLowerCase();
 
     let list =
-      statusTab === "All"
-        ? leads
-        : leads.filter((l) => (l.status || "New") === statusTab);
+      statusTab === "All" ? leads : leads.filter((l) => (l.status || "New") === statusTab);
 
     if (statusTab === "Follow-Up") {
       list =
@@ -451,6 +557,16 @@ export default function FollowUpSystem() {
     return parts.join(" • ");
   }, [statusTab, bucketTab, rangeTab, tempFilter, sourceFilter]);
 
+  const openSchedule = (lead) => {
+    setPicked(lead);
+    setNextDate("");
+    setFollowUpNotes(lead?.followUpNotes || "");
+  };
+
+  const onRowFocus = (lead) => {
+    setFocused(lead);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 bg-slate-50 p-3 sm:p-4 lg:p-6 rounded-2xl">
       {/* ================= HEADER ================= */}
@@ -478,7 +594,7 @@ export default function FollowUpSystem() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <IconBtn onClick={refresh} title="Refresh" variant="ghost">
+              <IconBtn onClick={refresh} title="Refresh" variant="ghost" className="w-full sm:w-auto">
                 Refresh
               </IconBtn>
             </div>
@@ -530,227 +646,401 @@ export default function FollowUpSystem() {
 
       {/* ================= INSIGHTS ================= */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <ClickStatCard title="Manual" value={analytics.manual} hint="Created manually" tone="blue" active={sourceFilter === "Manual"} onClick={() => setViewFromCard("MANUAL")} />
-        <ClickStatCard title="Imported" value={analytics.imported} hint="From import" tone="orange" active={sourceFilter === "Import"} onClick={() => setViewFromCard("IMPORTED")} />
-        <ClickStatCard title="Hot" value={analytics.hot} hint="Follow-up ≤ 3 days" tone="red" active={tempFilter === "Hot"} onClick={() => setViewFromCard("HOT")} />
-        <ClickStatCard title="Warm" value={analytics.warm} hint="Follow-up ≤ 10 days" tone="orange" active={tempFilter === "Warm"} onClick={() => setViewFromCard("WARM")} />
-        <ClickStatCard title="Cool" value={analytics.cool} hint="Not urgent / not set" tone="blue" active={tempFilter === "Cool"} onClick={() => setViewFromCard("COOL")} />
-        <ClickStatCard title="New" value={counts.New} hint="Fresh inquiry" tone="orange" active={statusTab === "New"} onClick={() => setViewFromCard("NEW")} />
+        <ClickStatCard
+          title="Manual"
+          value={analytics.manual}
+          hint="Created manually"
+          tone="blue"
+          active={sourceFilter === "Manual"}
+          onClick={() => setViewFromCard("MANUAL")}
+        />
+        <ClickStatCard
+          title="Imported"
+          value={analytics.imported}
+          hint="From import"
+          tone="orange"
+          active={sourceFilter === "Import"}
+          onClick={() => setViewFromCard("IMPORTED")}
+        />
+        <ClickStatCard
+          title="Hot"
+          value={analytics.hot}
+          hint="Follow-up ≤ 3 days"
+          tone="red"
+          active={tempFilter === "Hot"}
+          onClick={() => setViewFromCard("HOT")}
+        />
+        <ClickStatCard
+          title="Warm"
+          value={analytics.warm}
+          hint="Follow-up ≤ 10 days"
+          tone="orange"
+          active={tempFilter === "Warm"}
+          onClick={() => setViewFromCard("WARM")}
+        />
+        <ClickStatCard
+          title="Cool"
+          value={analytics.cool}
+          hint="Not urgent / not set"
+          tone="blue"
+          active={tempFilter === "Cool"}
+          onClick={() => setViewFromCard("COOL")}
+        />
+        <ClickStatCard
+          title="New"
+          value={counts.New}
+          hint="Fresh inquiry"
+          tone="orange"
+          active={statusTab === "New"}
+          onClick={() => setViewFromCard("NEW")}
+        />
       </div>
 
-      {/* ================= CONTROLS + LIST ================= */}
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-sm font-extrabold text-slate-900">Leads</p>
-                <p className="text-xs text-slate-600">
-                  Showing <b className="text-slate-900">{filteredList.length}</b> lead(s)
-                </p>
-              </div>
-              <TonePill tone="slate">{activeViewLabel}</TonePill>
-            </div>
+      {/* ================= MAIN (LIST + DESKTOP DETAILS) ================= */}
+      <div className="grid gap-4 lg:grid-cols-12">
+        {/* LIST */}
+        <div className="lg:col-span-8">
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            {/* Controls / Toolbar */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:z-10">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-extrabold text-slate-900">Leads</p>
+                    <p className="text-xs text-slate-600">
+                      Showing <b className="text-slate-900">{filteredList.length}</b> lead(s)
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <TonePill tone="slate">{activeViewLabel}</TonePill>
+                  </div>
+                </div>
 
-            <div className="grid gap-2 lg:grid-cols-12">
-              <div className="lg:col-span-5">
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search name, company, phone, email, city, source..."
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white outline-none focus:ring-4 focus:ring-slate-100"
+                <div className="grid gap-2 lg:grid-cols-12">
+                  <div className="lg:col-span-5">
+                    <input
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Search name, company, phone, email, city, source..."
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white outline-none focus:ring-4 focus:ring-slate-100"
+                    />
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <select
+                      value={tempFilter}
+                      onChange={(e) => setTempFilter(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                    >
+                      <option value="All">Temp: All</option>
+                      <option value="Hot">Temp: Hot</option>
+                      <option value="Warm">Temp: Warm</option>
+                      <option value="Cool">Temp: Cool</option>
+                    </select>
+                  </div>
+
+                  <div className="lg:col-span-2">
+                    <select
+                      value={sourceFilter}
+                      onChange={(e) => setSourceFilter(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                    >
+                      <option value="All">Source: All</option>
+                      <option value="Manual">Source: Manual</option>
+                      <option value="Import">Source: Import</option>
+                    </select>
+                  </div>
+
+                  <div className="lg:col-span-3">
+                    <select
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                    >
+                      <option value="created_desc">Newest Created</option>
+                      <option value="next_asc">Follow-Up (Earliest)</option>
+                      <option value="name_asc">Name (A-Z)</option>
+                    </select>
+                  </div>
+
+                  {statusTab === "Follow-Up" ? (
+                    <>
+                      <div className="lg:col-span-3">
+                        <select
+                          value={bucketTab}
+                          onChange={(e) => setBucketTab(e.target.value)}
+                          className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                        >
+                          <option value="today">Bucket: Today</option>
+                          <option value="upcoming">Bucket: Upcoming</option>
+                          <option value="overdue">Bucket: Overdue</option>
+                        </select>
+                      </div>
+
+                      <div className="lg:col-span-3">
+                        <select
+                          value={rangeTab}
+                          onChange={(e) => setRangeTab(e.target.value)}
+                          className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
+                        >
+                          <option value="all">Range: All</option>
+                          <option value="15d">Last 15 days</option>
+                          <option value="1m">Last 1 month</option>
+                          <option value="2m">Last 2 months</option>
+                          <option value="3m">Last 3 months</option>
+                        </select>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+
+                <SegmentedTabs
+                  value={statusTab}
+                  onChange={setStatusTab}
+                  options={[
+                    { value: "All", label: `All (${counts.All})` },
+                    { value: "New", label: `New (${counts.New})` },
+                    { value: "Follow-Up", label: `Follow-Up (${counts["Follow-Up"]})` },
+                    { value: "Converted", label: `Converted (${counts.Converted})` },
+                    { value: "Closed", label: `Closed (${counts.Closed})` },
+                  ]}
                 />
               </div>
-
-              <div className="lg:col-span-2">
-                <select
-                  value={tempFilter}
-                  onChange={(e) => setTempFilter(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
-                >
-                  <option value="All">Temp: All</option>
-                  <option value="Hot">Temp: Hot</option>
-                  <option value="Warm">Temp: Warm</option>
-                  <option value="Cool">Temp: Cool</option>
-                </select>
-              </div>
-
-              <div className="lg:col-span-2">
-                <select
-                  value={sourceFilter}
-                  onChange={(e) => setSourceFilter(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
-                >
-                  <option value="All">Source: All</option>
-                  <option value="Manual">Source: Manual</option>
-                  <option value="Import">Source: Import</option>
-                </select>
-              </div>
-
-              <div className="lg:col-span-3">
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
-                >
-                  <option value="created_desc">Newest Created</option>
-                  <option value="next_asc">Follow-Up (Earliest)</option>
-                  <option value="name_asc">Name (A-Z)</option>
-                </select>
-              </div>
-
-              {/* Only show bucket/range when Follow-Up selected */}
-              {statusTab === "Follow-Up" ? (
-                <>
-                  <div className="lg:col-span-3">
-                    <select
-                      value={bucketTab}
-                      onChange={(e) => setBucketTab(e.target.value)}
-                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
-                    >
-                      <option value="today">Bucket: Today</option>
-                      <option value="upcoming">Bucket: Upcoming</option>
-                      <option value="overdue">Bucket: Overdue</option>
-                    </select>
-                  </div>
-
-                  <div className="lg:col-span-3">
-                    <select
-                      value={rangeTab}
-                      onChange={(e) => setRangeTab(e.target.value)}
-                      className="w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white"
-                    >
-                      <option value="all">Range: All</option>
-                      <option value="15d">Last 15 days</option>
-                      <option value="1m">Last 1 month</option>
-                      <option value="2m">Last 2 months</option>
-                      <option value="3m">Last 3 months</option>
-                    </select>
-                  </div>
-                </>
-              ) : null}
             </div>
 
-            {/* Status Tabs (scrollable on mobile) */}
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {["All", "New", "Follow-Up", "Converted", "Closed"].map((st) => {
-                const active = statusTab === st;
-                const val = st === "All" ? counts.All : counts[st] || 0;
-                return (
-                  <button
-                    key={st}
-                    type="button"
-                    onClick={() => setStatusTab(st)}
-                    className={cn(
-                      "whitespace-nowrap rounded-2xl border px-3 py-2 text-sm font-semibold transition",
-                      active
-                        ? "bg-slate-900 text-white border-slate-200"
-                        : "bg-white text-slate-900 border-slate-200 hover:bg-slate-50"
-                    )}
-                  >
-                    {st} <span className={cn("ml-1 text-xs", active ? "text-white" : "text-slate-600")}>({val})</span>
-                  </button>
-                );
-              })}
+            {/* List Area */}
+            <div className="p-4 sm:p-5 bg-slate-50">
+              {loading ? (
+                <div className="grid gap-3">
+                  <SkeletonCard />
+                  <SkeletonCard />
+                  <SkeletonCard />
+                </div>
+              ) : filteredList.length === 0 ? (
+                <EmptyState title="No leads found" desc="Try changing filters or search keyword." />
+              ) : (
+                <div className="grid gap-3">
+                  {filteredList.map((l) => {
+                    const st = l.status || "New";
+                    const b = st === "Follow-Up" ? bucketMeta(l) : null;
+                    const temp = getLeadTemperature(l);
+                    const isFocused = String(focused?._id || "") === String(l._id || "");
+
+                    return (
+                      <button
+                        key={l._id}
+                        type="button"
+                        onClick={() => onRowFocus(l)}
+                        className={cn(
+                          "text-left rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 transition active:scale-[0.99]",
+                          "focus:outline-none focus:ring-4 focus:ring-slate-100",
+                          isFocused ? "ring-4 ring-slate-100" : "hover:bg-slate-50"
+                        )}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm sm:text-base font-extrabold text-slate-900 break-words">
+                              {l.name}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-600 break-words">
+                              {l.company || "-"} {l.city ? `• ${l.city}` : ""}
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-400">
+                              Source:{" "}
+                              <span className="font-semibold text-slate-600">
+                                {l.source || "Manual"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex flex-row sm:flex-col items-start sm:items-end gap-2 flex-wrap">
+                            <TonePill tone={statusPillTone(st)}>{st}</TonePill>
+                            {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
+                            <TonePill tone={tempPillTone(temp)}>{temp}</TonePill>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <MiniKV label="Follow-Up Date" value={l.followUpDate ? fmt(l.followUpDate) : "-"} />
+                          <MiniKV label="Relative" value={l.followUpDate ? fromNow(l.followUpDate) : "-"} />
+                        </div>
+
+                        {l.followUpNotes ? (
+                          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                            <div className="text-[11px] font-semibold text-slate-600">Notes</div>
+                            <div className="mt-1 text-sm text-slate-900 whitespace-pre-wrap break-words">
+                              {l.followUpNotes}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <IconBtn
+                            as="span"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              openSchedule(l);
+                            }}
+                            disabled={btnLoadingId === l._id}
+                            title="Set follow-up"
+                            variant="ghost"
+                            className="w-full"
+                          >
+                            {btnLoadingId === l._id ? "..." : "Set Follow-Up"}
+                          </IconBtn>
+
+                          <IconBtn
+                            as="span"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onMarkClosed(l._id);
+                            }}
+                            disabled={btnLoadingId === l._id}
+                            title="Mark closed"
+                            variant="ghost"
+                            className="w-full"
+                          >
+                            {btnLoadingId === l._id ? "Closing..." : "Closed"}
+                          </IconBtn>
+
+                          <IconBtn
+                            as="span"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onMarkConverted(l._id);
+                            }}
+                            disabled={btnLoadingId === l._id}
+                            title="Mark converted"
+                            variant="success"
+                            className="w-full"
+                          >
+                            {btnLoadingId === l._id ? "Converting..." : "Won"}
+                          </IconBtn>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        <div className="p-4 sm:p-5 bg-slate-50">
-          {loading ? (
-            <div className="grid gap-3">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-          ) : filteredList.length === 0 ? (
-            <EmptyState title="No leads found" desc="Try changing filters or search keyword." />
-          ) : (
-            <div className="grid gap-3">
-              {filteredList.map((l) => {
-                const st = l.status || "New";
-                const b = st === "Follow-Up" ? bucketMeta(l) : null;
-                const temp = getLeadTemperature(l);
+        {/* DESKTOP: DETAILS PANEL (UI only) */}
+        <div className="hidden lg:block lg:col-span-4">
+          <div className="lg:sticky lg:top-6 space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <div className="h-1 bg-orange-500" />
+              <div className="p-4 sm:p-5 border-b border-slate-200">
+                <div className="text-sm font-extrabold text-slate-900">Lead Details</div>
+                <div className="mt-1 text-xs text-slate-600">
+                  Click any lead card to preview details here.
+                </div>
+              </div>
 
-                return (
-                  <div key={l._id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-sm sm:text-base font-extrabold text-slate-900 break-words">
-                          {l.name}
-                        </div>
-                        <div className="mt-1 text-xs text-slate-600 break-words">
-                          {l.company || "-"} {l.city ? `• ${l.city}` : ""}
-                        </div>
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          Source: <span className="font-semibold text-slate-600">{l.source || "Manual"}</span>
-                        </div>
+              <div className="p-4 sm:p-5">
+                {!focused?._id ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    No lead selected.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="min-w-0">
+                      <div className="text-base font-extrabold text-slate-900 break-words">
+                        {focused.name}
                       </div>
-
-                      <div className="shrink-0 flex flex-row sm:flex-col items-start sm:items-end gap-2 flex-wrap">
-                        <TonePill tone={statusPillTone(st)}>{st}</TonePill>
-                        {b ? <TonePill tone={b.tone}>{b.label}</TonePill> : null}
-                        <TonePill tone={tempPillTone(temp)}>{temp}</TonePill>
+                      <div className="mt-1 text-sm text-slate-600 break-words">
+                        {focused.company || "-"} {focused.city ? `• ${focused.city}` : ""}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <TonePill tone={statusPillTone(focused.status || "New")}>
+                          {focused.status || "New"}
+                        </TonePill>
+                        <TonePill tone={tempPillTone(getLeadTemperature(focused))}>
+                          {getLeadTemperature(focused)}
+                        </TonePill>
+                        {bucketMeta(focused) ? (
+                          <TonePill tone={bucketMeta(focused).tone}>{bucketMeta(focused).label}</TonePill>
+                        ) : null}
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <MiniKV
-                        label="Follow-Up Date"
-                        value={l.followUpDate ? fmt(l.followUpDate) : "-"}
-                      />
-                      <MiniKV
-                        label="Relative"
-                        value={l.followUpDate ? fromNow(l.followUpDate) : "-"}
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <MiniKV label="Phone" value={focused.phone || "-"} />
+                      <MiniKV label="Email" value={focused.email || "-"} />
+                      <MiniKV label="Created" value={fmt(focused.createdAt)} />
+                      <MiniKV label="Source" value={focused.source || "Manual"} />
                     </div>
 
-                    {l.followUpNotes ? (
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="text-[11px] font-semibold text-slate-600">Follow-Up</div>
+                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                        {focused.followUpDate ? fmt(focused.followUpDate) : "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        {focused.followUpDate ? fromNow(focused.followUpDate) : ""}
+                      </div>
+                    </div>
+
+                    {focused.followUpNotes ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                         <div className="text-[11px] font-semibold text-slate-600">Notes</div>
                         <div className="mt-1 text-sm text-slate-900 whitespace-pre-wrap break-words">
-                          {l.followUpNotes}
+                          {focused.followUpNotes}
                         </div>
                       </div>
                     ) : null}
 
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <IconBtn
-                        onClick={() => {
-                          setPicked(l);
-                          setNextDate("");
-                          setFollowUpNotes(l.followUpNotes || "");
-                        }}
-                        disabled={btnLoadingId === l._id}
-                        title="Set follow-up"
-                        variant="ghost"
+                        onClick={() => openSchedule(focused)}
+                        disabled={btnLoadingId === focused._id}
+                        variant="primary"
+                        className="w-full"
                       >
-                        {btnLoadingId === l._id ? "..." : "Set Follow-Up"}
+                        Set / Reschedule Follow-Up
                       </IconBtn>
 
-                      <IconBtn
-                        onClick={() => onMarkClosed(l._id)}
-                        disabled={btnLoadingId === l._id}
-                        title="Mark closed"
-                        variant="ghost"
-                      >
-                        {btnLoadingId === l._id ? "Closing..." : "Closed"}
-                      </IconBtn>
+                      <div className="grid grid-cols-2 gap-2">
+                        <IconBtn
+                          onClick={() => onMarkClosed(focused._id)}
+                          disabled={btnLoadingId === focused._id}
+                          variant="ghost"
+                          className="w-full"
+                        >
+                          Mark Closed
+                        </IconBtn>
+                        <IconBtn
+                          onClick={() => onMarkConverted(focused._id)}
+                          disabled={btnLoadingId === focused._id}
+                          variant="success"
+                          className="w-full"
+                        >
+                          Mark Won
+                        </IconBtn>
+                      </div>
+                    </div>
 
-                      <IconBtn
-                        onClick={() => onMarkConverted(l._id)}
-                        disabled={btnLoadingId === l._id}
-                        title="Mark converted"
-                        variant="success"
-                      >
-                        {btnLoadingId === l._id ? "Converting..." : "Won"}
-                      </IconBtn>
+                    <div className="text-xs text-slate-400">
+                      Tip: Use the modal to add follow-up notes & schedule next call.
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </div>
             </div>
-          )}
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="text-xs font-extrabold text-slate-900">Quick Tips</div>
+              <ul className="mt-2 space-y-1 text-xs text-slate-600 list-disc pl-4">
+                <li>Use “Follow-Up (Earliest)” sort for daily calling list.</li>
+                <li>Use Hot/Warm filters for priority leads.</li>
+                <li>Keep notes short + action oriented.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -768,7 +1058,9 @@ export default function FollowUpSystem() {
         >
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Follow-Up Date & Time</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">
+                Follow-Up Date & Time
+              </label>
               <input
                 type="datetime-local"
                 value={nextDate}
@@ -778,7 +1070,9 @@ export default function FollowUpSystem() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-2">Follow-Up Notes (optional)</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-2">
+                Follow-Up Notes (optional)
+              </label>
               <textarea
                 rows={4}
                 value={followUpNotes}
@@ -789,7 +1083,8 @@ export default function FollowUpSystem() {
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-              Current: <span className="font-semibold text-slate-900">{fmt(picked.followUpDate)}</span>
+              Current:{" "}
+              <span className="font-semibold text-slate-900">{fmt(picked.followUpDate)}</span>
               <div className="mt-1">
                 Saving follow-up will set status to <b>Follow-Up</b>.
               </div>
@@ -800,6 +1095,7 @@ export default function FollowUpSystem() {
                 onClick={() => setPicked(null)}
                 disabled={btnLoadingId === picked._id}
                 variant="ghost"
+                className="w-full sm:w-auto"
               >
                 Cancel
               </IconBtn>
@@ -808,6 +1104,7 @@ export default function FollowUpSystem() {
                 onClick={onSetFollowUp}
                 disabled={!nextDate || btnLoadingId === picked._id}
                 variant="primary"
+                className="w-full sm:w-auto"
               >
                 {btnLoadingId === picked._id ? "Saving..." : "Save"}
               </IconBtn>
@@ -822,7 +1119,7 @@ export default function FollowUpSystem() {
 /* ================= Modal ================= */
 /**
  * ✅ Responsive modal:
- * - Mobile: bottom-sheet feel
+ * - Mobile: bottom-sheet
  * - Desktop: centered
  * Restricted palette only.
  */
@@ -841,13 +1138,17 @@ function Modal({ title, subtitle, children, onClose }) {
           <div className="p-4 sm:p-5 border-b border-slate-200 bg-white">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-base sm:text-lg font-extrabold text-slate-900 truncate">{title}</div>
-                <div className="mt-1 text-xs sm:text-sm text-slate-600 break-words">{subtitle}</div>
+                <div className="text-base sm:text-lg font-extrabold text-slate-900 truncate">
+                  {title}
+                </div>
+                <div className="mt-1 text-xs sm:text-sm text-slate-600 break-words">
+                  {subtitle}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                className="shrink-0 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
               >
                 Close
               </button>

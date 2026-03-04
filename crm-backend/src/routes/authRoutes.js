@@ -9,13 +9,14 @@ import {
 
 import { protect, adminOnly } from "../middlewares/authMiddleware.js";
 import { uploadGovDoc } from "../middlewares/uploadMiddleware.js";
+import { validateLogin, validateRegister } from "../middlewares/validationMiddleware.js";
 
 const router = express.Router();
 
 /* -------------------------
    AUTH
 ------------------------- */
-router.post("/login", login);
+router.post("/login", validateLogin, login);
 
 /* -------------------------
    SALES EXECUTIVE (ADMIN)
@@ -30,6 +31,7 @@ router.post(
   protect,
   adminOnly,
   uploadGovDoc.single("govDocFile"),
+  validateRegister,
   createSalesExecutive
 );
 

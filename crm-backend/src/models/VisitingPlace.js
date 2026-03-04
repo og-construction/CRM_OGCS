@@ -1,11 +1,21 @@
 import mongoose from "mongoose";
 
+const fileMetaSchema = new mongoose.Schema(
+  {
+    originalName: String,
+    filename: String,
+    mimeType: String,
+    size: Number,
+    url: String,
+  },
+  { _id: false }
+);
+
 const visitingPlaceSchema = new mongoose.Schema(
   {
     companyName: { type: String, required: true, trim: true },
     personName: { type: String, default: "", trim: true },
 
-    // One field covers your "seller/manufacturer" + "buyer/customer"
     partyType: {
       type: String,
       enum: ["Seller", "Manufacturer", "Buyer", "Customer"],
@@ -14,8 +24,7 @@ const visitingPlaceSchema = new mongoose.Schema(
 
     contactName: { type: String, required: true, trim: true },
     contactPhone: { type: String, default: "", trim: true },
-    contactEmail: { type: String, default: "", trim: true },
-
+    contactEmail: { type: String, default: "", trim: true, lowercase: true },
     address: { type: String, default: "", trim: true },
 
     initiatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -26,33 +35,27 @@ const visitingPlaceSchema = new mongoose.Schema(
       default: "Visited",
     },
 
-    visitImage: {
-      originalName: String,
-      filename: String,
-      mimeType: String,
-      size: Number,
-      url: String,
-    },
+    // ✅ CRM features
+    priority: { type: String, enum: ["Low", "Medium", "High"], default: "Medium" },
+    nextFollowUpAt: { type: Date, default: null },
 
-    visitingCardImage: {
-      originalName: String,
-      filename: String,
-      mimeType: String,
-      size: Number,
-      url: String,
-    },
-
-    visitedAt: { type: Date, required: true }, // date + time
+    visitedAt: { type: Date, required: true },
     notes: { type: String, default: "", trim: true },
+
+    // ✅ files
+    visitImage: fileMetaSchema,
+    visitingCardImage: fileMetaSchema,
   },
   { timestamps: true }
 );
 
+// ✅ search
 visitingPlaceSchema.index({
   companyName: "text",
   personName: "text",
   contactName: "text",
   contactPhone: "text",
+  contactEmail: "text",
   address: "text",
   notes: "text",
 });

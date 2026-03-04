@@ -7,6 +7,7 @@ import { useSelector } from "react-redux";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import SalesDashboard from "./pages/SalesDashboard";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function PrivateRoute({ children, allowedRoles }) {
   const { token, user } = useSelector((state) => state.auth);
@@ -22,7 +23,7 @@ function PrivateRoute({ children, allowedRoles }) {
 
 const App = () => {
   return (
-    <>
+    <ErrorBoundary>
       {/* ✅ Toaster must be OUTSIDE Routes */}
       <Toaster position="top-right" toastOptions={{ duration: 2500 }} />
 
@@ -50,7 +51,7 @@ const App = () => {
         {/* Default */}
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </>
+    </ErrorBoundary>
   );
 };
 

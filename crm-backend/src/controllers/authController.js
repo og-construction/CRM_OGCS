@@ -2,6 +2,7 @@
 import fs from "fs";
 import User from "../models/User.js";
 import generateToken from "../utils/generateToken.js";
+import logger from "../config/logger.js";
 
 /* ===============================
    helpers
@@ -32,21 +33,33 @@ export const login = async (req, res) => {
     const password = String(req.body?.password || "");
 
     if (!email || !password) {
+      logger.warn("Login attempt - missing credentials");
       return res.status(400).json({ message: "Email and password are required" });
     }
     if (!isEmail(email)) {
+      logger.warn("Login attempt - invalid email format", { email });
       return res.status(400).json({ message: "Invalid email format" });
     }
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+    if (!user) {
+      logger.warn("Login attempt - user not found", { email });
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
+    if (!isMatch) {
+      logger.warn("Login attempt - incorrect password", { email, userId: user._id });
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
-    if (user.isActive === false) { return res.status(403).json({ status: "fail", message: "Your account is deactivated. Please contact admin.", });}
+    if (user.isActive === false) {
+      logger.warn("Login attempt - inactive account", { email, userId: user._id });
+      return res.status(403).json({ status: "fail", message: "Your account is deactivated. Please contact admin.", });
+    }
 
     const token = generateToken(user);
+    logger.info("User logged in successfully", { email, userId: user._id, role: user.role });
 
     return res.json({
       status: "success",
@@ -56,7 +69,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("login error:", err);
+    logger.error("Login error", { error: err.message, stack: err.stack });
     return res.status(500).json({ message: "Server error while logging in" });
   }
 };
@@ -70,9 +83,10 @@ export const getSalesExecutives = async (req, res) => {
       .select("name email phone jobStatus isActive createdAt")
       .sort({ createdAt: -1 });
 
+    logger.info("Fetched sales executives list", { count: salesUsers.length, admin: req.user._id });
     return res.json({ status: "success", data: salesUsers });
   } catch (err) {
-    console.error("getSalesExecutives error:", err);
+    logger.error("Error fetching sales executives", { error: err.message, stack: err.stack });
     return res.status(500).json({ message: "Server error while fetching sales executives" });
   }
 };

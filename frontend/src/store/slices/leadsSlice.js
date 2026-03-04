@@ -33,9 +33,29 @@ export const fetchMyLeads = createAsyncThunk(
   "leads/fetchMyLeads",
   async ({ status = "All", leadType = "All", search = "", page = 1, limit = 20 } = {}, thunkAPI) => {
     try {
-      const { data } = await axiosClient.get("/leads/my", {
-        params: { status, leadType, search, page, limit },
-      });
+      // Build params object dynamically, filtering out invalid values
+      const params = {};
+      
+      // Only include status if it's not "All"
+      if (status !== "All") {
+        params.status = status;
+      }
+      
+      // Only include leadType if it's not "All"
+      if (leadType !== "All") {
+        params.leadType = leadType;
+      }
+      
+      // Only include search if it's a non-empty string
+      if (search && search.trim() !== "") {
+        params.search = search.trim();
+      }
+      
+      // Always include pagination
+      params.page = page;
+      params.limit = limit;
+
+      const { data } = await axiosClient.get("/leads/my", { params });
       return normalizeListResponse(data, page, limit);
     } catch (e) {
       return thunkAPI.rejectWithValue(e?.response?.data?.message || e.message || "Failed to load leads");

@@ -96,17 +96,9 @@ const useDebouncedValue = (value, delay = 400) => {
 };
 
 const getEmployeeInfo = (row) => {
-  const emp =
-    row?.employee ||
-    row?.user ||
-    row?.userId ||
-    row?.employeeId ||
-    row?.createdBy ||
-    null;
-
+  const emp = row?.employee || row?.user || row?.userId || row?.employeeId || row?.createdBy || null;
   const name = emp?.name || emp?.fullName || row?.employeeName || row?.name || "—";
   const email = emp?.email || row?.employeeEmail || row?.email || "";
-
   return { name, email };
 };
 
@@ -142,9 +134,7 @@ export default function LatestLocationsSection() {
     return (
       <div className="bg-white border border-slate-100 rounded-2xl p-5">
         <div className="text-lg font-semibold text-slate-800">Access Denied</div>
-        <div className="text-sm text-slate-500 mt-1">
-          Only Admin can view this section.
-        </div>
+        <div className="text-sm text-slate-500 mt-1">Only Admin can view this section.</div>
       </div>
     );
   }
@@ -302,6 +292,16 @@ export default function LatestLocationsSection() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, closeModal]);
 
+  // ✅ prevent background scroll when modal open (UI only)
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const distanceKm = useMemo(() => computeDistanceKm(points), [points]);
   const polyline = useMemo(() => points.map((p) => [p.lat, p.lng]), [points]);
 
@@ -325,222 +325,233 @@ export default function LatestLocationsSection() {
 
   return (
     <div className="space-y-4">
-      {/* ✅ Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-2xl border border-slate-200 bg-white flex items-center justify-center">
+      {/* ✅ CRM container */}
+      <div className="rounded-3xl border border-slate-100 bg-gradient-to-b from-white to-slate-50/40 p-4 sm:p-5">
+        {/* ✅ Header */}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex items-start gap-3">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl border border-slate-200 bg-white flex items-center justify-center shrink-0">
               <FiMapPin className="text-slate-700" />
             </div>
             <div className="min-w-0">
-              <div className="text-lg sm:text-xl font-semibold text-slate-800 truncate">
+              <div className="text-lg sm:text-xl lg:text-2xl font-semibold text-slate-800 truncate">
                 Latest Locations (All Employees)
               </div>
-              <div className="text-xs text-slate-500">
+              <div className="text-xs sm:text-sm text-slate-500">
                 Search employee → Preview → view full day route + total travel.
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Stats pills */}
-        <div className="flex flex-wrap gap-2 sm:justify-end">
-          <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
-            <FiUsers />
-            Total: <span className="font-semibold text-slate-800">{stats.total}</span>
-          </span>
-          <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
-            <FiMapPin />
-            Showing: <span className="font-semibold text-slate-800">{stats.showing}</span>
-          </span>
-        </div>
-      </div>
-
-      {/* ✅ Search / Controls */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:items-end">
-          <div className="lg:col-span-6">
-            <label className="text-xs text-slate-500 flex items-center gap-2">
-              <FiSearch /> Search
-            </label>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && setPage(1)}
-              placeholder="Search employee name/email..."
-              className="mt-1 w-full text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
-            />
-            <div className="mt-1 text-[11px] text-slate-400">
-              Tip: typing will auto-search after a short delay.
-            </div>
+          {/* Stats pills */}
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+              <FiUsers />
+              Total: <span className="font-semibold text-slate-800">{stats.total}</span>
+            </span>
+            <span className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 bg-white text-slate-600">
+              <FiMapPin />
+              Showing: <span className="font-semibold text-slate-800">{stats.showing}</span>
+            </span>
           </div>
+        </div>
 
-          <div className="lg:col-span-6 flex flex-wrap gap-2 lg:justify-end">
-            <button
-              onClick={fetchLatest}
-              disabled={loading}
-              className={cn(
-                "inline-flex items-center justify-center gap-2",
-                "text-xs sm:text-sm px-4 py-2 rounded-xl border transition",
-                loading
-                  ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
-                  : "border-slate-200 bg-white hover:bg-slate-50"
-              )}
-            >
-              <FiRefreshCw /> Refresh
-            </button>
+        {/* ✅ Search / Controls */}
+        <div className="mt-4 bg-white border border-slate-100 rounded-2xl p-3 sm:p-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:items-end">
+            <div className="lg:col-span-6">
+              <label className="text-xs text-slate-500 flex items-center gap-2">
+                <FiSearch /> Search
+              </label>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && setPage(1)}
+                placeholder="Search employee name/email..."
+                className={cn(
+                  "mt-1 w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-white",
+                  "focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300"
+                )}
+              />
+              <div className="mt-1 text-[11px] text-slate-400">
+                Tip: typing will auto-search after a short delay.
+              </div>
+            </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Rows</span>
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(parseInt(e.target.value, 10));
-                  setPage(1);
-                }}
-                className="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
+            <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 lg:flex lg:justify-end gap-2">
+              <button
+                onClick={fetchLatest}
+                disabled={loading}
+                className={cn(
+                  "inline-flex w-full lg:w-auto items-center justify-center gap-2",
+                  "text-xs sm:text-sm px-4 py-2.5 rounded-xl border transition",
+                  loading
+                    ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                    : "border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99]"
+                )}
               >
-                {[10, 20, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+                <FiRefreshCw /> Refresh
+              </button>
+
+              <div className="w-full lg:w-auto rounded-xl border border-slate-200 bg-white px-3 py-2.5 flex items-center justify-between gap-2">
+                <span className="text-xs text-slate-500">Rows</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(parseInt(e.target.value, 10));
+                    setPage(1);
+                  }}
+                  className="text-sm bg-transparent outline-none"
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
+
+          {error ? (
+            <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 inline-flex items-center gap-2">
+              <FiAlertTriangle />
+              {error}
+            </div>
+          ) : null}
         </div>
 
-        {error ? (
-          <div className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 inline-flex items-center gap-2">
-            <FiAlertTriangle />
-            {error}
-          </div>
-        ) : null}
-      </div>
-
-      {/* ✅ Desktop table (md+) + Mobile cards (<md) */}
-      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-        {/* Desktop */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr className="text-slate-600">
-                <th className="px-4 py-3 text-left font-semibold">Employee</th>
-                <th className="px-4 py-3 text-left font-semibold">Captured At</th>
-                <th className="px-4 py-3 text-left font-semibold w-[140px]">Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td className="px-4 py-4 text-slate-500" colSpan={3}>
-                    Loading...
-                  </td>
+        {/* ✅ Table + Cards */}
+        <div className="mt-4 bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+          {/* Desktop */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50/80 border-b border-slate-100 sticky top-0 z-10">
+                <tr className="text-slate-600">
+                  <th className="px-4 py-3 text-left font-semibold">Employee</th>
+                  <th className="px-4 py-3 text-left font-semibold whitespace-nowrap">
+                    Captured At
+                  </th>
+                  <th className="px-4 py-3 text-right font-semibold w-[160px] whitespace-nowrap">
+                    Action
+                  </th>
                 </tr>
-              ) : items.length ? (
-                items.map((r) => {
-                  const emp = getEmployeeInfo(r);
-                  return (
-                    <tr
-                      key={r._id}
-                      className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-800">{emp.name}</div>
-                        <div className="text-xs text-slate-500">{emp.email}</div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-700">{isoToLocal(r.capturedAt)}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => openPreview(r)}
-                          className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
-                        >
-                          <FiMapPin /> Preview
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td className="px-4 py-4 text-slate-500" colSpan={3}>
-                    No employees found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
 
-        {/* Mobile */}
-        <div className="md:hidden divide-y divide-slate-100">
-          {loading ? (
-            <div className="p-4 text-sm text-slate-500">Loading...</div>
-          ) : items.length ? (
-            items.map((r) => {
-              const emp = getEmployeeInfo(r);
-              return (
-                <div key={r._id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-slate-800 truncate">
-                        {emp.name}
-                      </div>
-                      <div className="text-xs text-slate-500 truncate">{emp.email}</div>
-                      <div className="mt-2 text-xs text-slate-500">
-                        Captured:{" "}
-                        <span className="text-slate-800 font-semibold">
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td className="px-4 py-5 text-slate-500" colSpan={3}>
+                      Loading...
+                    </td>
+                  </tr>
+                ) : items.length ? (
+                  items.map((r) => {
+                    const emp = getEmployeeInfo(r);
+                    return (
+                      <tr
+                        key={r._id}
+                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-slate-800">{emp.name}</div>
+                          <div className="text-xs text-slate-500">{emp.email}</div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                           {isoToLocal(r.capturedAt)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => openPreview(r)}
-                      className="shrink-0 inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
-                    >
-                      <FiMapPin /> Preview
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="p-4 text-sm text-slate-500">No employees found.</div>
-          )}
-        </div>
-      </div>
-
-      {/* ✅ Pagination */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs sm:text-sm text-slate-500">
-            Total: <span className="text-slate-800 font-semibold">{pagination.total || 0}</span>{" "}
-            <span className="mx-1">•</span>
-            Page{" "}
-            <span className="text-slate-800 font-semibold">{pagination.page || page}</span> of{" "}
-            <span className="text-slate-800 font-semibold">{totalPages}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => openPreview(r)}
+                            className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition"
+                          >
+                            <FiMapPin /> Preview
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td className="px-4 py-5 text-slate-500" colSpan={3}>
+                      No employees found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <button
-              disabled={page <= 1 || loading}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition"
-            >
-              <FiChevronLeft />
-              Prev
-            </button>
+          {/* Mobile */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {loading ? (
+              <div className="p-4 text-sm text-slate-500">Loading...</div>
+            ) : items.length ? (
+              items.map((r) => {
+                const emp = getEmployeeInfo(r);
+                return (
+                  <div key={r._id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-slate-800 truncate">
+                          {emp.name}
+                        </div>
+                        <div className="text-xs text-slate-500 truncate">{emp.email}</div>
+                        <div className="mt-2 text-xs text-slate-500">
+                          Captured:{" "}
+                          <span className="text-slate-800 font-semibold">
+                            {isoToLocal(r.capturedAt)}
+                          </span>
+                        </div>
+                      </div>
 
-            <button
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition"
-            >
-              Next
-              <FiChevronRight />
-            </button>
+                      <button
+                        onClick={() => openPreview(r)}
+                        className="shrink-0 inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition"
+                      >
+                        <FiMapPin /> Preview
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-4 text-sm text-slate-500">No employees found.</div>
+            )}
+          </div>
+        </div>
+
+        {/* ✅ Pagination */}
+        <div className="mt-4 bg-white border border-slate-100 rounded-2xl p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs sm:text-sm text-slate-500">
+              Total:{" "}
+              <span className="text-slate-800 font-semibold">{pagination.total || 0}</span>{" "}
+              <span className="mx-1">•</span>
+              Page{" "}
+              <span className="text-slate-800 font-semibold">{pagination.page || page}</span> of{" "}
+              <span className="text-slate-800 font-semibold">{totalPages}</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:justify-end">
+              <button
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="inline-flex items-center justify-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2.5 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 active:scale-[0.99] transition"
+              >
+                <FiChevronLeft />
+                Prev
+              </button>
+
+              <button
+                disabled={page >= totalPages || loading}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="inline-flex items-center justify-center gap-2 text-xs sm:text-sm px-3 sm:px-4 py-2.5 rounded-xl border border-slate-200 bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 active:scale-[0.99] transition"
+              >
+                Next
+                <FiChevronRight />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -566,7 +577,7 @@ export default function LatestLocationsSection() {
   );
 }
 
-/* ---------------- Modal (extracted for clarity) ---------------- */
+/* ---------------- Modal (UI improved, logic unchanged) ---------------- */
 
 function RouteModal({
   activeRow,
@@ -591,146 +602,160 @@ function RouteModal({
         type="button"
         aria-label="Close modal"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
       />
 
-      {/* Modal shell */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={cn(
-          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "w-[94vw] sm:w-[92vw] max-w-6xl",
-          "bg-white border border-slate-100 shadow-2xl rounded-2xl overflow-hidden"
-        )}
-      >
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-base sm:text-lg font-semibold text-slate-800 truncate">
-              {activeEmp.name}
-            </div>
-            <div className="text-xs text-slate-500 truncate">
-              {activeEmp.email || "—"} • Total Travel:{" "}
-              <span className="font-semibold text-slate-800">
-                {routeLoading ? "..." : `${distanceKm} km`}
-              </span>
-            </div>
-            {routeMsg ? (
-              <div className="text-[11px] text-amber-600 mt-1">{routeMsg}</div>
-            ) : null}
-          </div>
+      {/* Center wrapper: bottom sheet on mobile, dialog on desktop */}
+      <div className="absolute inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          className={cn(
+            "w-full sm:w-[92vw] max-w-6xl",
+            "h-[92vh] sm:h-auto sm:max-h-[88vh]",
+            "rounded-t-3xl sm:rounded-2xl",
+            "bg-white border border-slate-100 shadow-2xl overflow-hidden ring-1 ring-black/5"
+          )}
+        >
+          {/* Drag handle (mobile) */}
+          <div className="sm:hidden absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-slate-200" />
 
-          <button
-            onClick={onClose}
-            className="shrink-0 inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition"
-          >
-            <FiX /> Close
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="p-4 sm:p-6 space-y-3">
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-            <div className="min-w-0">
-              <div className="text-xs text-slate-500 flex items-center gap-2">
-                <FiCalendar /> Date
+          {/* Header (sticky) */}
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-100">
+            <div className="px-4 sm:px-6 py-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-base sm:text-lg font-semibold text-slate-800 truncate">
+                  {activeEmp.name}
+                </div>
+                <div className="text-xs text-slate-500 truncate">
+                  {activeEmp.email || "—"} • Total Travel:{" "}
+                  <span className="font-semibold text-slate-800">
+                    {routeLoading ? "..." : `${distanceKm} km`}
+                  </span>
+                </div>
+                {routeMsg ? <div className="text-[11px] text-amber-600 mt-1">{routeMsg}</div> : null}
               </div>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="mt-1 w-full sm:w-[220px] text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white"
-              />
+
+              <button
+                onClick={onClose}
+                className="shrink-0 inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition"
+              >
+                <FiX />
+                <span className="hidden sm:inline">Close</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Body (scroll area) */}
+          <div className="p-4 sm:p-6 space-y-3 overflow-auto h-[calc(92vh-92px)] sm:h-auto sm:max-h-[calc(88vh-96px)]">
+            {/* Controls */}
+            <div className="grid grid-cols-1 sm:grid-cols-[220px_1fr] lg:grid-cols-[220px_220px_1fr] gap-3 items-end">
+              <div className="min-w-0">
+                <div className="text-xs text-slate-500 flex items-center gap-2">
+                  <FiCalendar /> Date
+                </div>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={cn(
+                    "mt-1 w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 bg-white",
+                    "focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-300"
+                  )}
+                />
+              </div>
+
+              <button
+                onClick={() => loadRoute(userId, date)}
+                disabled={!date || routeLoading}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2",
+                  "text-xs sm:text-sm px-4 py-2.5 rounded-xl transition",
+                  "w-full sm:w-auto",
+                  !date || routeLoading
+                    ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
+                    : "bg-sky-600 text-white hover:bg-sky-700 active:scale-[0.99]"
+                )}
+              >
+                <FiRefreshCw />
+                {routeLoading ? "Loading..." : "Load Day Route"}
+              </button>
+
+              {Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng) ? (
+                <a
+                  href={openStreetMapLink(activeRow.lat, activeRow.lng)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs sm:text-sm text-sky-700 hover:underline inline-flex items-center gap-2 justify-start sm:justify-end"
+                >
+                  <FiExternalLink /> Open in Map
+                </a>
+              ) : null}
             </div>
 
-            <button
-              onClick={() => loadRoute(userId, date)}
-              disabled={!date || routeLoading}
-              className={cn(
-                "inline-flex items-center justify-center gap-2",
-                "text-xs sm:text-sm px-4 py-2 rounded-xl transition",
-                !date || routeLoading
-                  ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                  : "bg-sky-600 text-white hover:bg-sky-700"
-              )}
-            >
-              <FiRefreshCw />
-              {routeLoading ? "Loading..." : "Load Day Route"}
-            </button>
+            {/* Map */}
+            <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50">
+              {routeLoading ? (
+                <div className="p-6 text-sm text-slate-500">Loading route...</div>
+              ) : points.length ? (
+                <div className="h-[50vh] sm:h-[520px] lg:h-[600px] w-full">
+                  <MapContainer center={mapCenter} zoom={14} style={{ width: "100%", height: "100%" }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-            {Number.isFinite(activeRow?.lat) && Number.isFinite(activeRow?.lng) ? (
-              <a
-                href={openStreetMapLink(activeRow.lat, activeRow.lng)}
-                target="_blank"
-                rel="noreferrer"
-                className="sm:ml-auto text-xs sm:text-sm text-sky-700 hover:underline inline-flex items-center gap-2"
-              >
-                <FiExternalLink /> Open in Map
-              </a>
-            ) : null}
-          </div>
+                    <FitBounds positions={polyline} />
 
-          {/* Map */}
-          <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50">
-            {routeLoading ? (
-              <div className="p-6 text-sm text-slate-500">Loading route...</div>
-            ) : points.length ? (
-              <MapContainer
-                center={mapCenter}
-                zoom={14}
-                style={{ width: "100%" }}
-                className="h-[55vh] sm:h-[520px]"
-              >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-
-                {/* Fit to all points */}
-                <FitBounds positions={polyline} />
-
-                {/* All points */}
-                {points.map((p, idx) => (
-                  <CircleMarker key={p._id || idx} center={[p.lat, p.lng]} radius={5}>
-                    <Popup>
-                      <div className="text-xs">
-                        <div>
-                          <b>Point:</b> {idx + 1}
-                        </div>
-                        <div>
-                          <b>Time:</b> {isoToLocal(p.capturedAt)}
-                        </div>
-                        {Number.isFinite(p.accuracy) ? (
-                          <div>
-                            <b>Accuracy:</b> {Math.round(p.accuracy)} m
+                    {points.map((p, idx) => (
+                      <CircleMarker key={p._id || idx} center={[p.lat, p.lng]} radius={5}>
+                        <Popup>
+                          <div className="text-xs">
+                            <div>
+                              <b>Point:</b> {idx + 1}
+                            </div>
+                            <div>
+                              <b>Time:</b> {isoToLocal(p.capturedAt)}
+                            </div>
+                            {Number.isFinite(p.accuracy) ? (
+                              <div>
+                                <b>Accuracy:</b> {Math.round(p.accuracy)} m
+                              </div>
+                            ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                    </Popup>
-                  </CircleMarker>
-                ))}
+                        </Popup>
+                      </CircleMarker>
+                    ))}
 
-                {/* Start + End */}
-                {points.length > 0 ? (
-                  <>
-                    <Marker position={[points[0].lat, points[0].lng]}>
-                      <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
-                    </Marker>
-                    <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
-                      <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
-                    </Marker>
-                  </>
-                ) : null}
+                    {points.length > 0 ? (
+                      <>
+                        <Marker position={[points[0].lat, points[0].lng]}>
+                          <Popup>Start: {isoToLocal(points[0].capturedAt)}</Popup>
+                        </Marker>
+                        <Marker position={[points[points.length - 1].lat, points[points.length - 1].lng]}>
+                          <Popup>End: {isoToLocal(points[points.length - 1].capturedAt)}</Popup>
+                        </Marker>
+                      </>
+                    ) : null}
 
-                {/* Route line */}
-                {polyline.length >= 2 ? <Polyline positions={polyline} /> : null}
-              </MapContainer>
-            ) : (
-              <div className="p-6 text-sm text-slate-500">No route points found for this day.</div>
-            )}
+                    {polyline.length >= 2 ? <Polyline positions={polyline} /> : null}
+                  </MapContainer>
+                </div>
+              ) : (
+                <div className="p-6 text-sm text-slate-500">No route points found for this day.</div>
+              )}
+            </div>
+
+            <div className="text-[11px] text-slate-400">
+              Map uses OpenStreetMap (no API key). Distance is calculated from captured points.
+            </div>
           </div>
 
-          <div className="text-[11px] text-slate-400">
-            Map uses OpenStreetMap (no API key). Distance is calculated from captured points.
+          {/* Footer (mobile friendly) */}
+          <div className="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 p-4 sm:hidden">
+            <button
+              onClick={onClose}
+              className="w-full inline-flex items-center justify-center gap-2 text-sm px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.99] transition"
+            >
+              <FiX /> Close
+            </button>
           </div>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   FiClock,
   FiCopy,
   FiX,
+  FiChevronLeft,
 } from "react-icons/fi";
 import axiosClient from "../../api/axiosClient";
 
@@ -61,6 +62,9 @@ export default function ContactDiscussionPage() {
 
   const [copied, setCopied] = useState(false);
   const [compact, setCompact] = useState(false);
+
+  // ✅ Mobile UX: List vs Note view (no logic change; only presentation state)
+  const [mobilePane, setMobilePane] = useState("list"); // list | note
 
   const canSubmit = useMemo(() => {
     const { name, email, companyName, role, phone, discussionNote } = form;
@@ -128,6 +132,11 @@ export default function ContactDiscussionPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When selected changes, auto-open note pane on mobile
+  useEffect(() => {
+    if (selected?._id) setMobilePane("note");
+  }, [selected?._id]);
+
   const onChange = (e) => {
     setError("");
     setSuccess("");
@@ -192,6 +201,12 @@ export default function ContactDiscussionPage() {
     return t.length > 90 ? t.slice(0, 90) + "…" : t;
   };
 
+  const onSelect = (it) => {
+    setSelected(it);
+    // Mobile: switch to note pane
+    setMobilePane("note");
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 space-y-4 sm:space-y-6">
@@ -228,19 +243,50 @@ export default function ContactDiscussionPage() {
                 <button
                   type="button"
                   onClick={fetchAll}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99]"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-slate-100"
                 >
-                  <FiRefreshCcw />
+                  <FiRefreshCcw className={loadingList ? "animate-spin" : ""} />
                   Refresh
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCompact((p) => !p)}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99]"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-slate-100"
                 >
                   {compact ? "Comfort View" : "Compact View"}
                 </button>
+
+                {/* Mobile: quick toggle between list/note */}
+                <div className="grid grid-cols-2 gap-2 sm:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobilePane("list")}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold",
+                      "focus:outline-none focus:ring-4 focus:ring-slate-100",
+                      mobilePane === "list"
+                        ? "bg-slate-900 text-white"
+                        : "bg-white text-slate-900 hover:bg-slate-50"
+                    )}
+                  >
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobilePane("note")}
+                    className={cn(
+                      "inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 px-3 py-2 text-sm font-semibold",
+                      "focus:outline-none focus:ring-4 focus:ring-slate-100",
+                      mobilePane === "note"
+                        ? "bg-slate-900 text-white"
+                        : "bg-white text-slate-900 hover:bg-slate-50"
+                    )}
+                    disabled={!selected?._id}
+                  >
+                    Note
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -288,7 +334,7 @@ export default function ContactDiscussionPage() {
                         <button
                           type="button"
                           onClick={() => setSearch("")}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
                           aria-label="Clear search"
                         >
                           <FiX />
@@ -301,8 +347,15 @@ export default function ContactDiscussionPage() {
 
               {/* Content */}
               <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-12 bg-white">
-                {/* List */}
-                <div className="lg:col-span-7">
+                {/* LIST PANE */}
+                <div
+                  className={cn(
+                    "lg:col-span-7",
+                    "sm:block",
+                    // mobile panes
+                    mobilePane === "note" ? "hidden sm:block" : "block"
+                  )}
+                >
                   {loadingList ? (
                     <SkeletonList />
                   ) : filteredItems.length === 0 ? (
@@ -317,9 +370,10 @@ export default function ContactDiscussionPage() {
                             <button
                               key={it._id}
                               type="button"
-                              onClick={() => setSelected(it)}
+                              onClick={() => onSelect(it)}
                               className={cn(
                                 "w-full text-left rounded-2xl border border-slate-200 transition active:scale-[0.99]",
+                                "focus:outline-none focus:ring-4 focus:ring-slate-100",
                                 active ? "bg-slate-100" : "bg-white hover:bg-slate-50",
                                 compact ? "p-3" : "p-4"
                               )}
@@ -345,7 +399,10 @@ export default function ContactDiscussionPage() {
                                 <MiniStat label="Company" value={it.companyName || "-"} />
                                 <MiniStat label="Role" value={it.role || "-"} />
                                 <MiniStat label="Phone" value={it.phone || "-"} mono />
-                                <MiniStat label="Date" value={it.createdAt ? fmtDate(it.createdAt) : "-"} />
+                                <MiniStat
+                                  label="Date"
+                                  value={it.createdAt ? fmtDate(it.createdAt) : "-"}
+                                />
                               </div>
 
                               {!compact ? (
@@ -372,7 +429,7 @@ export default function ContactDiscussionPage() {
 
                       {/* Desktop table */}
                       <div className="hidden lg:block overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                        <div className="max-h-[460px] overflow-auto">
+                        <div className="max-h-[520px] overflow-auto">
                           <table className="min-w-full text-left text-sm">
                             <thead className="sticky top-0 z-10 bg-slate-50 text-slate-600">
                               <tr>
@@ -395,7 +452,7 @@ export default function ContactDiscussionPage() {
                                       active ? "bg-slate-100" : "hover:bg-slate-50"
                                     )}
                                   >
-                                    <td className="px-3 py-3">
+                                    <td className="px-3 py-3 align-top">
                                       <div className="font-extrabold text-slate-900 break-words">
                                         {it.name}
                                       </div>
@@ -408,14 +465,16 @@ export default function ContactDiscussionPage() {
                                         </div>
                                       ) : null}
                                     </td>
-                                    <td className="px-3 py-3 text-slate-900 break-words">
+                                    <td className="px-3 py-3 text-slate-900 break-words align-top">
                                       {it.companyName}
                                     </td>
-                                    <td className="px-3 py-3 text-slate-900 break-words">{it.role}</td>
-                                    <td className="px-3 py-3 font-semibold text-slate-900 break-all">
+                                    <td className="px-3 py-3 text-slate-900 break-words align-top">
+                                      {it.role}
+                                    </td>
+                                    <td className="px-3 py-3 font-semibold text-slate-900 break-all align-top">
                                       {it.phone}
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-slate-600">
+                                    <td className="px-3 py-3 text-xs text-slate-600 align-top">
                                       <span className="inline-flex items-center gap-1">
                                         <FiClock className="text-slate-400" />
                                         {it.createdAt ? fmtDate(it.createdAt) : "-"}
@@ -439,10 +498,28 @@ export default function ContactDiscussionPage() {
                   )}
                 </div>
 
-                {/* Note Viewer */}
-                <div className="lg:col-span-5">
+                {/* NOTE PANE */}
+                <div
+                  className={cn(
+                    "lg:col-span-5",
+                    // mobile panes
+                    mobilePane === "list" ? "hidden sm:block" : "block"
+                  )}
+                >
                   <div className="lg:sticky lg:top-6 space-y-3">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                      {/* Mobile back */}
+                      <div className="sm:hidden mb-3">
+                        <button
+                          type="button"
+                          onClick={() => setMobilePane("list")}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                        >
+                          <FiChevronLeft />
+                          Back to list
+                        </button>
+                      </div>
+
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-[11px] font-semibold text-slate-400">Note Viewer</div>
@@ -459,7 +536,7 @@ export default function ContactDiscussionPage() {
                             <button
                               type="button"
                               onClick={copySelectedNote}
-                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
                             >
                               <FiCopy />
                               {copied ? "Copied" : "Copy"}
@@ -546,7 +623,7 @@ export default function ContactDiscussionPage() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                    className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100"
                   >
                     <FiX />
                     Clear
@@ -644,7 +721,8 @@ export default function ContactDiscussionPage() {
                     disabled={!canSubmit || submitting}
                     className={cn(
                       "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold border border-slate-200",
-                      "bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      "bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed",
+                      "focus:outline-none focus:ring-4 focus:ring-slate-100"
                     )}
                   >
                     {submitting ? (
@@ -689,7 +767,12 @@ function Pill({ label, value, tone = "neutral" }) {
       : "border-slate-200 bg-slate-50 text-slate-600";
 
   return (
-    <span className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold", cls)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold",
+        cls
+      )}
+    >
       <span className="text-slate-400">{label}:</span>
       <span className="text-slate-900">{value}</span>
     </span>
@@ -700,7 +783,12 @@ function MiniStat({ label, value, mono }) {
   return (
     <div className="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2">
       <div className="text-[11px] font-semibold text-slate-600">{label}</div>
-      <div className={cn("mt-1 text-sm font-semibold text-slate-900", mono ? "break-all font-mono" : "break-words")}>
+      <div
+        className={cn(
+          "mt-1 text-sm font-semibold text-slate-900",
+          mono ? "break-all font-mono" : "break-words"
+        )}
+      >
         {value}
       </div>
     </div>
@@ -766,7 +854,12 @@ function InfoRow({ icon, label, value, mono }) {
         <span className="text-slate-400">{icon}</span>
         {label}
       </div>
-      <div className={cn("text-right text-sm font-semibold text-slate-900", mono ? "break-all font-mono" : "break-words")}>
+      <div
+        className={cn(
+          "text-right text-sm font-semibold text-slate-900",
+          mono ? "break-all font-mono" : "break-words"
+        )}
+      >
         {value}
       </div>
     </div>

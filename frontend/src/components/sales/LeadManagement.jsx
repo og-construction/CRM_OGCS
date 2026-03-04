@@ -1,4 +1,11 @@
-// ✅ MyLeads.jsx — FULL CODE (Professional UI + Fully Responsive + Create/Edit Modal + Excel Import)
+// ✅ MyLeads.jsx — FULL CODE (Professional CRM UI + Fully Responsive + Create/Edit Modal + Excel Import)
+// ✅ UI-only improvements (NO logic change):
+// - Better responsive spacing + typography
+// - Sticky header + sticky desktop table header
+// - Cleaner mobile cards + clearer actions
+// - Modal backdrop uses restricted palette (no bg-black)
+// - Consistent focus rings + button sizing for all devices
+// - Safer overflow handling + better table horizontal scroll on small laptops
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -109,11 +116,12 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
 
   return (
     <div className="fixed inset-0 z-50">
+      {/* ✅ restricted palette backdrop */}
       <button
         type="button"
         aria-label="Close modal"
         onClick={onClose}
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-slate-900/20"
       />
       <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
         <div
@@ -131,11 +139,16 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-extrabold text-slate-900 truncate">{title}</div>
-                {subtitle ? <div className="mt-1 text-xs text-slate-600 break-words">{subtitle}</div> : null}
+                {subtitle ? (
+                  <div className="mt-1 text-xs text-slate-600 break-words">{subtitle}</div>
+                ) : null}
               </div>
               <button
                 onClick={onClose}
-                className="px-3 py-1.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 shrink-0"
+                className={cn(
+                  "px-3 py-1.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 bg-white",
+                  "hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-slate-100 shrink-0"
+                )}
                 type="button"
               >
                 Close
@@ -187,7 +200,12 @@ function StatPill({ label, value, tone = "slate" }) {
       : "bg-slate-50 text-slate-600 border-slate-200";
 
   return (
-    <div className={cn("rounded-full border px-3 py-1 text-[11px] font-semibold inline-flex items-center gap-2", cls)}>
+    <div
+      className={cn(
+        "rounded-full border px-3 py-1 text-[11px] font-semibold inline-flex items-center gap-2",
+        cls
+      )}
+    >
       <span className="text-slate-400">{label}:</span>
       <span className="text-slate-900">{value}</span>
     </div>
@@ -199,11 +217,11 @@ function SkeletonList() {
     <div className="p-4 sm:p-5 space-y-3">
       {Array.from({ length: 5 }).map((_, i) => (
         <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="h-4 w-44 bg-slate-100 rounded" />
-          <div className="mt-2 h-3 w-72 bg-slate-100 rounded" />
+          <div className="h-4 w-44 bg-slate-100 rounded animate-pulse" />
+          <div className="mt-2 h-3 w-72 bg-slate-100 rounded animate-pulse" />
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl" />
-            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl" />
+            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl animate-pulse" />
+            <div className="h-10 bg-slate-50 border border-slate-200 rounded-2xl animate-pulse" />
           </div>
         </div>
       ))}
@@ -221,7 +239,10 @@ function EmptyBlock({ title, desc, actionLabel, onAction }) {
       <div className="mt-1 text-slate-600 text-sm">{desc}</div>
       {actionLabel ? (
         <button
-          className="mt-4 px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-semibold"
+          className={cn(
+            "mt-4 px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold",
+            "focus:outline-none focus:ring-4 focus:ring-slate-100"
+          )}
           onClick={onAction}
           type="button"
         >
@@ -451,11 +472,14 @@ export default function MyLeads() {
   const inputClass =
     "w-full border border-slate-200 rounded-2xl px-3 py-2.5 text-sm bg-white text-slate-900 outline-none focus:ring-4 focus:ring-slate-100";
 
+  const btnBase =
+    "inline-flex items-center justify-center rounded-2xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-slate-100";
+
   return (
     <div className="min-h-[100dvh] bg-slate-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
-        {/* ===================== Header ===================== */}
-        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+        {/* ===================== Header (sticky on desktop) ===================== */}
+        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden lg:sticky lg:top-4 lg:z-20">
           <div className="h-1 bg-blue-600" />
           <div className="p-4 sm:p-5">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
@@ -490,14 +514,17 @@ export default function MyLeads() {
 
               <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
                 <button
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  className={cn(
+                    btnBase,
+                    "w-full sm:w-auto bg-white border border-slate-200 text-slate-900 hover:bg-slate-50"
+                  )}
                   onClick={() => setOpenImport(true)}
                   type="button"
                 >
                   Import Leads
                 </button>
                 <button
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold"
+                  className={cn(btnBase, "w-full sm:w-auto bg-blue-600 text-white")}
                   onClick={startCreate}
                   type="button"
                 >
@@ -514,7 +541,10 @@ export default function MyLeads() {
                   <span className="text-slate-900 break-words">{error}</span>
                 </div>
                 <button
-                  className="text-xs underline shrink-0 text-slate-600"
+                  className={cn(
+                    "text-xs underline shrink-0 text-slate-600",
+                    "focus:outline-none focus:ring-4 focus:ring-slate-100 rounded"
+                  )}
                   onClick={() => dispatch(clearLeadsError())}
                   type="button"
                 >
@@ -532,7 +562,10 @@ export default function MyLeads() {
                   <b className="text-slate-900">{importResult.skippedInvalid}</b>
                 </div>
                 <button
-                  className="text-xs underline shrink-0 text-slate-600"
+                  className={cn(
+                    "text-xs underline shrink-0 text-slate-600",
+                    "focus:outline-none focus:ring-4 focus:ring-slate-100 rounded"
+                  )}
                   onClick={() => dispatch(clearImportResult())}
                   type="button"
                 >
@@ -578,14 +611,20 @@ export default function MyLeads() {
 
               <div className="md:col-span-2 flex items-end gap-2">
                 <button
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  className={cn(
+                    btnBase,
+                    "w-full bg-white border border-slate-200 text-slate-900 hover:bg-slate-50"
+                  )}
                   type="submit"
                 >
                   {loading ? "Searching..." : "Search"}
                 </button>
                 <button
                   type="button"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  className={cn(
+                    btnBase,
+                    "w-full bg-white border border-slate-200 text-slate-900 hover:bg-slate-50"
+                  )}
                   onClick={() => dispatch(fetchMyLeads({ status, leadType, search }))}
                 >
                   Refresh
@@ -626,10 +665,20 @@ export default function MyLeads() {
                       </div>
 
                       <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
+                        <span
+                          className={cn(
+                            "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                            statusPill(lead.status)
+                          )}
+                        >
                           {lead.status}
                         </span>
-                        <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
+                        <span
+                          className={cn(
+                            "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                            typePill(lead.leadType || "Buyer")
+                          )}
+                        >
                           {lead.leadType || "Buyer"}
                         </span>
                       </div>
@@ -646,11 +695,14 @@ export default function MyLeads() {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                           <div className="text-[11px] text-slate-400">Description</div>
                           {desc ? (
                             <button
-                              className="mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words"
+                              className={cn(
+                                "mt-1 text-left text-sm font-semibold text-blue-600 hover:underline break-words",
+                                "focus:outline-none focus:ring-4 focus:ring-slate-100 rounded-xl"
+                              )}
                               onClick={() => openDescription(desc)}
                               type="button"
                               title={desc}
@@ -670,14 +722,20 @@ export default function MyLeads() {
 
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
-                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                        className={cn(
+                          btnBase,
+                          "w-full bg-white border border-slate-200 text-slate-900 hover:bg-slate-50"
+                        )}
                         onClick={() => startEdit(lead)}
                         type="button"
                       >
                         Edit
                       </button>
                       <button
-                        className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-red-500 hover:bg-slate-50"
+                        className={cn(
+                          btnBase,
+                          "w-full bg-white border border-slate-200 text-red-500 hover:bg-slate-50"
+                        )}
                         onClick={() => onDelete(lead)}
                         type="button"
                       >
@@ -691,115 +749,151 @@ export default function MyLeads() {
           </div>
 
           {/* Desktop Table */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
-                  <th className="p-3">Name</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Company</th>
-                  <th className="p-3">Phone</th>
-                  <th className="p-3">Email</th>
-                  <th className="p-3">City</th>
-                  <th className="p-3">Address</th>
-                  <th className="p-3">Description</th>
-                  <th className="p-3">Source</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 w-44">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={11} className="p-6 text-slate-600">
-                      Loading leads...
-                    </td>
+          <div className="hidden lg:block">
+            <div className="overflow-x-auto">
+              <table className="min-w-[1100px] w-full text-sm">
+                <thead className="bg-slate-50 sticky top-0 z-10">
+                  <tr className="text-left text-xs uppercase tracking-wide text-slate-600">
+                    <th className="p-3">Name</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3">Company</th>
+                    <th className="p-3">Phone</th>
+                    <th className="p-3">Email</th>
+                    <th className="p-3">City</th>
+                    <th className="p-3">Address</th>
+                    <th className="p-3">Description</th>
+                    <th className="p-3">Source</th>
+                    <th className="p-3">Status</th>
+                    <th className="p-3 w-48">Actions</th>
                   </tr>
-                ) : items.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="p-10">
-                      <EmptyBlock
-                        title="No leads found"
-                        desc="Try changing filters or create a new lead."
-                        actionLabel="+ Create Lead"
-                        onAction={startCreate}
-                      />
-                    </td>
-                  </tr>
-                ) : (
-                  items.map((lead) => {
-                    const desc = lead?.description || "";
-                    const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
+                </thead>
 
-                    return (
-                      <tr key={lead._id} className="hover:bg-slate-50 align-top">
-                        <td className="p-3">
-                          <div className="font-extrabold text-slate-900">{lead.name}</div>
-                          <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
-                        </td>
+                <tbody className="divide-y divide-slate-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={11} className="p-6 text-slate-600">
+                        Loading leads...
+                      </td>
+                    </tr>
+                  ) : items.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="p-10">
+                        <EmptyBlock
+                          title="No leads found"
+                          desc="Try changing filters or create a new lead."
+                          actionLabel="+ Create Lead"
+                          onAction={startCreate}
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((lead) => {
+                      const desc = lead?.description || "";
+                      const shortDesc = desc.length > 44 ? desc.slice(0, 44).trim() + "..." : desc;
 
-                        <td className="p-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", typePill(lead.leadType || "Buyer"))}>
-                            {lead.leadType || "Buyer"}
-                          </span>
-                        </td>
+                      return (
+                        <tr key={lead._id} className="hover:bg-slate-50 align-top">
+                          <td className="p-3">
+                            <div className="font-extrabold text-slate-900">{lead.name}</div>
+                            <div className="text-xs text-slate-400">{fmtDate(lead.createdAt)}</div>
+                          </td>
 
-                        <td className="p-3 text-slate-900">{lead.company || "-"}</td>
-                        <td className="p-3 text-slate-900">{lead.phone || "-"}</td>
-                        <td className="p-3">
-                          <div className="max-w-[220px] break-words text-slate-900">{lead.email || "-"}</div>
-                        </td>
-                        <td className="p-3 text-slate-900">{lead.city || "-"}</td>
-                        <td className="p-3 whitespace-normal break-words max-w-[260px] text-slate-900">{lead.address || "-"}</td>
-
-                        <td className="p-3">
-                          {desc ? (
-                            <button
-                              className="text-sm font-semibold text-blue-600 hover:underline"
-                              onClick={() => openDescription(desc)}
-                              title={desc}
-                              type="button"
+                          <td className="p-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                typePill(lead.leadType || "Buyer")
+                              )}
                             >
-                              {shortDesc}
-                            </button>
-                          ) : (
-                            <span className="text-slate-600">-</span>
-                          )}
-                        </td>
+                              {lead.leadType || "Buyer"}
+                            </span>
+                          </td>
 
-                        <td className="p-3 text-slate-900">{lead.source || "-"}</td>
+                          <td className="p-3 text-slate-900">{lead.company || "-"}</td>
+                          <td className="p-3 text-slate-900">{lead.phone || "-"}</td>
 
-                        <td className="p-3">
-                          <span className={cn("inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold", statusPill(lead.status))}>
-                            {lead.status}
-                          </span>
-                        </td>
+                          <td className="p-3">
+                            <div className="max-w-[240px] break-words text-slate-900">
+                              {lead.email || "-"}
+                            </div>
+                          </td>
 
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <button
-                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 hover:bg-slate-50"
-                              onClick={() => startEdit(lead)}
-                              type="button"
+                          <td className="p-3 text-slate-900">{lead.city || "-"}</td>
+
+                          <td className="p-3 whitespace-normal break-words max-w-[280px] text-slate-900">
+                            {lead.address || "-"}
+                          </td>
+
+                          <td className="p-3">
+                            {desc ? (
+                              <button
+                                className={cn(
+                                  "text-sm font-semibold text-blue-600 hover:underline",
+                                  "focus:outline-none focus:ring-4 focus:ring-slate-100 rounded-xl"
+                                )}
+                                onClick={() => openDescription(desc)}
+                                title={desc}
+                                type="button"
+                              >
+                                {shortDesc}
+                              </button>
+                            ) : (
+                              <span className="text-slate-600">-</span>
+                            )}
+                          </td>
+
+                          <td className="p-3 text-slate-900">{lead.source || "-"}</td>
+
+                          <td className="p-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                                statusPill(lead.status)
+                              )}
                             >
-                              Edit
-                            </button>
-                            <button
-                              className="px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 hover:bg-slate-50"
-                              onClick={() => onDelete(lead)}
-                              type="button"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                              {lead.status}
+                            </span>
+                          </td>
+
+                          <td className="p-3">
+                            <div className="flex gap-2">
+                              <button
+                                className={cn(
+                                  "px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-900 bg-white hover:bg-slate-50",
+                                  "focus:outline-none focus:ring-4 focus:ring-slate-100"
+                                )}
+                                onClick={() => startEdit(lead)}
+                                type="button"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className={cn(
+                                  "px-3 py-2 rounded-2xl border border-slate-200 text-xs font-semibold text-red-500 bg-white hover:bg-slate-50",
+                                  "focus:outline-none focus:ring-4 focus:ring-slate-100"
+                                )}
+                                onClick={() => onDelete(lead)}
+                                type="button"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Desktop footer bar */}
+            <div className="border-t border-slate-200 bg-white px-4 py-3 text-xs text-slate-600 flex items-center justify-between">
+              <span>
+                Total: <b className="text-slate-900">{items.length}</b>
+              </span>
+              <span className="text-slate-400">Tip: Click “Description” to open full notes</span>
+            </div>
           </div>
         </div>
 
@@ -821,7 +915,10 @@ export default function MyLeads() {
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                  className={cn(
+                    btnBase,
+                    "px-4 bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                  )}
                   onClick={() => {
                     setOpenForm(false);
                     resetForm();
@@ -835,7 +932,7 @@ export default function MyLeads() {
                   type="submit"
                   form="leadForm"
                   disabled={saving}
-                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className={cn(btnBase, "px-4 bg-blue-600 text-white disabled:opacity-60")}
                 >
                   {saving ? "Saving..." : "Save Lead"}
                 </button>
@@ -982,7 +1079,10 @@ export default function MyLeads() {
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  className="px-4 py-2.5 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  className={cn(
+                    btnBase,
+                    "px-4 bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                  )}
                   onClick={() => setOpenImport(false)}
                   disabled={importing}
                   type="button"
@@ -990,7 +1090,7 @@ export default function MyLeads() {
                   Cancel
                 </button>
                 <button
-                  className="px-4 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-semibold disabled:opacity-60"
+                  className={cn(btnBase, "px-4 bg-blue-600 text-white disabled:opacity-60")}
                   disabled={importing}
                   onClick={runImport}
                   type="button"
@@ -1017,9 +1117,7 @@ export default function MyLeads() {
                 className="mt-3 w-full"
                 disabled={importing}
               />
-              <div className="text-[11px] text-slate-400 mt-2">
-                Tip: Column name “Lead Type” also works.
-              </div>
+              <div className="text-[11px] text-slate-400 mt-2">Tip: Column name “Lead Type” also works.</div>
             </div>
 
             <div className="text-sm font-extrabold text-slate-900">Or paste JSON array</div>

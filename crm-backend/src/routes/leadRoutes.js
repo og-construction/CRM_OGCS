@@ -15,6 +15,12 @@ import {
   getMyFollowUpsSummary,
 } from "../controllers/leadController.js";
 
+import {
+  validateCreateLead,
+  validateUpdateLead,
+  validatePagination,
+} from "../middlewares/validationMiddleware.js";
+
 const router = express.Router();
 
 /**
@@ -22,10 +28,10 @@ const router = express.Router();
  * LEADS CRUD (My Leads)
  * ==========================
  */
-router.get("/my", protect, getMyLeads);
-router.post("/my", protect, createMyLead);
+router.get("/my", protect, validatePagination, getMyLeads);
+router.post("/my", protect, validateCreateLead, createMyLead);
 router.post("/my/import", protect, importMyLeads);
-router.put("/my/:id", protect, updateMyLead);
+router.put("/my/:id", protect, validateUpdateLead, updateMyLead);
 router.delete("/my/:id", protect, deleteMyLead);
 
 /**

@@ -1,4 +1,6 @@
-// src/components/sales/Notification.jsx
+// ✅ src/components/sales/Notification.jsx
+// UI polish + fully responsive (mobile/tablet/desktop) — ✅ NO logic changes
+
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axiosClient from "../../api/axiosClient";
 import {
@@ -72,18 +74,22 @@ const prettyDT = (dateVal) => {
 function Section({ title, subtitle, icon, right, tone = "blue", children }) {
   const bar = tone === "orange" ? "bg-orange-500" : tone === "blue" ? "bg-blue-600" : "bg-slate-900";
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
       <div className={cn("h-1", bar)} />
       <div className="p-4 sm:p-5 md:p-6">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            {icon ? <IconBadge tone={tone} title={title}>{icon}</IconBadge> : null}
+            {icon ? (
+              <IconBadge tone={tone} title={title}>
+                {icon}
+              </IconBadge>
+            ) : null}
             <div className="min-w-0">
               <h2 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900">{title}</h2>
-              {subtitle ? <p className="text-sm text-slate-600 mt-1">{subtitle}</p> : null}
+              {subtitle ? <p className="text-sm text-slate-600 mt-1 leading-relaxed">{subtitle}</p> : null}
             </div>
           </div>
-          {right ? <div className="w-full md:w-auto">{right}</div> : null}
+          {right ? <div className="w-full lg:w-auto">{right}</div> : null}
         </div>
 
         {children ? <div className="mt-4">{children}</div> : null}
@@ -132,8 +138,8 @@ function TabButton({ active, onClick, children }) {
       className={cn(
         "px-3 py-2 rounded-2xl text-sm font-semibold transition whitespace-nowrap",
         active
-          ? "bg-white border border-slate-200 text-slate-900"
-          : "text-slate-600 hover:text-slate-900"
+          ? "bg-white border border-slate-200 text-slate-900 shadow-sm"
+          : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
       )}
     >
       {children}
@@ -184,6 +190,7 @@ function FollowCard({ title, value, hint, tone = "blue", active, onClick, icon }
       onClick={onClick}
       className={cn(
         "text-left rounded-2xl border p-4 transition hover:bg-slate-50 active:scale-[0.99]",
+        "w-full",
         toneBorder,
         active ? "ring-2 ring-slate-200 border-slate-900" : "border-slate-200"
       )}
@@ -217,11 +224,11 @@ function Toast({ show, type, msg, onClose }) {
       : "text-slate-600";
 
   return (
-    <div className="fixed bottom-5 right-5 z-50">
-      <div className={cn("px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white", tone)}>
+    <div className="fixed bottom-4 sm:bottom-5 right-3 sm:right-5 z-50 max-w-[calc(100vw-24px)] sm:max-w-sm">
+      <div className={cn("px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white shadow-sm", tone)}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 break-words">{msg}</div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
             <FiX />
           </button>
         </div>
@@ -258,6 +265,103 @@ function EmptyState({ icon, title, desc }) {
       </div>
       <p className="mt-3 font-semibold text-slate-900">{title}</p>
       <p className="text-sm text-slate-600 mt-1">{desc}</p>
+    </div>
+  );
+}
+
+/* ✅ List row component (UI-only) */
+function NotificationRow({ n, onToggleRead, onDelete }) {
+  return (
+    <div className={cn("p-4 sm:p-5 transition", !n.isRead ? "bg-slate-50" : "bg-white")}>
+      <div className="flex gap-3">
+        {/* Status badge */}
+        <div className="mt-0.5 shrink-0">
+          <div
+            className={cn(
+              "w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center border border-slate-200 bg-white",
+              !n.isRead ? "text-blue-600" : "text-green-600"
+            )}
+            title={!n.isRead ? "Unread" : "Read"}
+          >
+            <span className="text-lg sm:text-xl">{!n.isRead ? <FiCircle /> : <FiCheckCircle />}</span>
+          </div>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="font-extrabold text-slate-900 truncate max-w-[720px]">{n.title}</h4>
+
+                {!n.isRead ? (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600 text-white">NEW</span>
+                ) : (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    READ
+                  </span>
+                )}
+
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
+                  {prettyDate(n.notifyDate)} • {n.day}
+                </span>
+              </div>
+
+              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed break-words">
+                {n.description}
+              </p>
+
+              <div className="mt-2 text-xs text-slate-400">Created: {prettyDT(n.createdAt)}</div>
+            </div>
+
+            {/* Actions (desktop) */}
+            <div className="hidden xl:flex items-center gap-2 shrink-0">
+              <button
+                onClick={onToggleRead}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
+                  "bg-white text-slate-600 hover:bg-slate-50"
+                )}
+                title={n.isRead ? "Mark unread" : "Mark read"}
+                type="button"
+              >
+                {n.isRead ? "Unread" : "Read"}
+              </button>
+
+              <button
+                onClick={onDelete}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
+                  "bg-white text-red-500 hover:bg-slate-50"
+                )}
+                title="Delete"
+                type="button"
+              >
+                <FiTrash2 />
+              </button>
+            </div>
+          </div>
+
+          {/* Actions (mobile/tablet) */}
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:hidden gap-2">
+            <button
+              onClick={onToggleRead}
+              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
+              type="button"
+            >
+              {n.isRead ? "Mark Unread" : "Mark Read"}
+            </button>
+            <button
+              onClick={onDelete}
+              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-red-500"
+              type="button"
+              title="Delete"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -408,7 +512,8 @@ export default function Notification() {
 
   return (
     <div className="bg-slate-50 min-h-[100dvh]">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 space-y-5">
+      {/* More “CRM” feel: wider max + consistent gutters */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-5">
         {/* ===================== Follow-up Reminder Dashboard ===================== */}
         <Section
           tone="orange"
@@ -421,7 +526,7 @@ export default function Notification() {
               disabled={fuLoading}
               className={cn(
                 "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200",
-                "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full md:w-auto"
+                "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full lg:w-auto"
               )}
               type="button"
             >
@@ -430,7 +535,8 @@ export default function Notification() {
             </button>
           }
         >
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Responsive cards: 1 / 2 / 3 columns */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <FollowCard
               title="Today"
               value={fuSummary.today}
@@ -460,12 +566,10 @@ export default function Notification() {
             />
           </div>
 
-          {fuError ? (
-            <AlertBox type="error" title="Follow-up error:" msg={fuError} />
-          ) : null}
+          {fuError ? <AlertBox type="error" title="Follow-up error:" msg={fuError} /> : null}
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="text-sm font-extrabold text-slate-900">
                 {fuBucket === "today"
                   ? "Today Follow-ups"
@@ -481,11 +585,7 @@ export default function Notification() {
             {fuLoading ? (
               <div className="p-4 text-slate-600">Loading follow-ups...</div>
             ) : fuItems.length === 0 ? (
-              <EmptyState
-                icon={<FiClock />}
-                title="No follow-ups in this bucket"
-                desc="Set follow-up date from Follow-Up System."
-              />
+              <EmptyState icon={<FiClock />} title="No follow-ups in this bucket" desc="Set follow-up date from Follow-Up System." />
             ) : (
               <div className="divide-y divide-slate-200">
                 {fuItems.map((l) => (
@@ -538,7 +638,7 @@ export default function Notification() {
               disabled={loading}
               className={cn(
                 "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border border-slate-200",
-                "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full md:w-auto"
+                "bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-60 w-full lg:w-auto"
               )}
               type="button"
             >
@@ -555,82 +655,80 @@ export default function Notification() {
         </Section>
 
         {/* ===================== Notifications Content Grid ===================== */}
-        <div className="grid lg:grid-cols-12 gap-5">
-          {/* Left: Create */}
-          <div className="lg:col-span-5">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="h-1 bg-blue-600" />
-              <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white">
-                <h3 className="font-extrabold text-slate-900">Create Notification</h3>
-                <p className="text-sm text-slate-600 mt-1">Fill details and publish to your list.</p>
-              </div>
-
-              <form onSubmit={createNotification} className="p-4 sm:p-5 space-y-4">
-                <Field label="Title" hint="required">
-                  <input
-                    value={form.title}
-                    onChange={onChange("title")}
-                    className={inputClass}
-                    placeholder="Eg. Safety meeting at 5 PM"
-                    maxLength={120}
-                  />
-                </Field>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="Date" hint="required">
-                    <input type="date" value={form.notifyDate} onChange={onChange("notifyDate")} className={inputClass} />
-                  </Field>
-
-                  <Field label="Day" hint="auto">
-                    <div className="h-[42px] flex items-center justify-between px-4 rounded-2xl border border-slate-200 bg-slate-50">
-                      <span className="text-sm font-semibold text-slate-900">{day || "—"}</span>
-                      <span className="text-xs text-slate-400">Auto</span>
-                    </div>
-                  </Field>
+        {/* UX: on mobile -> stacks, on xl -> sticky create panel */}
+        <div className="grid xl:grid-cols-12 gap-5">
+          {/* Left: Create (sticky on desktop) */}
+          <div className="xl:col-span-5">
+            <div className="xl:sticky xl:top-4">
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="h-1 bg-blue-600" />
+                <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white">
+                  <h3 className="font-extrabold text-slate-900">Create Notification</h3>
+                  <p className="text-sm text-slate-600 mt-1">Fill details and publish to your list.</p>
                 </div>
 
-                <Field label="Description" hint="required">
-                  <textarea
-                    value={form.description}
-                    onChange={onChange("description")}
-                    rows={6}
-                    className={cn(inputClass, "py-3")}
-                    placeholder="Write details…"
-                    maxLength={2000}
-                  />
-                  <div className="mt-1 text-xs text-slate-600 flex justify-between">
-                    <span className="text-slate-400">Keep it clear and actionable.</span>
-                    <span className="text-slate-600">{(form.description || "").length}/2000</span>
+                <form onSubmit={createNotification} className="p-4 sm:p-5 space-y-4">
+                  <Field label="Title" hint="required">
+                    <input
+                      value={form.title}
+                      onChange={onChange("title")}
+                      className={inputClass}
+                      placeholder="Eg. Safety meeting at 5 PM"
+                      maxLength={120}
+                    />
+                  </Field>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Field label="Date" hint="required">
+                      <input type="date" value={form.notifyDate} onChange={onChange("notifyDate")} className={inputClass} />
+                    </Field>
+
+                    <Field label="Day" hint="auto">
+                      <div className="h-[42px] flex items-center justify-between px-4 rounded-2xl border border-slate-200 bg-slate-50">
+                        <span className="text-sm font-semibold text-slate-900">{day || "—"}</span>
+                        <span className="text-xs text-slate-400">Auto</span>
+                      </div>
+                    </Field>
                   </div>
-                </Field>
 
-                <AlertBox
-                  type="error"
-                  title="Error:"
-                  msg={error}
-                  onClose={() => setError("")}
-                />
+                  <Field label="Description" hint="required">
+                    <textarea
+                      value={form.description}
+                      onChange={onChange("description")}
+                      rows={6}
+                      className={cn(inputClass, "py-3")}
+                      placeholder="Write details…"
+                      maxLength={2000}
+                    />
+                    <div className="mt-1 text-xs text-slate-600 flex justify-between">
+                      <span className="text-slate-400">Keep it clear and actionable.</span>
+                      <span className="text-slate-600">{(form.description || "").length}/2000</span>
+                    </div>
+                  </Field>
 
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className={cn(
-                    "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl",
-                    "bg-blue-600 text-white font-semibold disabled:opacity-60"
-                  )}
-                >
-                  <FiPlus className="text-lg" />
-                  {saving ? "Publishing..." : "Publish Notification"}
-                </button>
+                  <AlertBox type="error" title="Error:" msg={error} onClose={() => setError("")} />
 
-                <div className="text-xs text-slate-400">Tip: Use short title + clear description.</div>
-              </form>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className={cn(
+                      "w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl",
+                      "bg-blue-600 text-white font-semibold disabled:opacity-60"
+                    )}
+                  >
+                    <FiPlus className="text-lg" />
+                    {saving ? "Publishing..." : "Publish Notification"}
+                  </button>
+
+                  <div className="text-xs text-slate-400">Tip: Use short title + clear description.</div>
+                </form>
+              </div>
             </div>
           </div>
 
           {/* Right: List */}
-          <div className="lg:col-span-7">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="xl:col-span-7">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               {/* Toolbar */}
               <div className="px-4 sm:px-5 py-4 border-b border-slate-200 bg-white">
                 <div className="flex flex-col gap-3">
@@ -694,114 +792,16 @@ export default function Notification() {
 
               {/* List */}
               {filtered.length === 0 ? (
-                <EmptyState
-                  icon={<FiBell />}
-                  title="No notifications found"
-                  desc="Create a notification from the left panel."
-                />
+                <EmptyState icon={<FiBell />} title="No notifications found" desc="Create a notification from the left panel." />
               ) : (
                 <div className="divide-y divide-slate-200">
                   {filtered.map((n) => (
-                    <div
+                    <NotificationRow
                       key={n._id}
-                      className={cn("p-4 sm:p-5 group transition", !n.isRead ? "bg-slate-50" : "bg-white")}
-                    >
-                      <div className="flex gap-3">
-                        <div className="mt-0.5">
-                          <div
-                            className={cn(
-                              "w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center border border-slate-200 bg-white",
-                              !n.isRead ? "text-blue-600" : "text-green-600"
-                            )}
-                            title={!n.isRead ? "Unread" : "Read"}
-                          >
-                            <span className="text-lg sm:text-xl">
-                              {!n.isRead ? <FiCircle /> : <FiCheckCircle />}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-extrabold text-slate-900 truncate max-w-[520px]">
-                                  {n.title}
-                                </h4>
-
-                                {!n.isRead ? (
-                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-600 text-white">
-                                    NEW
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                                    READ
-                                  </span>
-                                )}
-
-                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600">
-                                  {prettyDate(n.notifyDate)} • {n.day}
-                                </span>
-                              </div>
-
-                              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap leading-relaxed break-words">
-                                {n.description}
-                              </p>
-
-                              <div className="mt-2 text-xs text-slate-400">
-                                Created: {prettyDT(n.createdAt)}
-                              </div>
-                            </div>
-
-                            {/* Desktop actions */}
-                            <div className="hidden md:flex items-center gap-2 opacity-90 group-hover:opacity-100 transition shrink-0">
-                              <button
-                                onClick={() => toggleRead(n._id, n.isRead)}
-                                className={cn(
-                                  "px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
-                                  "bg-white text-slate-600 hover:bg-slate-50"
-                                )}
-                                title={n.isRead ? "Mark unread" : "Mark read"}
-                                type="button"
-                              >
-                                {n.isRead ? "Unread" : "Read"}
-                              </button>
-
-                              <button
-                                onClick={() => deleteOne(n._id)}
-                                className={cn(
-                                  "px-3 py-2.5 rounded-2xl text-sm font-semibold border border-slate-200",
-                                  "bg-white text-red-500 hover:bg-slate-50"
-                                )}
-                                title="Delete"
-                                type="button"
-                              >
-                                <FiTrash2 />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Mobile actions */}
-                          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:hidden gap-2">
-                            <button
-                              onClick={() => toggleRead(n._id, n.isRead)}
-                              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
-                              type="button"
-                            >
-                              {n.isRead ? "Mark Unread" : "Mark Read"}
-                            </button>
-                            <button
-                              onClick={() => deleteOne(n._id)}
-                              className="w-full px-3 py-2.5 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-red-500"
-                              type="button"
-                              title="Delete"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      n={n}
+                      onToggleRead={() => toggleRead(n._id, n.isRead)}
+                      onDelete={() => deleteOne(n._id)}
+                    />
                   ))}
                 </div>
               )}
@@ -811,12 +811,7 @@ export default function Notification() {
           </div>
         </div>
 
-        <Toast
-          show={toast.show}
-          type={toast.type}
-          msg={toast.msg}
-          onClose={() => setToast({ show: false, type: "info", msg: "" })}
-        />
+        <Toast show={toast.show} type={toast.type} msg={toast.msg} onClose={() => setToast({ show: false, type: "info", msg: "" })} />
       </div>
     </div>
   );

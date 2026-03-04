@@ -63,6 +63,13 @@ const LeadSchema = new mongoose.Schema(
   }
 );
 
+// ✅ Compound indexes for better query performance
+LeadSchema.index({ owner: 1, createdAt: -1 }); // For user-specific lead listing with sorting
+LeadSchema.index({ owner: 1, status: 1 }); // For filtering leads by status
+LeadSchema.index({ owner: 1, leadType: 1 }); // For filtering by lead type
+LeadSchema.index({ owner: 1, phone: 1 }, { unique: false, sparse: true }); // For duplicate phone check
+LeadSchema.index({ owner: 1, email: 1 }, { unique: false, sparse: true }); // For duplicate email check
+LeadSchema.index({ createdAt: -1 }); // For global lead timeline
 
 export default mongoose.model("Lead", LeadSchema);
 

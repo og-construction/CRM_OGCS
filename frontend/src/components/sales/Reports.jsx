@@ -1,4 +1,6 @@
-// src/components/sales/Reports.jsx
+// ✅ src/components/sales/Reports.jsx
+// ✅ UI polish + FULLY responsive (mobile / tablet / desktop) — ✅ NO logic changes
+
 import React, { useEffect, useMemo, useState } from "react";
 import axiosClient from "../../api/axiosClient";
 import {
@@ -46,10 +48,19 @@ const toMoney = (v) => {
 
 /* ---------------- UI atoms ---------------- */
 
+const inputBase =
+  "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm " +
+  "text-slate-900 placeholder:text-slate-400 outline-none " +
+  "focus:ring-4 focus:ring-slate-100 transition";
+
+const btnBase =
+  "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-extrabold " +
+  "transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed";
+
 function SectionShell({ children }) {
   return (
-    <div className="bg-slate-50 min-h-[calc(100vh-0px)]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4 md:py-6">
+    <div className="bg-slate-50 min-h-[100dvh]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-3 sm:py-4 lg:py-6">
         {children}
       </div>
     </div>
@@ -57,17 +68,28 @@ function SectionShell({ children }) {
 }
 
 function Card({ children, className = "" }) {
-  return <div className={cn("rounded-2xl border border-slate-200 bg-white", className)}>{children}</div>;
+  return (
+    <div className={cn("rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm", className)}>
+      {children}
+    </div>
+  );
 }
 
 function CardHeader({ title, subtitle, right }) {
   return (
-    <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+    <div className="px-4 sm:px-5 py-4 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
       <div className="min-w-0">
         <div className="text-base sm:text-lg font-extrabold text-slate-900 truncate">{title}</div>
         {subtitle ? <div className="text-sm text-slate-600 mt-1 break-words">{subtitle}</div> : null}
       </div>
-      {right ? <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">{right}</div> : null}
+
+      {right ? (
+        <div className="w-full xl:w-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center gap-2">
+            {right}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -88,7 +110,7 @@ const StatCard = ({ title, value, icon: Icon, tone = "blue" }) => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="absolute inset-0 bg-slate-50" />
       <div className="relative p-4 sm:p-5 flex items-center gap-3">
         <div
@@ -181,19 +203,19 @@ function MiniStat({ label, value, tone = "blue" }) {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <span className={cn("h-2.5 w-2.5 rounded-full", dot[tone] || dot.blue)} />
         <div className="text-xs font-bold text-slate-600">{label}</div>
       </div>
-      <div className="text-2xl font-extrabold mt-1 text-slate-900">{value}</div>
+      <div className="text-2xl font-extrabold mt-1 text-slate-900 tabular-nums">{value}</div>
     </div>
   );
 }
 
 function Pager({ page, totalPages, onPrev, onNext }) {
   return (
-    <div className="inline-flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-2xl border border-slate-200 bg-white w-full sm:w-auto">
+    <div className="inline-flex items-center justify-between sm:justify-start gap-2 px-3 py-2 rounded-2xl border border-slate-200 bg-white w-full sm:w-auto shadow-sm">
       <button
         type="button"
         onClick={onPrev}
@@ -266,14 +288,14 @@ function QuoteStatus({ value }) {
 function ResponsiveTable({ children }) {
   return (
     <div className="w-full overflow-x-auto">
-      <div className="min-w-[880px]">{children}</div>
+      <div className="min-w-[980px]">{children}</div>
     </div>
   );
 }
 
-function MobileRowCard({ titleLeft, titleRight, rows = [], rightSlot }) {
+function MobileRowCard({ titleLeft, titleRight, rows = [], rightSlot, footer }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="font-extrabold text-slate-900 truncate">{titleLeft}</div>
@@ -289,6 +311,18 @@ function MobileRowCard({ titleLeft, titleRight, rows = [], rightSlot }) {
             <div className="text-sm font-semibold text-slate-900 text-right break-words">{r.value}</div>
           </div>
         ))}
+      </div>
+
+      {footer ? <div className="mt-3 pt-3 border-t border-slate-200">{footer}</div> : null}
+    </div>
+  );
+}
+
+function StickyToolsBar({ children }) {
+  return (
+    <div className="sticky top-2 z-10">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-3 py-3 sm:px-4 sm:py-3">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">{children}</div>
       </div>
     </div>
   );
@@ -472,11 +506,11 @@ export default function Reports() {
   return (
     <SectionShell>
       {/* Header / Hero */}
-      <Card className="relative overflow-hidden">
+      <Card className="relative">
         <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-slate-100 blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-slate-100 blur-3xl" />
 
-        <div className="relative p-4 sm:p-5 md:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="relative p-4 sm:p-5 lg:p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0">
               <FiBarChart2 className="text-xl" />
@@ -498,10 +532,7 @@ export default function Reports() {
             <button
               onClick={refresh}
               disabled={loading}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl border font-extrabold w-full sm:w-auto",
-                "border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-60"
-              )}
+              className={cn(btnBase, "border border-slate-200 bg-white hover:bg-slate-50 w-full sm:w-auto")}
             >
               <FiRefreshCw className={loading ? "animate-spin" : ""} />
               {loading ? "Refreshing..." : "Refresh"}
@@ -612,7 +643,7 @@ export default function Reports() {
 
       {/* Leads */}
       {tab === "leads" ? (
-        <div className="mt-5 space-y-5">
+        <div className="mt-5 space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard title="Total Leads" value={leadsSummary.total} icon={FiUsers} tone="blue" />
             <StatCard title="New" value={leadsSummary.New} icon={FiCheckCircle} tone="green" />
@@ -620,34 +651,56 @@ export default function Reports() {
             <StatCard title="Converted" value={leadsSummary.Converted} icon={FiBarChart2} tone="red" />
           </div>
 
+          <StickyToolsBar>
+            <div className="flex items-center gap-2">
+              <Pill tone="blue">Leads</Pill>
+              <span className="text-xs text-slate-400">Filters</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2">
+              <div className="relative w-full lg:w-80">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={leadSearch}
+                  onChange={(e) => setLeadSearch(e.target.value)}
+                  placeholder="Search lead..."
+                  className={cn(inputBase, "pl-10")}
+                />
+              </div>
+
+              <select
+                value={leadStatus}
+                onChange={(e) => setLeadStatus(e.target.value)}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              >
+                {["All", "New", "Follow-Up", "Closed", "Converted"].map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={loading}
+                className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}
+              >
+                <FiRefreshCw className={loading ? "animate-spin" : ""} />
+                Reload
+              </button>
+            </div>
+          </StickyToolsBar>
+
           <Card>
             <CardHeader
               title="My Leads"
-              subtitle="Filter by status and search"
+              subtitle="Mobile cards + desktop table for best readability"
               right={
-                <div className="w-full flex flex-col sm:flex-row gap-2">
-                  <div className="relative w-full sm:w-72">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={leadSearch}
-                      onChange={(e) => setLeadSearch(e.target.value)}
-                      placeholder="Search lead..."
-                      className="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10"
-                    />
-                  </div>
-
-                  <select
-                    value={leadStatus}
-                    onChange={(e) => setLeadStatus(e.target.value)}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-blue-600/10 w-full sm:w-auto"
-                  >
-                    {["All", "New", "Follow-Up", "Closed", "Converted"].map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <Pill tone="slate">Total: {leadsSummary.total}</Pill>
+                  <Pill tone="green">Converted: {leadsSummary.Converted}</Pill>
+                </>
               }
             />
 
@@ -659,7 +712,7 @@ export default function Reports() {
                 <div className="hidden md:block">
                   <ResponsiveTable>
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 border-b border-slate-200">
+                      <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                         <tr className="text-left text-slate-600">
                           <th className="py-3 px-4 sm:px-5">Name</th>
                           <th className="py-3 px-4 sm:px-5">Company</th>
@@ -711,43 +764,56 @@ export default function Reports() {
 
       {/* Contact Discussions */}
       {tab === "discussions" ? (
-        <div className="mt-5 space-y-5">
+        <div className="mt-5 space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <StatCard title="Total Discussions" value={discussionSummary.total} icon={FiPhoneCall} tone="green" />
             <StatCard title="Unique Companies" value={discussionSummary.uniqueCompanies} icon={FiBarChart2} tone="blue" />
             <StatCard title="Unique Emails" value={discussionSummary.uniquePeople} icon={FiUsers} tone="orange" />
           </div>
 
-          <Card>
-            <CardHeader
-              title="Contact Discussions"
-              subtitle="Paginated list (latest first)"
-              right={
-                <div className="flex flex-col sm:flex-row gap-2 w-full">
-                  <select
-                    value={discLimit}
-                    onChange={(e) => {
-                      setDiscPage(1);
-                      setDiscLimit(Number(e.target.value));
-                    }}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-green-600/10 w-full sm:w-auto"
-                  >
-                    {[10, 20, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}/page
-                      </option>
-                    ))}
-                  </select>
+          <StickyToolsBar>
+            <div className="flex items-center gap-2">
+              <Pill tone="green">Discussions</Pill>
+              <span className="text-xs text-slate-400">Pagination</span>
+            </div>
 
-                  <Pager
-                    page={discMeta.page}
-                    totalPages={discMeta.totalPages}
-                    onPrev={() => setDiscPage((p) => Math.max(p - 1, 1))}
-                    onNext={() => setDiscPage((p) => Math.min(p + 1, discMeta.totalPages))}
-                  />
-                </div>
-              }
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2">
+              <select
+                value={discLimit}
+                onChange={(e) => {
+                  setDiscPage(1);
+                  setDiscLimit(Number(e.target.value));
+                }}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}/page
+                  </option>
+                ))}
+              </select>
+
+              <Pager
+                page={discMeta.page}
+                totalPages={discMeta.totalPages}
+                onPrev={() => setDiscPage((p) => Math.max(p - 1, 1))}
+                onNext={() => setDiscPage((p) => Math.min(p + 1, discMeta.totalPages))}
+              />
+
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={loading}
+                className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}
+              >
+                <FiRefreshCw className={loading ? "animate-spin" : ""} />
+                Reload
+              </button>
+            </div>
+          </StickyToolsBar>
+
+          <Card>
+            <CardHeader title="Contact Discussions" subtitle="Desktop table + mobile cards for clean CRM experience" />
 
             {discussions.length === 0 ? (
               <EmptyState title="No discussions" desc="No contact discussion records found." />
@@ -757,7 +823,7 @@ export default function Reports() {
                 <div className="hidden md:block">
                   <ResponsiveTable>
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 border-b border-slate-200">
+                      <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                         <tr className="text-left text-slate-600">
                           <th className="py-3 px-4 sm:px-5">Name</th>
                           <th className="py-3 px-4 sm:px-5">Company</th>
@@ -798,13 +864,22 @@ export default function Reports() {
                         { label: "Email", value: d.email || "-" },
                         { label: "Phone", value: d.phone || "-" },
                       ]}
+                      footer={
+                        <div className="text-xs text-slate-600 leading-relaxed break-words">
+                          <span className="text-slate-400 font-bold">Note: </span>
+                          {d.discussionNote || "-"}
+                        </div>
+                      }
                     />
                   ))}
                 </div>
 
                 {/* Notes section */}
                 <div className="p-4 sm:p-5 border-t border-slate-200 bg-white">
-                  <div className="text-sm font-extrabold text-slate-900 mb-2">Latest Notes</div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="text-sm font-extrabold text-slate-900">Latest Notes</div>
+                    <Pill tone="slate">Showing 4</Pill>
+                  </div>
                   <div className="grid lg:grid-cols-2 gap-3">
                     {discussions.slice(0, 4).map((d) => (
                       <div key={d._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -826,66 +901,69 @@ export default function Reports() {
 
       {/* Daily Reports */}
       {tab === "daily" ? (
-        <div className="mt-5 space-y-5">
+        <div className="mt-5 space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <StatCard title="Total Reports" value={dailySummary.total} icon={FiFileText} tone="orange" />
             <StatCard title="With Attachment" value={dailySummary.withAttachment} icon={FiBarChart2} tone="blue" />
             <StatCard title="Unique Members" value={dailySummary.uniqueMembers} icon={FiUsers} tone="green" />
           </div>
 
+          <StickyToolsBar>
+            <div className="flex items-center gap-2">
+              <Pill tone="orange">Daily Reports</Pill>
+              <span className="text-xs text-slate-400">Search & Date</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2">
+              <div className="relative w-full lg:w-72">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={drQ}
+                  onChange={(e) => {
+                    setDrPage(1);
+                    setDrQ(e.target.value);
+                  }}
+                  placeholder="Search reports..."
+                  className={cn(inputBase, "pl-10")}
+                />
+              </div>
+
+              <input
+                type="date"
+                value={drDate}
+                onChange={(e) => {
+                  setDrPage(1);
+                  setDrDate(e.target.value);
+                }}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              />
+
+              <select
+                value={drLimit}
+                onChange={(e) => {
+                  setDrPage(1);
+                  setDrLimit(Number(e.target.value));
+                }}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              >
+                {[10, 20, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}/page
+                  </option>
+                ))}
+              </select>
+
+              <Pager
+                page={drMeta.page}
+                totalPages={drMeta.totalPages}
+                onPrev={() => setDrPage((p) => Math.max(p - 1, 1))}
+                onNext={() => setDrPage((p) => Math.min(p + 1, drMeta.totalPages))}
+              />
+            </div>
+          </StickyToolsBar>
+
           <Card>
-            <CardHeader
-              title="Daily Reports"
-              subtitle="Search by member or report text, filter by date"
-              right={
-                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 w-full">
-                  <div className="relative w-full lg:w-64">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      value={drQ}
-                      onChange={(e) => {
-                        setDrPage(1);
-                        setDrQ(e.target.value);
-                      }}
-                      placeholder="Search reports..."
-                      className="w-full pl-10 pr-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-orange-500/10"
-                    />
-                  </div>
-
-                  <input
-                    type="date"
-                    value={drDate}
-                    onChange={(e) => {
-                      setDrPage(1);
-                      setDrDate(e.target.value);
-                    }}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-orange-500/10 w-full sm:w-auto"
-                  />
-
-                  <select
-                    value={drLimit}
-                    onChange={(e) => {
-                      setDrPage(1);
-                      setDrLimit(Number(e.target.value));
-                    }}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-orange-500/10 w-full sm:w-auto"
-                  >
-                    {[10, 20, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}/page
-                      </option>
-                    ))}
-                  </select>
-
-                  <Pager
-                    page={drMeta.page}
-                    totalPages={drMeta.totalPages}
-                    onPrev={() => setDrPage((p) => Math.max(p - 1, 1))}
-                    onNext={() => setDrPage((p) => Math.min(p + 1, drMeta.totalPages))}
-                  />
-                </div>
-              }
-            />
+            <CardHeader title="Daily Reports" subtitle="Readable cards, clean actions, fully responsive list" />
 
             {dailyReports.length === 0 ? (
               <EmptyState title="No daily reports" desc="Try changing date or search keyword." />
@@ -893,7 +971,7 @@ export default function Reports() {
               <div className="divide-y divide-slate-100">
                 {dailyReports.map((r) => (
                   <div key={r._id} className="p-4 sm:p-5 hover:bg-slate-50 transition">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="font-extrabold text-slate-900 truncate max-w-full">{r.memberName || "-"}</div>
@@ -908,7 +986,11 @@ export default function Reports() {
                           href={r.attachment.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-2xl border border-slate-200 bg-slate-100 text-slate-900 font-extrabold hover:bg-slate-50 w-full sm:w-auto"
+                          className={cn(
+                            btnBase,
+                            "px-4 py-2 rounded-2xl border border-slate-200 bg-slate-100 text-slate-900 hover:bg-slate-50",
+                            "w-full sm:w-auto"
+                          )}
                         >
                           <FiFileText className="text-blue-600" />
                           View Attachment
@@ -929,7 +1011,7 @@ export default function Reports() {
 
       {/* Quotes */}
       {tab === "quotes" ? (
-        <div className="mt-5 space-y-5">
+        <div className="mt-5 space-y-4">
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard title="Total Quotes" value={quoteSummary.total} icon={FiBarChart2} tone="red" />
             <StatCard title="Pending" value={quoteSummary.pending} icon={FiFilter} tone="orange" />
@@ -937,33 +1019,56 @@ export default function Reports() {
             <StatCard title="Total Value" value={toMoney(quoteSummary.totalAmount)} icon={FiFileText} tone="blue" />
           </div>
 
+          <StickyToolsBar>
+            <div className="flex items-center gap-2">
+              <Pill tone="red">Quotes</Pill>
+              <span className="text-xs text-slate-400">Type & Status</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2">
+              <select
+                value={quoteType}
+                onChange={(e) => setQuoteType(e.target.value)}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              >
+                <option value="">All Types</option>
+                <option value="quotation">Quotation</option>
+                <option value="invoice">Invoice</option>
+              </select>
+
+              <select
+                value={quoteStatus}
+                onChange={(e) => setQuoteStatus(e.target.value)}
+                className={cn(inputBase, "w-full sm:w-auto")}
+              >
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={loading}
+                className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}
+              >
+                <FiRefreshCw className={loading ? "animate-spin" : ""} />
+                Reload
+              </button>
+            </div>
+          </StickyToolsBar>
+
           <Card>
             <CardHeader
               title="Quotes / Invoices"
               subtitle="Sales: your quotes • Admin: all quotes (auto-fallback)"
               right={
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
-                  <select
-                    value={quoteType}
-                    onChange={(e) => setQuoteType(e.target.value)}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-red-500/10 w-full sm:w-auto"
-                  >
-                    <option value="">All Types</option>
-                    <option value="quotation">Quotation</option>
-                    <option value="invoice">Invoice</option>
-                  </select>
-
-                  <select
-                    value={quoteStatus}
-                    onChange={(e) => setQuoteStatus(e.target.value)}
-                    className="px-3 py-2.5 rounded-2xl border border-slate-200 bg-white text-slate-900 outline-none focus:ring-4 focus:ring-red-500/10 w-full sm:w-auto"
-                  >
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                </div>
+                <>
+                  <Pill tone="orange">Pending: {quoteSummary.pending}</Pill>
+                  <Pill tone="green">Approved: {quoteSummary.approved}</Pill>
+                  <Pill tone="blue">{toMoney(quoteSummary.totalAmount)}</Pill>
+                </>
               }
             />
 
@@ -975,7 +1080,7 @@ export default function Reports() {
                 <div className="hidden md:block">
                   <ResponsiveTable>
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 border-b border-slate-200">
+                      <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
                         <tr className="text-left text-slate-600">
                           <th className="py-3 px-4 sm:px-5">Type</th>
                           <th className="py-3 px-4 sm:px-5">Customer</th>

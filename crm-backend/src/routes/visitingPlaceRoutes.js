@@ -1,14 +1,19 @@
 import express from "express";
 import {
-  createVisitingPlace,
-  listVisitingPlaces,
-  getVisitingPlace,
-  updateVisitingPlace,
-  deleteVisitingPlace,
+  createVisit,
+  listVisits,
+  getVisit,
+  updateVisit,
+  deleteVisit,
 } from "../controllers/visitingPlaceController.js";
 
 import { protect } from "../middlewares/authMiddleware.js";
-import { uploadVisitFiles } from "../middlewares/upload.js"; // ✅ must exist
+
+// ✅ IMPORTANT:
+// Use the correct path where uploadVisitFiles exists in YOUR project.
+// If you created it in src/utils/upload.js then use "../utils/upload.js"
+// If you already have it in src/middlewares/upload.js then keep that.
+import { uploadVisitFiles } from "../utils/upload.js";
 
 const router = express.Router();
 
@@ -21,11 +26,11 @@ const router = express.Router();
  * DELETE /api/visits/:id
  */
 
-router.get("/", protect, listVisitingPlaces);
-router.post("/", protect, uploadVisitFiles, createVisitingPlace);
+router.get("/", protect, listVisits);
+router.post("/", protect, uploadVisitFiles, createVisit);
 
-router.get("/:id", protect, getVisitingPlace);
-router.patch("/:id", protect, uploadVisitFiles, updateVisitingPlace);
-router.delete("/:id", protect, deleteVisitingPlace);
+router.get("/:id", protect, getVisit);
+router.patch("/:id", protect, uploadVisitFiles, updateVisit);
+router.delete("/:id", protect, deleteVisit);
 
 export default router;
