@@ -1,15 +1,15 @@
 // src/config/env.js
-const dotenv = require("dotenv");
-dotenv.config();
+import path from "path";
+import dotenv from "dotenv";
 
-const env = process.env.NODE_ENV || "development";
-const isDev = env === "development";
+export function loadEnv() {
+  const envPath = path.resolve(process.cwd(), ".env"); // ✅ SINGLE .env
 
-module.exports = {
-  env,
-  port: process.env.PORT || 4000,
-  mongoUri: isDev ? process.env.MONGO_URI_DEV : process.env.MONGO_URI_PROD,
-  clientUrl: isDev ? process.env.CLIENT_URL_DEV : process.env.CLIENT_URL_PROD,
-  jwtSecret: process.env.JWT_SECRET,
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
-};
+  const result = dotenv.config({ path: envPath });
+
+  if (result.error) {
+    console.log("❌ Failed to load .env:", result.error.message);
+  } else {
+    console.log("🟢 Using env file: .env");
+  }
+}

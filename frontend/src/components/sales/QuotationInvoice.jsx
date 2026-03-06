@@ -1,21 +1,13 @@
 // ✅ src/components/sales/QuotationSystem.jsx
-// UI polish + fully responsive (mobile/tablet/desktop) — ✅ NO logic changes
+// FIXED: removed request loop / auto polling / repeated focus refresh
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import axiosClient from "../../api/axiosClient";
 import Card from "./Card";
 
 /* ✅ PDF (client-side) */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
-/**
- * ✅ UI palette (KEEP like your project):
- * bg-slate-50, bg-white, bg-slate-100
- * text-slate-900, text-slate-600, text-slate-400
- * border-slate-200
- * blue-600, green-600, red-500, orange-500
- */
 
 const cn = (...a) => a.filter(Boolean).join(" ");
 
@@ -26,13 +18,15 @@ const safe = (v) => String(v ?? "").trim();
 const money = (n) => {
   const v = Number(n || 0);
   try {
-    return v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return v.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
   } catch {
     return v.toFixed(2);
   }
 };
 
-// ✅ Avoid ₹ with default jsPDF fonts
 const currency = (n) => `INR ${money(n)}`;
 
 const pdfWrap = (value, chunk = 18) => {
@@ -98,7 +92,11 @@ const StatusBadge = ({ status }) => {
       : "bg-orange-500 text-white";
   const label = st === "approved" ? "Approved" : st === "rejected" ? "Rejected" : "Pending";
 
-  return <span className={cn("px-2.5 py-1 rounded-full text-[11px] font-semibold", cls)}>{label}</span>;
+  return (
+    <span className={cn("px-2.5 py-1 rounded-full text-[11px] font-semibold", cls)}>
+      {label}
+    </span>
+  );
 };
 
 function Field({ label, required, hint, children }) {
@@ -115,26 +113,6 @@ function Field({ label, required, hint, children }) {
   );
 }
 
-function StatPill({ label, value, tone = "slate" }) {
-  const cls =
-    tone === "blue"
-      ? "bg-blue-600 text-white"
-      : tone === "green"
-      ? "bg-green-600 text-white"
-      : tone === "orange"
-      ? "bg-orange-500 text-white"
-      : tone === "red"
-      ? "bg-red-500 text-white"
-      : "bg-slate-100 text-slate-900 border border-slate-200";
-
-  return (
-    <div className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold", cls)}>
-      <span className="opacity-90">{label}</span>
-      <span className="bg-white/20 px-2 py-0.5 rounded-full">{value}</span>
-    </div>
-  );
-}
-
 function Toast({ show, type, msg, onClose }) {
   if (!show) return null;
   const tone =
@@ -142,10 +120,19 @@ function Toast({ show, type, msg, onClose }) {
 
   return (
     <div className="fixed bottom-4 sm:bottom-5 right-3 sm:right-5 z-[1000] max-w-[calc(100vw-24px)] sm:max-w-sm">
-      <div className={cn("px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white shadow-sm", tone)}>
+      <div
+        className={cn(
+          "px-4 py-3 rounded-2xl border border-slate-200 text-sm font-semibold bg-white shadow-sm",
+          tone
+        )}
+      >
         <div className="flex items-start gap-3">
           <div className="min-w-0 break-words">{msg}</div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 shrink-0"
+          >
             ✕
           </button>
         </div>
@@ -154,7 +141,6 @@ function Toast({ show, type, msg, onClose }) {
   );
 }
 
-/* ✅ Modal improved: mobile bottom-sheet feel + lock scroll */
 function Modal({ open, title, subtitle, onClose, children, footer }) {
   useEffect(() => {
     if (!open) return;
@@ -171,7 +157,12 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
 
   return (
     <div className="fixed inset-0 z-[999]">
-      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="Close modal" />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-label="Close modal"
+      />
       <div className="absolute inset-x-0 bottom-0 sm:inset-0 sm:flex sm:items-center sm:justify-center p-2 sm:p-4">
         <div
           className={cn(
@@ -185,12 +176,17 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
           <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-slate-200 bg-white flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="font-extrabold text-slate-900 truncate">{title}</div>
-              {subtitle ? <div className="text-xs text-slate-600 mt-0.5 truncate">{subtitle}</div> : null}
+              {subtitle ? (
+                <div className="text-xs text-slate-600 mt-0.5 truncate">{subtitle}</div>
+              ) : null}
             </div>
             <button
               type="button"
               onClick={onClose}
-              className={cn(btnBase, "px-3 py-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50")}
+              className={cn(
+                btnBase,
+                "px-3 py-2 border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              )}
             >
               Close
             </button>
@@ -199,7 +195,9 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
           <div className="flex-1 overflow-y-auto p-3 sm:p-5 bg-slate-50">{children}</div>
 
           {footer ? (
-            <div className="border-t border-slate-200 bg-white px-4 sm:px-5 py-3 sm:py-4">{footer}</div>
+            <div className="border-t border-slate-200 bg-white px-4 sm:px-5 py-3 sm:py-4">
+              {footer}
+            </div>
           ) : null}
         </div>
       </div>
@@ -207,7 +205,6 @@ function Modal({ open, title, subtitle, onClose, children, footer }) {
   );
 }
 
-/* ✅ Small responsive “mini card” */
 function MiniCard({ label, value, tone = "slate" }) {
   const bar =
     tone === "red"
@@ -233,7 +230,8 @@ function MiniCard({ label, value, tone = "slate" }) {
 
 /* ================= Component ================= */
 export default function QuotationSystem() {
-  /* ================= state ================= */
+  const toastTimerRef = useRef(null);
+
   const [customer, setCustomer] = useState({
     customerName: "",
     companyName: "",
@@ -245,46 +243,64 @@ export default function QuotationSystem() {
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [taxPercent, setTaxPercent] = useState(18);
 
-  // Notes / Terms
   const [selectedTermIds, setSelectedTermIds] = useState([]);
   const [customTerms, setCustomTerms] = useState([]);
   const [customTermInput, setCustomTermInput] = useState("");
   const [extraNotes, setExtraNotes] = useState("");
 
-  // API list
   const [myQuotes, setMyQuotes] = useState([]);
   const [loadingList, setLoadingList] = useState(false);
 
-  // submit & alerts
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // toast
   const [toast, setToast] = useState({ show: false, type: "info", msg: "" });
 
-  // PDF viewer modal
   const [pdfViewOpen, setPdfViewOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
 
   const showToast = useCallback((type, msg) => {
     setToast({ show: true, type, msg });
-    window.clearTimeout(showToast._t);
-    showToast._t = window.setTimeout(() => setToast({ show: false, type: "info", msg: "" }), 2200);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast({ show: false, type: "info", msg: "" });
+    }, 2200);
   }, []);
 
-  /* ================= calculations ================= */
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const subtotal = useMemo(() => {
-    return items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+    return items.reduce(
+      (sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
+      0
+    );
   }, [items]);
 
-  const taxAmount = useMemo(() => (subtotal * (Number(taxPercent) || 0)) / 100, [subtotal, taxPercent]);
+  const taxAmount = useMemo(() => {
+    return (subtotal * (Number(taxPercent) || 0)) / 100;
+  }, [subtotal, taxPercent]);
+
   const totalAmount = subtotal + taxAmount;
 
   const selectedTermsText = useMemo(() => {
-    const fromLibrary = TERMS_LIBRARY.filter((t) => selectedTermIds.includes(t.id)).map((t) => t.text);
+    const fromLibrary = TERMS_LIBRARY.filter((t) => selectedTermIds.includes(t.id)).map(
+      (t) => t.text
+    );
     const custom = customTerms.map((t) => safe(t)).filter(Boolean);
-    return [...fromLibrary, ...custom].map((t) => t.replace(/\s+/g, " ").trim()).filter(Boolean);
+    return [...fromLibrary, ...custom]
+      .map((t) => t.replace(/\s+/g, " ").trim())
+      .filter(Boolean);
   }, [selectedTermIds, customTerms]);
 
   const finalNotesText = useMemo(() => {
@@ -304,8 +320,11 @@ export default function QuotationSystem() {
   /* ================= api ================= */
   const fetchMyQuotesRaw = async () => {
     const res = await axiosClient.get("/quotes/my", {
-      params: { type: "quotation", t: Date.now() },
-      headers: { "Cache-Control": "no-cache" },
+      params: { type: "quotation" },
+      headers: {
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+      },
     });
     return res.data?.data || [];
   };
@@ -316,34 +335,26 @@ export default function QuotationSystem() {
       const list = await fetchMyQuotesRaw();
       setMyQuotes(list);
     } catch (e) {
-      console.error(e);
+      console.error("Failed to fetch quotations:", e);
     } finally {
       setLoadingList(false);
     }
   }, []);
 
+  /* ✅ FIX: only fetch once on mount, no setInterval, no focus listener */
   useEffect(() => {
     fetchMyQuotes();
-
-    const t = setInterval(() => fetchMyQuotes(), 10000);
-    const onFocus = () => fetchMyQuotes();
-    window.addEventListener("focus", onFocus);
-
-    return () => {
-      clearInterval(t);
-      window.removeEventListener("focus", onFocus);
-    };
   }, [fetchMyQuotes]);
 
   useEffect(() => {
     return () => {
       if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pdfUrl]);
 
-  /* ================= handlers ================= */
-  const handleCustomerChange = (e) => setCustomer((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleCustomerChange = (e) => {
+    setCustomer((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleItemChange = (index, field, value) => {
     setItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
@@ -352,8 +363,11 @@ export default function QuotationSystem() {
   const addItem = () => setItems((prev) => [...prev, { ...emptyItem }]);
   const removeItem = (index) => setItems((prev) => prev.filter((_, i) => i !== index));
 
-  const toggleTerm = (id) =>
-    setSelectedTermIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleTerm = (id) => {
+    setSelectedTermIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   const addCustomTerm = () => {
     const v = safe(customTermInput);
@@ -368,7 +382,9 @@ export default function QuotationSystem() {
     setCustomTermInput("");
   };
 
-  const removeCustomTerm = (idx) => setCustomTerms((prev) => prev.filter((_, i) => i !== idx));
+  const removeCustomTerm = (idx) => {
+    setCustomTerms((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const clearTerms = () => {
     setSelectedTermIds([]);
@@ -393,7 +409,6 @@ export default function QuotationSystem() {
     setExtraNotes("");
   };
 
-  /* ================= ✅ CREATE QUOTATION ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -420,7 +435,12 @@ export default function QuotationSystem() {
         .map((it) => {
           const qty = Math.max(1, Number(it.quantity) || 1);
           const rate = Math.max(0, Number(it.unitPrice) || 0);
-          return { description: safe(it.description), quantity: qty, unitPrice: rate, lineTotal: qty * rate };
+          return {
+            description: safe(it.description),
+            quantity: qty,
+            unitPrice: rate,
+            lineTotal: qty * rate,
+          };
         });
 
       const sub = payloadItems.reduce((s, it) => s + (Number(it.lineTotal) || 0), 0);
@@ -450,7 +470,8 @@ export default function QuotationSystem() {
       resetFormAll();
       fetchMyQuotes();
     } catch (err) {
-      const msg = err?.response?.data?.message || "Failed to create quotation. Please try again.";
+      const msg =
+        err?.response?.data?.message || "Failed to create quotation. Please try again.";
       setError(msg);
       showToast("error", msg);
     } finally {
@@ -458,7 +479,6 @@ export default function QuotationSystem() {
     }
   };
 
-  /* ================= PDF builder (COLORFUL + OGCS HEADER) ================= */
   const buildQuotationPdf = (doc) => {
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
     pdf.setLineHeightFactor(1.18);
@@ -511,7 +531,9 @@ export default function QuotationSystem() {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(255, 255, 255);
-      pdf.text(`Date: ${created.toLocaleDateString("en-IN")}`, pageW - margin, 74, { align: "right" });
+      pdf.text(`Date: ${created.toLocaleDateString("en-IN")}`, pageW - margin, 74, {
+        align: "right",
+      });
       pdf.text(`Status: ${status}`, pageW - margin, 86, { align: "right" });
     };
 
@@ -547,7 +569,13 @@ export default function QuotationSystem() {
       tableWidth: pageW - margin * 2,
       head: [["Customer Details", ""]],
       body: customerRows,
-      styles: { font: "helvetica", fontSize: 10, cellPadding: 7, overflow: "linebreak", valign: "top" },
+      styles: {
+        font: "helvetica",
+        fontSize: 10,
+        cellPadding: 7,
+        overflow: "linebreak",
+        valign: "top",
+      },
       headStyles: { fillColor: C.light, textColor: C.navy, fontStyle: "bold" },
       columnStyles: {
         0: { cellWidth: 170, fontStyle: "bold", textColor: C.slate },
@@ -579,7 +607,13 @@ export default function QuotationSystem() {
       tableWidth: pageW - margin * 2,
       head: [["#", "Description", "Qty", "Unit Price", "Amount"]],
       body: itemRows.length ? itemRows : [["-", "No items", "-", "-", "-"]],
-      styles: { font: "helvetica", fontSize: 9.5, cellPadding: 7, overflow: "linebreak", valign: "top" },
+      styles: {
+        font: "helvetica",
+        fontSize: 9.5,
+        cellPadding: 7,
+        overflow: "linebreak",
+        valign: "top",
+      },
       headStyles: { fillColor: C.navy, textColor: [255, 255, 255], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [250, 251, 255] },
       columnStyles: {
@@ -595,11 +629,14 @@ export default function QuotationSystem() {
       },
     });
 
-    const computedSubtotal = (doc?.items || []).reduce((sum, it) => sum + (Number(it.lineTotal) || 0), 0);
+    const computedSubtotal = (doc?.items || []).reduce(
+      (sum, it) => sum + (Number(it.lineTotal) || 0),
+      0
+    );
     const _subtotal = Number(doc?.subtotal ?? computedSubtotal) || 0;
     const _taxPercent = Number(doc?.taxPercent ?? 0) || 0;
     const _taxAmount = (_subtotal * _taxPercent) / 100;
-    const _total = Number(doc?.totalAmount ?? (_subtotal + _taxAmount)) || 0;
+    const _total = Number(doc?.totalAmount ?? _subtotal + _taxAmount) || 0;
 
     autoTable(pdf, {
       startY: (pdf.lastAutoTable?.finalY || 200) + 10,
@@ -639,7 +676,13 @@ export default function QuotationSystem() {
         tableWidth: pageW - margin * 2,
         head: [["Notes / Terms"]],
         body: [[pdfWrap(noteText, 18)]],
-        styles: { font: "helvetica", fontSize: 10, cellPadding: 9, overflow: "linebreak", valign: "top" },
+        styles: {
+          font: "helvetica",
+          fontSize: 10,
+          cellPadding: 9,
+          overflow: "linebreak",
+          valign: "top",
+        },
         headStyles: { fillColor: C.light, textColor: C.navy, fontStyle: "bold" },
         didDrawPage: () => {
           drawHeader();
@@ -652,13 +695,13 @@ export default function QuotationSystem() {
     return pdf;
   };
 
-  /* ✅ IMPORTANT FIX:
-     refresh /quotes/my and pick latest quote by _id.
-  */
-  const getLatestQuoteFromMyList = async (id) => {
+  /* ✅ FIX: use current card data first, fallback to API only if needed */
+  const getLatestQuote = async (doc) => {
+    if (doc?._id) return doc;
+
     const list = await fetchMyQuotesRaw();
     setMyQuotes(list);
-    return list.find((q) => String(q._id) === String(id)) || null;
+    return list.find((q) => String(q._id) === String(doc?._id)) || null;
   };
 
   const downloadPDF = async (doc) => {
@@ -666,7 +709,7 @@ export default function QuotationSystem() {
     setError("");
 
     try {
-      const latest = await getLatestQuoteFromMyList(doc._id);
+      const latest = await getLatestQuote(doc);
       if (!latest) {
         setError("Quotation not found. Please refresh list.");
         showToast("error", "Quotation not found");
@@ -696,7 +739,7 @@ export default function QuotationSystem() {
     setError("");
 
     try {
-      const latest = await getLatestQuoteFromMyList(doc._id);
+      const latest = await getLatestQuote(doc);
       if (!latest) {
         setError("Quotation not found. Please refresh list.");
         showToast("error", "Quotation not found");
@@ -729,11 +772,9 @@ export default function QuotationSystem() {
     }
   };
 
-  /* ================= UI ================= */
   return (
     <div className="bg-slate-50 min-h-[100dvh]">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-6 space-y-5">
-        {/* Header (more CRM feel) */}
         <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden shadow-sm">
           <div className="h-1 bg-red-500" />
           <div className="p-4 sm:p-5">
@@ -744,12 +785,13 @@ export default function QuotationSystem() {
                   Sales • Quotation
                 </div>
 
-                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">Quotation System</h1>
+                <h1 className="mt-2 text-lg sm:text-xl font-extrabold text-slate-900">
+                  Quotation System
+                </h1>
                 <p className="mt-1 text-sm text-slate-600">
                   Create quotations, track status, and view/download OGCS PDF.
                 </p>
 
-                {/* OGCS info: grid on desktop, stacked on mobile */}
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <MiniCard label="Company" value={OGCS.name} tone="red" />
                   <MiniCard label="Address" value={OGCS.addressLines.join(", ")} tone="slate" />
@@ -791,23 +833,23 @@ export default function QuotationSystem() {
               </div>
             </div>
 
-            {/* Quick totals (UI only) */}
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
               <MiniCard label="Subtotal" value={`₹${money(subtotal)}`} tone="slate" />
-              <MiniCard label={`GST (${Number(taxPercent) || 0}%)`} value={`₹${money(taxAmount)}`} tone="orange" />
+              <MiniCard
+                label={`GST (${Number(taxPercent) || 0}%)`}
+                value={`₹${money(taxAmount)}`}
+                tone="orange"
+              />
               <MiniCard label="Grand Total" value={`₹${money(totalAmount)}`} tone="red" />
             </div>
           </div>
         </div>
 
-        {/* Content grid: form + list */}
         <div className="grid xl:grid-cols-12 gap-5">
-          {/* Create Quotation (sticky on desktop) */}
           <div className="xl:col-span-7 space-y-5">
             <div className="xl:sticky xl:top-4">
               <Card title="New Quotation Details">
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  {/* Customer */}
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
                     <div className="text-sm font-extrabold text-slate-900 mb-3">Customer</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -866,11 +908,17 @@ export default function QuotationSystem() {
                     </div>
                   </div>
 
-                  {/* Items */}
                   <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div className="text-sm font-extrabold text-slate-900">Items</div>
-                      <button type="button" onClick={addItem} className={cn(btnBase, "px-3 py-2 bg-blue-600 text-white w-full sm:w-auto")}>
+                      <button
+                        type="button"
+                        onClick={addItem}
+                        className={cn(
+                          btnBase,
+                          "px-3 py-2 bg-blue-600 text-white w-full sm:w-auto"
+                        )}
+                      >
                         + Add Item
                       </button>
                     </div>
@@ -881,13 +929,14 @@ export default function QuotationSystem() {
 
                         return (
                           <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-3">
-                            {/* Mobile first layout */}
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                               <div className="lg:col-span-6">
                                 <Field label="Description" required hint="material/service">
                                   <input
                                     value={it.description}
-                                    onChange={(e) => handleItemChange(idx, "description", e.target.value)}
+                                    onChange={(e) =>
+                                      handleItemChange(idx, "description", e.target.value)
+                                    }
                                     className={inputClass}
                                     placeholder="Material / service description"
                                   />
@@ -900,7 +949,9 @@ export default function QuotationSystem() {
                                     type="number"
                                     min="1"
                                     value={it.quantity}
-                                    onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                                    onChange={(e) =>
+                                      handleItemChange(idx, "quantity", e.target.value)
+                                    }
                                     className={cn(inputClass, "text-right")}
                                   />
                                 </Field>
@@ -910,7 +961,9 @@ export default function QuotationSystem() {
                                     type="number"
                                     min="0"
                                     value={it.unitPrice}
-                                    onChange={(e) => handleItemChange(idx, "unitPrice", e.target.value)}
+                                    onChange={(e) =>
+                                      handleItemChange(idx, "unitPrice", e.target.value)
+                                    }
                                     className={cn(inputClass, "text-right")}
                                   />
                                 </Field>
@@ -927,7 +980,10 @@ export default function QuotationSystem() {
                                   <button
                                     type="button"
                                     onClick={() => removeItem(idx)}
-                                    className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-red-500 hover:bg-slate-50")}
+                                    className={cn(
+                                      btnBase,
+                                      "px-3 py-2 bg-white border border-slate-200 text-red-500 hover:bg-slate-50"
+                                    )}
                                   >
                                     Remove
                                   </button>
@@ -940,7 +996,6 @@ export default function QuotationSystem() {
                     </div>
                   </div>
 
-                  {/* Tax + totals */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
                       <div className="text-sm font-extrabold text-slate-900">Tax</div>
@@ -950,7 +1005,9 @@ export default function QuotationSystem() {
                             type="number"
                             min="0"
                             value={taxPercent}
-                            onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value) || 0))}
+                            onChange={(e) =>
+                              setTaxPercent(Math.max(0, Number(e.target.value) || 0))
+                            }
                             className={cn(inputClass, "max-w-[200px]")}
                           />
                         </Field>
@@ -970,29 +1027,36 @@ export default function QuotationSystem() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <div className="text-sm font-extrabold text-slate-900">Total Amount</div>
-                      <div className="mt-2 text-3xl font-extrabold text-slate-900">₹{money(totalAmount)}</div>
-                      <div className="mt-1 text-xs text-slate-400">Auto calculated from items + GST.</div>
+                      <div className="mt-2 text-3xl font-extrabold text-slate-900">
+                        ₹{money(totalAmount)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        Auto calculated from items + GST.
+                      </div>
                     </div>
                   </div>
 
-                  {/* Terms */}
                   <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                     <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <div className="text-sm font-extrabold text-slate-900">Notes / Terms</div>
-                        <div className="text-xs text-slate-600">Select from library or add custom terms (saved to PDF).</div>
+                        <div className="text-xs text-slate-600">
+                          Select from library or add custom terms (saved to PDF).
+                        </div>
                       </div>
                       <button
                         type="button"
                         onClick={clearTerms}
-                        className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto")}
+                        className={cn(
+                          btnBase,
+                          "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto"
+                        )}
                       >
                         Clear
                       </button>
                     </div>
 
                     <div className="p-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
-                      {/* Library */}
                       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                         <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-900">
                           Terms Library
@@ -1005,7 +1069,9 @@ export default function QuotationSystem() {
                                 key={t.id}
                                 className={cn(
                                   "flex items-start gap-3 rounded-2xl border px-3 py-2 cursor-pointer",
-                                  checked ? "border-slate-200 bg-slate-50" : "border-slate-200 bg-white"
+                                  checked
+                                    ? "border-slate-200 bg-slate-50"
+                                    : "border-slate-200 bg-white"
                                 )}
                               >
                                 <input
@@ -1021,7 +1087,6 @@ export default function QuotationSystem() {
                         </div>
                       </div>
 
-                      {/* Custom */}
                       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                         <div className="px-3 py-2 border-b border-slate-200 bg-slate-50 text-xs font-extrabold text-slate-900">
                           Custom Terms
@@ -1068,7 +1133,9 @@ export default function QuotationSystem() {
                               ))}
                             </div>
                           ) : (
-                            <div className="text-xs text-slate-400">No custom terms added yet.</div>
+                            <div className="text-xs text-slate-400">
+                              No custom terms added yet.
+                            </div>
                           )}
 
                           <Field label="Extra Notes" hint="optional">
@@ -1082,7 +1149,9 @@ export default function QuotationSystem() {
                           </Field>
 
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                            <div className="text-[11px] font-semibold text-slate-600 mb-1">Final Notes Text (Saved)</div>
+                            <div className="text-[11px] font-semibold text-slate-600 mb-1">
+                              Final Notes Text (Saved)
+                            </div>
                             <pre className="whitespace-pre-wrap break-words text-xs text-slate-900">
                               {finalNotesText || "-"}
                             </pre>
@@ -1092,9 +1161,12 @@ export default function QuotationSystem() {
                     </div>
                   </div>
 
-                  {/* Submit */}
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <button type="submit" disabled={submitting} className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className={cn(btnBase, "bg-slate-900 text-white w-full sm:w-auto")}
+                    >
                       {submitting ? "Creating..." : "Create Quotation"}
                     </button>
                     <button
@@ -1105,7 +1177,10 @@ export default function QuotationSystem() {
                         setError("");
                         setMessage("");
                       }}
-                      className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto")}
+                      className={cn(
+                        btnBase,
+                        "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto"
+                      )}
                     >
                       Clear
                     </button>
@@ -1115,7 +1190,6 @@ export default function QuotationSystem() {
             </div>
           </div>
 
-          {/* List (sticky on desktop) */}
           <div className="xl:col-span-5 space-y-5">
             <div className="xl:sticky xl:top-4">
               <Card title="Your Quotations">
@@ -1126,7 +1200,10 @@ export default function QuotationSystem() {
                   <button
                     type="button"
                     onClick={fetchMyQuotes}
-                    className={cn(btnBase, "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto")}
+                    className={cn(
+                      btnBase,
+                      "px-3 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 w-full sm:w-auto"
+                    )}
                   >
                     Refresh
                   </button>
@@ -1139,12 +1216,17 @@ export default function QuotationSystem() {
                 ) : myQuotes.length === 0 ? (
                   <div className="p-6 rounded-2xl border border-slate-200 bg-white text-center">
                     <div className="text-slate-900 font-semibold">No quotations created yet</div>
-                    <div className="text-sm text-slate-600 mt-1">Create your first quotation using the form.</div>
+                    <div className="text-sm text-slate-600 mt-1">
+                      Create your first quotation using the form.
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {myQuotes.map((doc) => (
-                      <div key={doc._id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <div
+                        key={doc._id}
+                        className="rounded-2xl border border-slate-200 bg-white p-4"
+                      >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="text-sm font-extrabold text-slate-900 break-words">
@@ -1164,7 +1246,10 @@ export default function QuotationSystem() {
                           <button
                             type="button"
                             onClick={() => viewPDF(doc)}
-                            className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
+                            className={cn(
+                              btnBase,
+                              "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            )}
                           >
                             View PDF
                           </button>
@@ -1185,7 +1270,6 @@ export default function QuotationSystem() {
           </div>
         </div>
 
-        {/* PDF VIEW MODAL */}
         <Modal
           open={pdfViewOpen}
           title="Quotation PDF Preview"
@@ -1200,12 +1284,19 @@ export default function QuotationSystem() {
                     href={pdfUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className={cn(btnBase, "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")}
+                    className={cn(
+                      btnBase,
+                      "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                    )}
                   >
                     Open in new tab
                   </a>
                 ) : null}
-                <button onClick={closePdfView} type="button" className={cn(btnBase, "bg-slate-900 text-white")}>
+                <button
+                  onClick={closePdfView}
+                  type="button"
+                  className={cn(btnBase, "bg-slate-900 text-white")}
+                >
                   Close
                 </button>
               </div>
@@ -1216,12 +1307,19 @@ export default function QuotationSystem() {
             {pdfUrl ? (
               <iframe title="Quotation PDF Preview" src={pdfUrl} className="w-full h-full" />
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-slate-600">Preparing PDF...</div>
+              <div className="h-full flex items-center justify-center text-sm text-slate-600">
+                Preparing PDF...
+              </div>
             )}
           </div>
         </Modal>
 
-        <Toast show={toast.show} type={toast.type} msg={toast.msg} onClose={() => setToast({ show: false, type: "info", msg: "" })} />
+        <Toast
+          show={toast.show}
+          type={toast.type}
+          msg={toast.msg}
+          onClose={() => setToast({ show: false, type: "info", msg: "" })}
+        />
       </div>
     </div>
   );

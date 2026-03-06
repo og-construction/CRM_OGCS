@@ -12,6 +12,7 @@ import {
   FiChevronRight,
   FiFilter,
 } from "react-icons/fi";
+import axiosClient from "../../api/axiosClient";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -83,22 +84,13 @@ export default function LeadsSection() {
       setLoading(true);
       setError("");
 
-      const token = localStorage.getItem("token");
+      const params = {
+        status: status || "All",
+        leadType: "All",
+        search: q || "",
+      };
 
-      const params = new URLSearchParams();
-      params.set("status", status || "All");
-      params.set("leadType", "All");
-      params.set("search", q || "");
-
-      const res = await fetch(`${API_BASE}/leads/my?${params.toString()}`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || "Failed to load leads");
+      const { data } = await axiosClient.get("/leads/my", { params });
 
       const list = Array.isArray(data?.items) ? data.items : [];
       setLeads(list);

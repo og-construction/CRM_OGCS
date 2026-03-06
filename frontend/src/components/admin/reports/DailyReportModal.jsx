@@ -9,7 +9,8 @@ import {
 
 const API_ORIGIN =
   import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "") ||
-  "http://localhost:3181";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/?$/, "") ||
+  window.location.origin.replace(/:\d+$/, "");
 
 const cn = (...a) => a.filter(Boolean).join(" ");
 
