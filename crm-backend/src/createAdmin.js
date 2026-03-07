@@ -1,6 +1,5 @@
 // createAdmin.js (ESM version)
 
-import mongoose from "mongoose";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -8,12 +7,12 @@ import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
 import User from "./models/User.js";
 
-// ESM __dirname fix
+// ESM __filename and __dirname fix
 const __filename = fileURLToPath(import.meta.url);
-const _dirname = path.dirname(_filename);
+const __dirname = path.dirname(__filename);
 
 // Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const createAdmin = async () => {
   try {
@@ -40,11 +39,10 @@ const createAdmin = async () => {
       aadhaar: "123412341234",
     });
 
-
     console.log("✅ Admin created:", admin.email);
     process.exit(0);
   } catch (error) {
-    console.error("❌ Error creating admin:", error);
+    console.error("❌ Error creating admin:", error.message);
     process.exit(1);
   }
 };

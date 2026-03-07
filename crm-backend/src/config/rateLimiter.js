@@ -1,5 +1,5 @@
 // src/config/rateLimiter.js
-import rateLimit from "express-rate-limit";
+import rateLimit from "express-rate-limit"; 
 
 // General API limiter - 100 requests per 15 minutes
 export const apiLimiter = rateLimit({
