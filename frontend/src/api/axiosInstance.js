@@ -1,19 +1,37 @@
 import axios from "axios";
 import toast from "react-hot-toast";
 
+/*
+|--------------------------------------------------------------------------
+| Detect Environment
+|--------------------------------------------------------------------------
+*/
+
 const isProd = import.meta.env.PROD;
 
-const API_BASE_URL = isProd
-  ? import.meta.env.VITE_API_BASE_URL_PROD
-  : import.meta.env.VITE_API_BASE_URL_DEV;
+/*
+|--------------------------------------------------------------------------
+| Resolve API Base URL
+|--------------------------------------------------------------------------
+*/
 
-// Fallback protection
-if (!API_BASE_URL) {
-  console.error("❌ Missing API base URL in Vite env");
+let API_BASE_URL;
+
+if (isProd) {
+  API_BASE_URL = import.meta.env.VITE_API_BASE_URL_PROD;
+} else {
+  API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL_DEV || "http://localhost:3181/api";
 }
 
+/*
+|--------------------------------------------------------------------------
+| Axios Instance
+|--------------------------------------------------------------------------
+*/
+
 const axiosInstance = axios.create({
-  baseURL: API_BASE_URL || "http://localhost:3181/api",
+  baseURL: API_BASE_URL,
   withCredentials: false,
   timeout: 20000,
   headers: {
@@ -22,10 +40,19 @@ const axiosInstance = axios.create({
   },
 });
 
-// Optional debug
-if (!isProd) {
-  console.log("✅ Axios Base URL:", API_BASE_URL || "http://localhost:3181/api");
-}
+/*
+|--------------------------------------------------------------------------
+| Debug Log
+|--------------------------------------------------------------------------
+*/
+
+console.log("🌐 API BASE URL:", API_BASE_URL);
+
+/*
+|--------------------------------------------------------------------------
+| Request Interceptor
+|--------------------------------------------------------------------------
+*/
 
 axiosInstance.interceptors.request.use(
   (config) => {
@@ -44,12 +71,19 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+/*
+|--------------------------------------------------------------------------
+| Response Interceptor
+|--------------------------------------------------------------------------
+*/
+
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+
     if (!error.response) {
       console.error("❌ Network / CORS error:", error);
-      toast.error("Unable to connect to server. Please check backend and CORS.");
+      toast.error("Unable to connect to server.");
       return Promise.reject(error);
     }
 
@@ -62,9 +96,9 @@ axiosInstance.interceptors.response.use(
     const requestUrl = error.config?.url || "";
     const currentPath = window.location.pathname;
 
-    // Do not auto-logout on login API failure
     const isLoginRequest =
-      requestUrl.includes("/auth/login") || requestUrl.includes("/api/auth/login");
+      requestUrl.includes("/auth/login") ||
+      requestUrl.includes("/api/auth/login");
 
     if (status === 401) {
       if (!isLoginRequest) {
@@ -76,11 +110,14 @@ axiosInstance.interceptors.response.use(
           window.location.href = "/login";
         }
       }
-    } else if (status === 403) {
+    } 
+    else if (status === 403) {
       toast.error(message || "Access denied.");
-    } else if (status === 404) {
+    } 
+    else if (status === 404) {
       toast.error(message || "Requested resource not found.");
-    } else if (status >= 500) {
+    } 
+    else if (status >= 500) {
       toast.error(message || "Server error. Please try later.");
     }
 
@@ -89,110 +126,3 @@ axiosInstance.interceptors.response.use(
 );
 
 export default axiosInstance;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import axios from "axios";
-// import toast from "react-hot-toast";
-
-// /*
-// |--------------------------------------------------------------------------
-// | Base API URL
-// |--------------------------------------------------------------------------
-// */
-// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// /*
-// |--------------------------------------------------------------------------
-// | Axios Instance
-// |--------------------------------------------------------------------------
-// */
-// const axiosInstance = axios.create({
-//   baseURL: API_BASE_URL,
-//   withCredentials: false, // JWT token auth only
-//   headers: {
-//     "Content-Type": "application/json",
-//   },
-// });
- 
-// /*
-// |--------------------------------------------------------------------------
-// | Request Interceptor
-// |--------------------------------------------------------------------------
-// */
-// axiosInstance.interceptors.request.use(
-//   (config) => {
-//     const token = localStorage.getItem("ogcs_crm_token");
-
-//     if (token) {
-//       config.headers.Authorization = `Bearer ${token}`;
-//     }
-
-//     return config;
-//   },
-//   (error) => Promise.reject(error)
-// );
-
-// /*
-// |--------------------------------------------------------------------------
-// | Response Interceptor
-// |--------------------------------------------------------------------------
-// */
-// axiosInstance.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (!error.response) {
-//       console.error("❌ Network / CORS error:", error);
-//       toast.error("Unable to connect to server. Please check backend and CORS.");
-//       return Promise.reject(error);
-//     }
-
-//     const status = error.response.status;
-
-//     if (status === 401) {
-//       localStorage.removeItem("ogcs_crm_token");
-//       toast.error("Session expired. Please login again.");
-//       window.location.href = "/login";
-//     } else if (status === 403) {
-//       toast.error(error.response?.data?.message || "Access denied.");
-//     } else if (status >= 500) {
-//       toast.error("Server error. Please try later.");
-//     }
-
-//     return Promise.reject(error);
-//   }
-// );
-
-// export default axiosInstance;
